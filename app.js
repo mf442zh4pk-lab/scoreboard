@@ -378,7 +378,6 @@
       else if (g.x && g.x.venue) c.appendChild(el("p", "st-p", g.x.venue));
     }
     var p = el("p", "st-p"); p.hidden = true; c.appendChild(p);
-    var go = el("div", "st-go"); go.appendChild(el("span", null, g.ev ? "Full results" : "Box score and recap")); go.appendChild(el("span", "sr-go", "\u203A")); c.appendChild(go);
     openX(c, x);
     // Upgrade to ESPN's own recap headline and the AP opening paragraph when they exist (cached after the first time).
     if (!g.ev) ESPN.fetchNarrative(x.lk, g.id, true).then(function (n) {
@@ -1210,5 +1209,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=25").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=26").catch(function () {}); } catch (e) {} });
 })();
