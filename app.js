@@ -230,6 +230,31 @@
     a.appendChild(el("p", "rb", s.join(" ")));
     a.appendChild(gameList("Final games", fin.slice(-3).reverse()));
   }
+  // Compact standings table: collapsed by default, scrolls inside its own box so it never stretches the page.
+  S.stOpen = S.stOpen || {};
+  function standTable(name, st) {
+    if (!st.rows || !st.rows.length) return null;
+    var d = el("details", "stn");
+    d.open = !!S.stOpen[name];
+    d.appendChild(el("summary", null, "Standings · " + st.group));
+    var box = el("div", "stbox"), t = el("table"), hd = el("tr");
+    ["#", "Team", "Record", st.exLabel, "Strk"].forEach(function (c, i) { hd.appendChild(el("th", i === 1 ? "l" : null, c)); });
+    t.appendChild(hd);
+    var mine = null;
+    st.rows.forEach(function (r) {
+      var tr = el("tr", r.me ? "me" : null);
+      [r.rank, r.n, r.rec, r.ex, r.k].forEach(function (v, i) { tr.appendChild(el("td", i === 1 ? "l" : null, String(v))); });
+      if (r.me) mine = tr;
+      t.appendChild(tr);
+    });
+    box.appendChild(t); d.appendChild(box);
+    d.addEventListener("toggle", function () {
+      S.stOpen[name] = d.open;
+      if (d.open && mine) box.scrollTop = Math.max(0, mine.offsetTop - box.clientHeight / 2 + 12);
+    });
+    if (d.open && mine) setTimeout(function () { box.scrollTop = Math.max(0, mine.offsetTop - box.clientHeight / 2 + 12); }, 0);
+    return d;
+  }
   function renderTeams(out) {
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) {
@@ -247,6 +272,8 @@
       else if (T.missing || T.error) a.appendChild(el("p", "rb", "Could not load this team right now."));
       else {
         var gs = T.games || [];
+        var stt = T.standing && standTable(name, T.standing);
+        if (stt) a.appendChild(stt);
         if (off) seasonRecap(a, T);
         else {
           a.appendChild(gameList("Next", gs.filter(function (g) { return g.s !== "final"; }).sort(byTime).slice(0, 5)));
