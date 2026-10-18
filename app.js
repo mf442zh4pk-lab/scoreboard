@@ -93,6 +93,21 @@
     if (!t[5]) return el("span", "ab", t[1]);
     var b = el("span", "ab lg"); b.appendChild(logoImg(t[5], t[1])); return b;
   }
+  // Small inline logo for table rows and section titles.
+  function mini(u) {
+    var i = new Image(); i.src = u; i.alt = ""; i.width = 18; i.height = 18; i.loading = "lazy"; i.decoding = "async"; i.className = "mini";
+    i.onerror = function () { i.remove(); };
+    return i;
+  }
+  // Logo for a team name, taken from any game already loaded (no extra requests).
+  function logoFor(name) {
+    for (var k in S.games) for (var j = 0; j < S.games[k].length; j++) {
+      var g = S.games[k][j];
+      if (g.h[0] === name && g.h[5]) return g.h[5];
+      if (g.a[0] === name && g.a[5]) return g.a[5];
+    }
+    return "";
+  }
   function card(x) {
     var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : ""));
     var top = el("div", "top");
@@ -147,7 +162,9 @@
     played.forEach(function (t) {
       var a = el("article", "recap");
       var h = el("div", "rh");
-      h.appendChild(el("h3", null, t.name));
+      var yh = el("h3", null, t.name), yl = logoFor(t.name);
+      if (yl) { var yb = el("span", "ab lg sm"); yb.appendChild(logoImg(yl, "")); yh.insertBefore(yb, yh.firstChild); }
+      h.appendChild(yh);
       h.appendChild(el("span", "res" + (t.result === "W" ? " win" : ""), t.result === "W" ? "Won" : t.result === "L" ? "Lost" : "Tied"));
       a.appendChild(h);
       a.appendChild(el("div", "rl", t.line));
@@ -253,7 +270,11 @@
     var mine = null;
     st.rows.forEach(function (r) {
       var tr = el("tr", r.me ? "me" : null);
-      [r.rank, r.n, r.rec, r.ex, r.k].forEach(function (v, i) { tr.appendChild(el("td", i === 1 ? "l" : null, String(v))); });
+      [r.rank, r.n, r.rec, r.ex, r.k].forEach(function (v, i) {
+        var td = el("td", i === 1 ? "l" : null, String(v));
+        if (i === 1 && r.lg) td.insertBefore(mini(r.lg), td.firstChild);
+        tr.appendChild(td);
+      });
       if (r.me) mine = tr;
       t.appendChild(tr);
     });
@@ -375,12 +396,14 @@
     }).join(" ");
   }
   // A collapsible section. Open/closed choices are remembered while the page is open.
-  function sec(title, node, open, fav) {
+  function sec(title, node, open, fav, logo) {
     var key = (S.view ? S.view.key : "") + "|" + title;
     if (openState[key] !== undefined) open = openState[key];
     var d = el("details", "sec" + (fav ? " fav" : ""));
     if (open) d.open = true;
-    d.appendChild(el("summary", null, title));
+    var sm = el("summary", null, title);
+    if (logo) sm.insertBefore(mini(logo), sm.firstChild);
+    d.appendChild(sm);
     var b = el("div", "body"); b.appendChild(node); d.appendChild(b);
     d.addEventListener("toggle", function () { openState[key] = d.open; });
     return d;
@@ -421,6 +444,7 @@
     });
 
     // Players: followed team first (first three tables open), then the other team.
+    var lgo = {}; lgo[g.a[1]] = g.a[5]; lgo[g.h[1]] = g.h[5];
     var followedAbbr = [g.a, g.h].filter(function (t) { return C.followed.indexOf(t[0]) >= 0; }).map(function (t) { return t[1]; });
     var players = d.tables.filter(function (t) { return t.kind === "players"; }).map(function (t) {
       var name = pretty(t.group);
@@ -428,11 +452,11 @@
         var ths = t.cols;
         name = ths.indexOf("IP") >= 0 ? "Pitching" : (ths.indexOf("AB") >= 0 || ths.indexOf("H-AB") >= 0 ? "Batting" : name);
       }
-      return { title: t.team + " " + name, node: tbl(t), fav: followedAbbr.indexOf(t.team) >= 0 };
+      return { title: t.team + " " + name, node: tbl(t), logo: lgo[t.team], fav: followedAbbr.indexOf(t.team) >= 0 };
     });
     var favs = players.filter(function (p) { return p.fav; }), others = players.filter(function (p) { return !p.fav; });
-    favs.forEach(function (p, i) { list.push(sec(p.title, p.node, i < 3, true)); });
-    others.forEach(function (p) { list.push(sec(p.title, p.node, !favs.length && !up && list.length < 5, false)); });
+    favs.forEach(function (p, i) { list.push(sec(p.title, p.node, i < 3, true, p.logo)); });
+    others.forEach(function (p) { list.push(sec(p.title, p.node, !favs.length && !up && list.length < 5, false, p.logo)); });
 
     if (d.plays.length) {
       var sc = el("div", "plays"); sc.tabIndex = 0;
