@@ -392,6 +392,57 @@ all=all.concat(gs); scores[LG[i][0]]=trim(gs);
 return {updated:now.toISOString(),scores:scores,yesterday:buildYesterday(all,now),failed:bad};
 });
 }
+var DS=document.createElement("style");
+DS.textContent="details.sec{margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)} details.sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;font:800 17px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)} details.sec>summary::-webkit-details-marker{display:none} details.sec>summary::after{content:'+';font-size:22px;line-height:1;color:var(--accent)} details.sec[open]>summary::after{content:'−'} details.sec.fav>summary{color:var(--pin)} details.sec.fav{border-color:var(--pin)} details.sec>.body{padding:0 12px 12px} details.sec .tw{border:0;border-radius:0;background:transparent} details.sec .plays{border:0;background:transparent} details.sec .sum p{margin:0} .allbar{display:flex;gap:8px;margin-bottom:12px} .allbar button{font:700 12px/1 var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}";
+document.head.appendChild(DS);
+function sec(title,node,open,fav){
+var d=el("details","sec"+(fav?" fav":"")); if(open) d.open=true;
+d.appendChild(el("summary",null,title));
+var b=el("div","body"); b.appendChild(node); d.appendChild(b);
+return d;
+}
+function renderDetail(out){
+var x=view.x,g=x.g,k=kind(g.s),d=view.d;
+var back=el("button","back","← All scores"); back.type="button"; back.onclick=function(){view=null; render(); window.scrollTo(0,0)};
+out.appendChild(back);
+var hd=el("div","dhead"); hd.appendChild(card(x)); out.appendChild(hd);
+if(d===undefined){out.appendChild(el("p","rmsg","Loading box score…")); return;}
+if(d===null){out.appendChild(el("p","rmsg","Could not load the box score right now. Try again in a moment.")); return;}
+var favAbbr=[g.a,g.h].filter(function(t){return PINS.indexOf(t[0])>=0}).map(function(t){return t[1]});
+var isFav=function(t){return favAbbr.some(function(a){return (t.title||"").indexOf(a+" ")===0})};
+var list=[];
+var pv=el("div","sum"); pv.appendChild(el("p",null,d.preview||(g.a[0]+" visit "+g.h[0]+" "+when(g.t)+".")));
+var previewSec=sec("Matchup preview",pv,k==="up",false);
+if(k==="up") list.push(previewSec);
+if(d.periods&&d.periods.rows){
+var lab=d.periods.labels||[], rows=d.periods.rows.map(function(r){
+var tot=0; for(var i=1;i<r.length;i++) if(typeof r[i]==="number") tot+=r[i];
+return r.concat([tot]);
+});
+list.push(sec("Score by period",tbl({cols:[""].concat(lab,["T"]),rows:rows}),true,false));
+}
+var tabs=d.tables||[];
+var teamStat=tabs.filter(function(t){return t.title==="Team stats"});
+var players=tabs.filter(function(t){return t.title!=="Team stats"});
+teamStat.forEach(function(t){list.push(sec(t.title,tbl({cols:t.cols,rows:t.rows}),true,false))});
+var favP=players.filter(isFav), otherP=players.filter(function(t){return !isFav(t)});
+favP.forEach(function(t){list.push(sec(t.title,tbl({cols:t.cols,rows:t.rows}),true,true))});
+otherP.forEach(function(t){list.push(sec(t.title,tbl({cols:t.cols,rows:t.rows}),!favP.length&&k!=="up",false))});
+if(d.plays&&d.plays.length){
+var sc=el("div","plays"); sc.tabIndex=0;
+d.plays.forEach(function(p){var r=el("div","play"); r.appendChild(el("span","pt",p.t||"")); r.appendChild(el("span","px",p.x||"")); sc.appendChild(r)});
+list.push(sec("Recent plays",sc,k==="live",false));
+}
+if(k!=="up") list.push(previewSec);
+var bar=el("div","allbar");
+var b1=el("button",null,"Expand all"), b2=el("button",null,"Collapse all");
+b1.type="button"; b2.type="button";
+b1.onclick=function(){list.forEach(function(s){s.open=true})};
+b2.onclick=function(){list.forEach(function(s){s.open=false})};
+bar.appendChild(b1); bar.appendChild(b2);
+out.appendChild(bar);
+list.forEach(function(s){out.appendChild(s)});
+}
 })();
 </script>
 </body></html>
