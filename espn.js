@@ -293,7 +293,15 @@
       var seedOf = function (e) { return parseFloat(stat(e, "playoffSeed") || stat(e, "rank")); };
       var rank = es.every(function (e) { return isFinite(seedOf(e)); }) ? seedOf(es[idx]) : idx + 1;
       var e = es[idx];
-      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak") };
+      // Whole table for the standings view: sorted by seed/rank, with a points or win% column.
+      var hasPts = es.some(function (x) { return stat(x, "points") != null && Number(stat(x, "points")) > 0; });
+      var rows = es.map(function (x, i) {
+        var sd = seedOf(x);
+        var rec = stat(x, "overall") || (stat(x, "wins") + "-" + stat(x, "losses"));
+        var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
+        return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", me: i === idx };
+      }).sort(function (p, q) { return p.rank - q.rank; });
+      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), rows: rows, exLabel: hasPts ? "PTS" : "PCT" };
     }
     return null;
   }
