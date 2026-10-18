@@ -337,6 +337,13 @@
   var TIGHT = { nfl: 3, ncaafb: 3, nba: 3, wnba: 3, ncaamb: 3, ncaawb: 3, ufl: 3, afl: 6, mlb: 1, nhl: 1, ncaah: 1, ncaawh: 1, ncaabsb: 1, ncaasb: 1 };
   var YCOL = {};
   try { YCOL = JSON.parse(localStorage.getItem("sb-ycol") || "{}") || {}; } catch (e) {}
+  var SCORING = { nfl: 1, ncaafb: 1, nba: 1, ncaamb: 1, ncaawb: 1, wnba: 1, gleague: 1, ufl: 1, afl: 1 };
+  // Is this a lopsided game, judged in the sport's own terms (set-based sports like volleyball are skipped)?
+  function lopsided(x) {
+    if (x.g.ev || !x.tot) return false;
+    if (SCORING[x.lk]) return x.diff / x.tot >= 0.3;
+    var lg = x.lg; return (lg.soccer || x.lk === "nhl" || x.lk === "mlb" || /hockey|baseball|softball/.test(lg.path)) && x.diff >= 3;
+  }
   function recapItems() {
     var yk = ESPN.dayKey(new Date(Date.now() - DAY)), out = [];
     LG.forEach(function (l) {
@@ -368,7 +375,7 @@
     if (g.h[2] === g.a[2]) return g.h[0] + " and " + g.a[0] + " draw " + g.h[2] + "-" + g.a[2];
     var low = lg.soccer || x.lk === "nhl" || x.lk === "mlb" || /hockey|baseball|softball/.test(lg.path), r = x.diff / x.tot, v;
     if (L[2] === 0 && low) v = "blank";
-    else if (x.tight && !low) v = "edge";
+    else if (g.o || (x.tight && !low)) v = "edge";
     else if (low) v = x.diff === 1 ? "edge" : x.diff === 2 ? "beat" : x.diff <= 4 ? "top" : "rout";
     else v = r < 0.05 ? "edge" : r < 0.15 ? "beat" : r < 0.28 ? "cruise past" : "rout";
     return W[0] + " " + v + " " + L[0] + " " + W[2] + "-" + L[2] + (g.o ? (lg.soccer ? " after extra time" : " in overtime") : "");
@@ -436,9 +443,9 @@
     // By the numbers (always says which league each one is from)
     var nums = [];
     var ratio = function (x) { return x.tot ? x.diff / x.tot : 0; };
-    var bl = games.filter(function (x) { return x.tot >= 4; }).sort(function (a, b) { return ratio(b) - ratio(a) || b.diff - a.diff; })[0];
-    if (bl && bl.diff > 0) nums.push(["Biggest blowout", bl]);
-    var hiL = {}, hi = games.filter(function (x) { return !x.lg.soccer && x.lk !== "nhl" && x.lk !== "mlb" && !/hockey|baseball|softball/.test(x.lg.path); })
+    var bl = games.filter(lopsided).sort(function (a, b) { return ratio(b) - ratio(a) || b.diff - a.diff; })[0];
+    if (bl) nums.push(["Biggest blowout", bl]);
+    var hiL = {}, hi = games.filter(function (x) { return SCORING[x.lk]; })
       .sort(function (a, b) { return b.tot - a.tot; }).filter(function (x) { if (hiL[x.lk]) return false; hiL[x.lk] = 1; return true; }).slice(0, 2);
     hi.forEach(function (x) { nums.push(["Highest scoring", x, x.g.a[0] + " " + x.g.a[2] + ", " + x.g.h[0] + " " + x.g.h[2] + " (" + x.tot + " combined)"]); });
     var ot = games.filter(function (x) { return x.g.o; });
@@ -510,8 +517,8 @@
     var games = list.filter(function (x) { return !x.g.ev; });
     games.filter(function (x) { return x.g.o || x.tight; }).sort(function (a, b) { return (b.g.o ? 1 : 0) - (a.g.o ? 1 : 0) || a.diff - b.diff; }).slice(0, 2)
       .forEach(function (x, i) { take(i ? "Also close" : "Down to the wire", x); });
-    var bl = games.filter(function (x) { return x.tot >= 4; }).sort(function (a, b) { return b.diff / b.tot - a.diff / a.tot; })[0];
-    if (bl && bl.diff / bl.tot >= 0.3) take("Biggest margin", bl);
+    var bl = games.filter(lopsided).sort(function (a, b) { return b.diff / b.tot - a.diff / a.tot; })[0];
+    if (bl) take("Biggest margin", bl);
     games.filter(function (x) { return isFollowed(x.g); }).slice(0, 2).forEach(function (x) { take("Your team", x); });
     return out;
   }
@@ -1280,5 +1287,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=30").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=31").catch(function () {}); } catch (e) {} });
 })();
