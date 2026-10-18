@@ -345,6 +345,66 @@
   }
   function peekGame(lk, id) { var e = gc[lk + "_" + id]; return e && e.d; }
 
+  // ---------- written recaps and previews (AP stories carried by ESPN) ----------
+  // One league news request (cached 5 min) lists the Recap/Preview articles by game id; the full text is fetched only for
+  // the game you open, and saved on the phone so reopening it is instant. Nothing here runs for the score lists.
+  var newsC = {}, storyC = {}, NK = "sb-narr";
+  function leagueNews(lk) {
+    var e = newsC[lk];
+    if (e && Date.now() - e.at < 300000) return e.p;
+    var lg = labelOf(lk);
+    e = { at: Date.now() };
+    e.p = getJson(BASE + "/" + lg.path + "/news?limit=100").then(function (j) {
+      var m = {};
+      (j.articles || []).forEach(function (a) {
+        if (a.type !== "Recap" && a.type !== "Preview") return;
+        (a.categories || []).forEach(function (c) {
+          if (c.type !== "event") return;
+          var id = String(c.eventId || (c.event && c.event.id) || "");
+          if (!id) return;
+          (m[id] = m[id] || {})[a.type] = { id: a.id, h: a.headline, link: a.links && a.links.web && a.links.web.href };
+        });
+      });
+      return m;
+    }, function () { delete newsC[lk]; return {}; });
+    newsC[lk] = e;
+    return e.p;
+  }
+  function savedNarr() { try { return JSON.parse(localStorage.getItem(NK) || "{}"); } catch (e) { return {}; } }
+  function saveNarr(id, v) {
+    try {
+      var s = savedNarr(); s[id] = v;
+      var ks = Object.keys(s); if (ks.length > 30) delete s[ks[0]];
+      localStorage.setItem(NK, JSON.stringify(s));
+    } catch (e) {}
+  }
+  // Story text comes as plain text with blank lines between paragraphs and a few inline tags.
+  function paragraphs(html) {
+    var t = new DOMParser().parseFromString("<div>" + html + "</div>", "text/html").body.textContent || "";
+    return t.split(/\n\s*\n/).map(function (p) { return p.replace(/\s+/g, " ").trim(); })
+      .filter(function (p) { return p && !/^-{3,}/.test(p); }).slice(0, 16);
+  }
+  // Resolves {type, h, link, paras} for the game's recap (finished games) or preview, or null when ESPN has none yet.
+  function fetchNarrative(lk, id, fin) {
+    var want = fin ? "Recap" : "Preview", ck = lk + "_" + id + "_" + want, c = storyC[ck];
+    if (c && (c.v || Date.now() - c.at < 180000)) return c.p;
+    var sv = savedNarr()[ck];
+    if (sv) { c = storyC[ck] = { at: Date.now(), v: true, p: Promise.resolve(sv) }; return c.p; }
+    c = storyC[ck] = { at: Date.now(), v: false };
+    c.p = leagueNews(lk).then(function (m) {
+      var a = m[String(id)] && m[String(id)][want];
+      if (!a) return null;
+      return getJson("https://content.core.api.espn.com/v1/sports/news/" + a.id).then(function (j) {
+        var h = j.headlines && j.headlines[0], ps = h && h.story ? paragraphs(h.story) : [];
+        if (!ps.length) return null;
+        var out = { type: want, h: a.h, link: a.link, paras: ps };
+        c.v = true; if (fin) saveNarr(ck, out);
+        return out;
+      });
+    }).catch(function () { return null; });
+    return c.p;
+  }
+
   // ---------- teams, standings and schedules ----------
   var V2 = "https://site.api.espn.com/apis/v2/sports";
   var teamsP = null;
@@ -441,5 +501,5 @@
     return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
 })();
