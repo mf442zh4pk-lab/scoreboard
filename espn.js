@@ -168,7 +168,7 @@
     return secs;
   }
 
-  function recapOf(d, away, home, leaders) {
+  function recapOf(d, away, home, leaders, lg) {
     var as = Number(away.score), hs = Number(home.score);
     if (!isFinite(as) || !isFinite(hs)) return null;
     var win = hs > as ? home : away, lose = win === home ? away : home;
@@ -207,8 +207,15 @@
       if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + (maxW === 1 ? " point" : " points") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
       // The score that put the winner ahead for good.
       if (gp && gp.text) {
-        var gt = [gp.period && gp.period.number != null ? (gp.period.displayValue || gp.period.number) : "", gp.clock && gp.clock.displayValue].filter(Boolean).join(" ");
-        line.push("The go-ahead score: " + gp.text + (gt ? " (" + gt + ")" : "") + ".");
+        var pn = gp.period && Number(gp.period.number), ck = gp.clock && gp.clock.displayValue, when = "";
+        if (pn) {
+          var sfx = ["th", "st", "nd", "rd"][(pn % 100 > 10 && pn % 100 < 14) ? 0 : pn % 10 < 4 ? pn % 10 : 0];
+          var unit = /hockey/.test(lg.path) ? "period" : /baseball/.test(lg.path) ? "inning" : /soccer/.test(lg.path) ? "half" : "quarter";
+          if (pn > (unit === "quarter" ? 4 : unit === "period" ? 3 : unit === "half" ? 2 : 99)) when = "in overtime";
+          else when = "in the " + pn + sfx + " " + unit;
+          if (ck && unit !== "inning") when = ck + " left " + when;
+        }
+        line.push("The go-ahead score: " + gp.text + (when ? " (" + when + ")" : "") + ".");
       }
       secs.push({ h: "How it unfolded", p: line.join(" ") });
     }
@@ -296,7 +303,7 @@
       });
 
       // Finished games: a written recap from ESPN's own recap blurb, the scoring flow and the game leaders.
-      if (comp && comp.status && comp.status.type && comp.status.type.completed && away && home) out.recap = recapOf(d, away, home, out.leaders);
+      if (comp && comp.status && comp.status.type && comp.status.type.completed && away && home) out.recap = recapOf(d, away, home, out.leaders, lg);
 
       var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [];
       out.plays = src.slice(-25).reverse().map(function (p) {
