@@ -217,13 +217,30 @@
     });
     return c;
   }
-  function group(title, cls, items, big) {
+  function group(title, cls, items, big, split) {
     if (!items.length) return null;
     var s = el("section", "grp"), h = el("h2", cls || "");
     if (cls === "live") h.appendChild(el("span", "pulse"));
     if (cls === "close") h.appendChild(el("span", "flame", "\u25B2"));
     h.appendChild(document.createTextNode(title));
     s.appendChild(h);
+    if (split) {
+      var seenL = {}, lks = [];
+      items.forEach(function (x) { if (!seenL[x.lk]) { seenL[x.lk] = 1; lks.push(x.lk); } });
+      if (lks.length > 1) {
+        LG.forEach(function (l) {
+          if (!seenL[l.key]) return;
+          var sub = el("h3", "sub-h", l.label);
+          s.appendChild(sub);
+          s.appendChild(gridOf(items.filter(function (x) { return x.lk === l.key; }), cls, big));
+        });
+        return s;
+      }
+    }
+    s.appendChild(gridOf(items, cls, big));
+    return s;
+  }
+  function gridOf(items, cls, big) {
     var gr = el("div", "grid" + (big ? " big" : ""));
     items.forEach(function (x) {
       var c = card(x);
@@ -235,8 +252,7 @@
       prefetchOn(c, x);
       gr.appendChild(c);
     });
-    s.appendChild(gr);
-    return s;
+    return gr;
   }
   // Start fetching a game's box score as soon as a finger or mouse settles on its card, so the tap opens instantly.
   function prefetchOn(c, x) {
@@ -991,7 +1007,7 @@
     var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; });
     var up = items.filter(function (x) { return x.g.s === "up"; }).sort(function (a, b) { return byTime(a.g, b.g); });
     var fin = items.filter(function (x) { return x.g.s === "final"; }).sort(function (a, b) { return byTime(b.g, a.g); });
-    [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big), group("Final", "", fin, big)].forEach(function (s) { if (s) out.appendChild(s); });
+    [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big, true), group("Final", "", fin, big)].forEach(function (s) { if (s) out.appendChild(s); });
   }
 
   // Picker for the extra leagues, grouped by sport.
@@ -1227,5 +1243,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=27").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=28").catch(function () {}); } catch (e) {} });
 })();
