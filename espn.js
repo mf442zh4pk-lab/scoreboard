@@ -57,16 +57,20 @@
     if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
     var note = comp.notes && comp.notes[0] && comp.notes[0].headline;
     if (note) g.n = note;
+    var bc = (comp.broadcasts && comp.broadcasts[0]) || (comp.geoBroadcasts && comp.geoBroadcasts[0]);
+    var bn = bc && ((bc.names && bc.names[0]) || (bc.media && bc.media.shortName));
+    if (bn) g.b = bn;
     return g;
   }
 
   // Fetch the given day offsets (0 = today) for every league.
   // Resolves {updated, byLeague:{key:[games]}, failed:[league keys that errored]}.
-  function fetchScores(offsets) {
+  function fetchScores(offsets, only) {
     var now = new Date();
+    var LGS = only ? C.leagues.filter(function (l) { return only.indexOf(l.key) >= 0; }) : C.leagues;
     var days = offsets.map(function (n) { return dayKey(new Date(now.getTime() + n * DAY)); });
     var jobs = [];
-    C.leagues.forEach(function (lg) {
+    LGS.forEach(function (lg) {
       days.forEach(function (d) {
         jobs.push({
           lk: lg.key,
@@ -84,7 +88,7 @@
         okCount[jobs[i].lk]++;
         by[jobs[i].lk] = by[jobs[i].lk].concat(r);
       });
-      var failed = C.leagues.filter(function (lg) { return !okCount[lg.key]; }).map(function (lg) { return lg.key; });
+      var failed = LGS.filter(function (lg) { return !okCount[lg.key]; }).map(function (lg) { return lg.key; });
       return { updated: now.toISOString(), byLeague: by, failed: failed };
     });
   }
@@ -232,7 +236,7 @@
   }
 
   // Box score, player tables, plays and a matchup preview (or, once final, a recap) for one game.
-  function fetchGame(lk, id) {
+  function fetchGameRaw(lk, id) {
     var lg = labelOf(lk);
     return getJson(BASE + "/" + lg.path + "/summary?event=" + encodeURIComponent(id)).then(function (d) {
       var out = { periods: null, tables: [], plays: [], preview: null, leaders: [] };
@@ -305,6 +309,18 @@
       // Finished games: a written recap from ESPN's own recap blurb, the scoring flow and the game leaders.
       if (comp && comp.status && comp.status.type && comp.status.type.completed && away && home) out.recap = recapOf(d, away, home, out.leaders, lg);
 
+      // Season series line ("BOS leads 2-1") and the win-probability curve (home team, 0-100, thinned to about 90 points).
+      var ss = d.seasonseries && d.seasonseries[0];
+      if (ss && ss.summary) out.h2h = ss.summary;
+      var wp = d.winprobability;
+      if (wp && wp.length > 4) {
+        var stp = Math.max(1, Math.ceil(wp.length / 90)), pts = [];
+        for (var wi = 0; wi < wp.length; wi += stp) pts.push(Math.round((wp[wi].homeWinPercentage || 0) * 100));
+        var lp = Math.round((wp[wp.length - 1].homeWinPercentage || 0) * 100);
+        if (stp > 1) pts.push(lp);
+        out.wp = pts;
+      }
+
       var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [];
       out.plays = src.slice(-25).reverse().map(function (p) {
         var per = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "";
@@ -314,6 +330,20 @@
       return out;
     });
   }
+
+  // Remember box scores: finished games for the whole session, others for 20 seconds. Lets a tap open instantly
+  // when the card was prefetched, and shares one request between the list, Yesterday and the detail page.
+  var gc = {};
+  function fetchGame(lk, id, fresh) {
+    var k = lk + "_" + id, e = gc[k];
+    if (e && !fresh && (e.fin || Date.now() - e.at < 20000)) return e.p;
+    e = { at: Date.now(), fin: false };
+    e.p = fetchGameRaw(lk, id);
+    gc[k] = e;
+    e.p.then(function (d) { e.d = d; e.fin = !!d.recap; }, function () { if (gc[k] === e) delete gc[k]; });
+    return e.p;
+  }
+  function peekGame(lk, id) { var e = gc[lk + "_" + id]; return e && e.d; }
 
   // ---------- teams, standings and schedules ----------
   var V2 = "https://site.api.espn.com/apis/v2/sports";
@@ -378,6 +408,10 @@
     }
     return null;
   }
+  function bcName(comp) {
+    var bc = (comp.broadcasts && comp.broadcasts[0]) || (comp.geoBroadcasts && comp.geoBroadcasts[0]);
+    return (bc && ((bc.names && bc.names[0]) || (bc.media && bc.media.shortName))) || "";
+  }
   function parseSchedule(j) {
     var me = String((j.team || {}).id);
     var num = function (c) { var s = c.score; if (s == null) return null; var v = typeof s === "object" ? (s.displayValue != null ? s.displayValue : s.value) : s; return v === "" || v == null ? null : Number(v); };
@@ -388,7 +422,7 @@
       var opp = cs.filter(function (c) { return String(c.team.id) !== me; })[0];
       if (!mine || !opp) return null;
       var st = ((comp.status || ev.status || {}).type || {}).state;
-      return { id: ev.id, st: (ev.seasonType || {}).type, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp) };
+      return { id: ev.id, st: (ev.seasonType || {}).type, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp), b: bcName(comp) };
     }).filter(Boolean);
   }
   // Standing (rank, record, streak) and schedule for one team.
@@ -407,5 +441,5 @@
     return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
 })();
