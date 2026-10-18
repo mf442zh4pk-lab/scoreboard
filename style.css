@@ -217,3 +217,29 @@ footer,.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:28px}
 .fr{color:var(--ter);text-transform:none;letter-spacing:0;font-weight:600;text-align:right}
 .fn{margin-top:2px}
 .fwin{color:var(--win)}
+.subnav{display:flex;gap:6px;margin:0 0 12px;padding:4px;background:var(--pri-soft);border-radius:12px;width:max-content;max-width:100%}
+.sub{font:600 14px var(--bd);color:var(--mute);background:none;border:0;border-radius:9px;padding:8px 16px;cursor:pointer}
+.sub[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:13px;color:var(--mute)}
+.chip b{color:var(--fg);font-size:15px}
+.stories{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.story{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.story.followed{border-left:4px solid var(--ter)}
+.story.top1{grid-column:1/-1;padding:20px}
+.st-h{font:700 20px/1.2 var(--hd);margin:4px 0 6px;letter-spacing:.01em;text-wrap:balance}
+.story.top1 .st-h{font-size:28px}
+.st-p{margin:6px 0 2px;font-size:14px;line-height:1.5;color:var(--mute)}
+.nums{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.nums li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px}
+.nums b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);margin-bottom:2px}
+.lgbox{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0 0 12px;overflow:hidden}
+.lgbox h3{margin:0;padding:10px 14px;font:700 15px var(--hd);letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--pri-soft)}
+.srow{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-top:1px solid var(--line);font-size:14px;align-items:center}
+.lgbox h3+.srow{border-top:0}
+.sr-t{min-width:0}
+.sr-g{display:flex;gap:6px;flex:none}
+.mk{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);border:1px solid currentColor;border-radius:6px;padding:1px 6px}
+.mk.fol{color:var(--ter);border:0;padding:0;font-size:14px}
+.sr-more{width:100%;border:0;border-top:1px solid var(--line);background:none;color:var(--pri);font:600 14px var(--bd);padding:11px;cursor:pointer}
+.dim{color:var(--mute);font-size:12px;text-align:center}
