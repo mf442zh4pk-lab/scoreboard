@@ -555,12 +555,19 @@
     var up = g.s === "up", list = [], prim = [], secd = [];
     var pv = el("div", "sum");
     var rc = g.s === "final" && d.recap && d.recap.secs.length ? d.recap : null;
-    pv.appendChild(el("p", null, rc ? rc.head : (d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + "."))));
+    var nv = v.n && (v.n.type === "Recap") === (g.s === "final") ? v.n : null;
+    if (nv) {
+      pv.appendChild(el("p", "nh", nv.h));
+      nv.paras.forEach(function (t) { pv.appendChild(el("p", "ap", t)); });
+      var sl = el("p", "src", "Story: AP, via ESPN"), sa = nv.link && el("a", null, " Read on ESPN ↗");
+      if (sa) { sa.href = nv.link; sa.target = "_blank"; sa.rel = "noopener"; sl.appendChild(sa); }
+      pv.appendChild(sl);
+    } else pv.appendChild(el("p", null, rc ? rc.head : (d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + "."))));
     if (d.h2h) pv.appendChild(el("p", "h2h", "Season series · " + d.h2h));
     (rc ? rc.secs : (d.narrative || [])).forEach(function (n) {
       var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); pv.appendChild(w);
     });
-    if (d.link) {
+    if (d.link && !nv) {
       var lw = el("div", "nar"), la = el("a", null, (rc ? "ESPN recap: " : "ESPN preview: ") + d.link.text + " ↗");
       la.href = d.link.href; la.target = "_blank"; la.rel = "noopener"; lw.appendChild(la); pv.appendChild(lw);
     }
@@ -571,7 +578,7 @@
       ya.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(yq); ya.target = "_blank"; ya.rel = "noopener";
       yw.appendChild(ya); pv.appendChild(yw);
     }
-    var preview = sec(rc ? "Game recap" : "Matchup preview", pv, up || !!rc, false);
+    var preview = sec(rc || nv && g.s === "final" ? "Game recap" : "Matchup preview", pv, up || !!rc || !!nv, false);
     if (up || rc) list.push(preview);
 
     if (d.wp && d.wp.length > 4) prim.push(sec("Win probability", wpChart(d.wp, g), true, false));
@@ -641,8 +648,16 @@
     if (S.view && S.view.key === key) return;
     var x = allGames().filter(function (q) { return q.lk === m[1] && q.g.id === m[2]; })[0];
     if (!x) { S.view = null; render(); return; }
-    S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]) };
-    render(); window.scrollTo(0, 0); loadDetail();
+    S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]), n: undefined };
+    render(); window.scrollTo(0, 0); loadDetail(); loadNarr();
+  }
+  // The written recap/preview (AP via ESPN) loads alongside the box score and is added when it arrives.
+  function loadNarr() {
+    var v = S.view;
+    if (!v) return;
+    ESPN.fetchNarrative(v.x.lk, v.x.g.id, v.x.g.s === "final").then(function (n) {
+      if (S.view && S.view.key === v.key && n) { S.view.n = n; render(); }
+    });
   }
   function loadDetail() {
     var v = S.view;
@@ -871,5 +886,5 @@
   if (S.ready) { syncFromHash(); loadLeaders(); }
   load(true);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=19").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=20").catch(function () {}); } catch (e) {} });
 })();
