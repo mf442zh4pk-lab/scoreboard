@@ -176,7 +176,15 @@
     var secs = [];
     var art = d.article;
     var head = (art && art.headline) || (tie ? away.team.displayName + " and " + home.team.displayName + " tied " + as + "-" + hs + "." : win.team.displayName + " beat " + lose.team.displayName + " " + ws + "-" + ls + ".");
-    if (art && art.description) secs.push({ h: "The story", p: String(art.description).replace(/^[\s—–-]+/, "") });
+    // ESPN's description is cut off mid-sentence, so take the opening paragraph of the article itself.
+    var lede = "";
+    if (art && art.story) {
+      var txt = String(art.story).replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"');
+      var paras = txt.split(/\n\s*\n/).map(function (z) { return z.replace(/\s+/g, " ").trim(); }).filter(function (z) { return z.length > 40; });
+      if (paras[0]) lede = paras[0].replace(/^[A-Z][A-Za-z.,' ]{2,40}\s--\s*/, "").replace(/^[\s—–-]+/, "");
+    }
+    if (!lede && art && art.description) lede = String(art.description).replace(/^[\s—–-]+/, "").replace(/\.\.\.$/, "…");
+    if (lede) secs.push({ h: "The story", p: lede });
 
     // How it unfolded: lead changes and biggest leads from the scoring plays.
     var sp = (d.scoringPlays || []).filter(function (p) { return isFinite(Number(p.awayScore)) && isFinite(Number(p.homeScore)); });
@@ -196,7 +204,7 @@
       else line.push("The lead changed hands " + changes + (changes === 1 ? " time" : " times") + ".");
       if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + (maxW === 1 ? " point" : " points") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
       var lastP = sp[sp.length - 1];
-      if (lastP && lastP.text) line.push("The final score came on: " + lastP.text + ".");
+      if (lastP && lastP.text) line.push("The last score of the game: " + lastP.text + ".");
       secs.push({ h: "How it unfolded", p: line.join(" ") });
     }
 
