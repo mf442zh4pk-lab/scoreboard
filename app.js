@@ -311,6 +311,8 @@
   // ---------- Daily recap: yesterday's biggest stories first, then every result by league ----------
   var HEAT = { nfl: 100, nba: 90, ncaafb: 80, mlb: 70, ucl: 70, epl: 65, nhl: 65, ncaamb: 55, wnba: 50, afl: 40, mls: 35, ufl: 30 };
   var TIGHT = { nfl: 3, ncaafb: 3, nba: 3, wnba: 3, ncaamb: 3, ncaawb: 3, ufl: 3, afl: 6, mlb: 1, nhl: 1, ncaah: 1, ncaawh: 1, ncaabsb: 1, ncaasb: 1 };
+  var YCOL = {};
+  try { YCOL = JSON.parse(localStorage.getItem("sb-ycol") || "{}") || {}; } catch (e) {}
   function recapItems() {
     var yk = ESPN.dayKey(new Date(Date.now() - DAY)), out = [];
     LG.forEach(function (l) {
@@ -376,7 +378,7 @@
       else if (g.x && g.x.venue) c.appendChild(el("p", "st-p", g.x.venue));
     }
     var p = el("p", "st-p"); p.hidden = true; c.appendChild(p);
-    c.appendChild(el("div", "rl", g.ev ? "Full results ›" : "Box score and recap ›"));
+    var go = el("div", "st-go"); go.appendChild(el("span", null, g.ev ? "Full results" : "Box score and recap")); go.appendChild(el("span", "sr-go", "\u203A")); c.appendChild(go);
     openX(c, x);
     // Upgrade to ESPN's own recap headline and the AP opening paragraph when they exist (cached after the first time).
     if (!g.ev) ESPN.fetchNarrative(x.lk, g.id, true).then(function (n) {
@@ -428,8 +430,16 @@
     LG.forEach(function (l) {
       var list = items.filter(function (x) { return x.lk === l.key; }).sort(function (a, b) { return b.heat - a.heat; });
       if (!list.length) return;
-      var box = el("div", "lgbox"), more = S.ymore[l.key], LIM = 10;
-      box.appendChild(el("h3", null, l.label + " · " + list.length));
+      var box = el("div", "lgbox" + (YCOL[l.key] ? " shut" : "")), more = S.ymore[l.key], LIM = 10;
+      var hb = el("button", "lgh"); hb.type = "button"; hb.setAttribute("aria-expanded", YCOL[l.key] ? "false" : "true");
+      hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(el("span", "lgh-n", String(list.length))); hb.appendChild(el("span", "lgh-c", "\u25BE"));
+      hb.onclick = function () {
+        var shut = box.classList.toggle("shut"); hb.setAttribute("aria-expanded", shut ? "false" : "true");
+        if (shut) YCOL[l.key] = 1; else delete YCOL[l.key];
+        try { localStorage.setItem("sb-ycol", JSON.stringify(YCOL)); } catch (e) {}
+      };
+      box.appendChild(hb);
+      var body = el("div", "lgb"); box.appendChild(body);
       (more ? list : list.slice(0, LIM)).forEach(function (x) {
         var g = x.g, r = el("div", "srow");
         if (g.ev) r.appendChild(el("span", "sr-t", headline(x)));
@@ -441,12 +451,12 @@
         if (isFollowed(g)) tg.appendChild(el("span", "mk fol", "★"));
         if (g.o) tg.appendChild(el("span", "mk", "OT"));
         else if (x.tight) tg.appendChild(el("span", "mk", "Close"));
-        r.appendChild(tg); openX(r, x); box.appendChild(r);
+        tg.appendChild(el("span", "sr-go", "\u203A")); r.appendChild(tg); openX(r, x); body.appendChild(r);
       });
       if (list.length > LIM && !more) {
         var mb = el("button", "sr-more", "Show " + (list.length - LIM) + " more"); mb.type = "button";
         mb.onclick = function () { S.ymore[l.key] = true; render(); };
-        box.appendChild(mb);
+        body.appendChild(mb);
       }
       around.appendChild(box);
     });
@@ -1200,5 +1210,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=24").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=25").catch(function () {}); } catch (e) {} });
 })();
