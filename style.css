@@ -258,3 +258,11 @@ footer,.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:28px}
 .story.click:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}
 .story.click:active{transform:scale(.99)}
 .st-go{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;font-weight:700;color:var(--pri)}
+.st-h::after{content:" \203A";color:var(--pri);font-weight:400;display:inline-block;transition:transform .12s}
+.story.click:hover,.story.click:focus-visible{border-color:var(--pri)}
+.story.click:hover .st-h,.story.click:focus-visible .st-h,.story.click:active .st-h{color:var(--pri);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.story.click:hover .st-h::after{transform:translateX(5px)}
+.srow.click:hover .sr-t b,.srow.click:focus-visible .sr-t b,.srow.click:active .sr-t b{color:var(--pri);text-decoration:underline;text-underline-offset:3px}
+.sr-go{display:inline-block;transition:transform .12s}
+.srow.click:hover .sr-go{transform:translateX(4px)}
+.srow.click:focus-visible,.story.click:focus-visible{outline:2px solid var(--pri);outline-offset:-2px}
