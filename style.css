@@ -32,7 +32,16 @@ h1{font:800 34px/1 var(--hd);letter-spacing:.02em;text-transform:uppercase;margi
 #refresh:disabled{opacity:.6;cursor:default}
 .about{color:var(--mute);font-size:13px;margin:0 0 10px}
 
-.rail{display:flex;gap:8px;overflow-x:auto;padding:6px 0 12px;position:sticky;top:0;background:var(--bg);z-index:5;scrollbar-width:none}
+.rail{position:sticky;top:0;background:var(--bg);z-index:5;padding:6px 0 10px}
+.rail-main{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tab.big{display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:14px;padding:8px 6px;font-size:13px;line-height:1.15;background:var(--pri-soft);border-color:transparent;color:var(--pri)}
+.tab.big .ico{font-size:17px;color:var(--ter)}
+.tab.big[aria-selected="true"]{background:linear-gradient(135deg,var(--pri),var(--ter));color:var(--card)}
+.tab.big[aria-selected="true"] .ico{color:var(--card)}
+.rail-lg{display:flex;gap:6px;overflow-x:auto;align-items:center;scrollbar-width:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.rail-lg::-webkit-scrollbar{display:none}
+.rail-lbl{flex:none;font:700 12px var(--hd);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);padding-right:4px}
+.rail-lg .tab{padding:5px 11px;font-size:13px}
 .rail::-webkit-scrollbar{display:none}
 .tab{flex:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:600;white-space:nowrap}
 .tab[aria-selected="true"]{background:var(--pri);border-color:var(--pri);color:var(--card)}
@@ -108,7 +117,7 @@ th.l,td.l{text-align:left}
 .tgl{margin-top:12px}
 .tgl h4{margin:0 0 4px;font:700 14px var(--hd);letter-spacing:.08em;text-transform:uppercase;color:var(--ter)}
 .tg{display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
-.tgd{flex:none;width:92px;color:var(--mute)}
+.tgd{flex:none;width:128px;color:var(--mute)}
 .tgo{flex:1;min-width:0;font-weight:600}
 .tgr{flex:none;font-weight:700;color:var(--live)}
 .tgr.win{color:var(--win)}
