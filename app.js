@@ -428,16 +428,17 @@
 
     var up = g.s === "up", list = [], prim = [], secd = [];
     var pv = el("div", "sum");
-    pv.appendChild(el("p", null, d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + ".")));
-    (d.narrative || []).forEach(function (n) {
+    var rc = g.s === "final" && d.recap && d.recap.secs.length ? d.recap : null;
+    pv.appendChild(el("p", null, rc ? rc.head : (d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + "."))));
+    (rc ? rc.secs : (d.narrative || [])).forEach(function (n) {
       var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); pv.appendChild(w);
     });
     if (d.link) {
-      var lw = el("div", "nar"), la = el("a", null, "ESPN preview: " + d.link.text + " ↗");
+      var lw = el("div", "nar"), la = el("a", null, (rc ? "ESPN recap: " : "ESPN preview: ") + d.link.text + " ↗");
       la.href = d.link.href; la.target = "_blank"; la.rel = "noopener"; lw.appendChild(la); pv.appendChild(lw);
     }
-    var preview = sec("Matchup preview", pv, up, false);
-    if (up) list.push(preview);
+    var preview = sec(rc ? "Game recap" : "Matchup preview", pv, up || !!rc, false);
+    if (up || rc) list.push(preview);
 
     if (d.periods) {
       var rows = d.periods.rows.map(function (r) {
@@ -478,7 +479,7 @@
     }
     // Two tiers: the main numbers first, minor categories and the play log tucked into the second one.
     [tier("Primary stats", prim, true), tier("Secondary stats", secd, g.s === "live")].forEach(function (t) { if (t) list.push(t); });
-    if (!up) list.push(preview);
+    if (!up && !rc) list.push(preview);
 
     var bar = el("div", "allbar");
     var b1 = el("button", null, "Expand all"), b2 = el("button", null, "Collapse all");
