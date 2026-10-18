@@ -63,6 +63,40 @@
     return g;
   }
 
+  // Event sports (UFC cards, race weekends): one game-shaped record per event, with the fights or sessions in x.
+  function evState(c) { var s = c.status && c.status.type && c.status.type.state; return s === "in" ? "in" : s === "post" ? "post" : "pre"; }
+  function byOrder(c) { return (c.competitors || []).slice().sort(function (p, q) { return (p.order || 0) - (q.order || 0); }); }
+  function cname(c) { return (c.athlete && (c.athlete.displayName || c.athlete.fullName)) || (c.team && c.team.displayName) || "–"; }
+  function normEvent(ev, lg) {
+    var comps = ev.competitions || [], st = stateOf(ev);
+    var v = ev.venues && ev.venues[0] || (comps[0] && comps[0].venue) || null;
+    var venue = v ? [v.fullName, v.address && v.address.city].filter(Boolean).join(", ") : "";
+    var g = { id: ev.id, lk: lg.key, s: st, t: ev.date, h: [ev.name, "", null, "", ""], a: ["", "", null, "", ""], ev: lg.kind };
+    if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
+    var x = { venue: venue };
+    if (lg.kind === "mma") {
+      x.fights = comps.map(function (c) {
+        var cs = byOrder(c), win = -1;
+        cs.forEach(function (z, i) { if (z.winner) win = i; });
+        var m = "";
+        (c.details || []).forEach(function (d) {
+          var t = d.type && d.type.text || "", mm = /Winner\s+(\w+)/i.exec(t);
+          if (mm && !m) m = /ko/i.test(mm[1]) ? "KO/TKO" : /sub/i.test(mm[1]) ? "Submission" : /dec/i.test(mm[1]) ? "Decision" : mm[1];
+        });
+        var rec = function (z) { var r = (z.records || []).filter(function (q) { return q.type === "total"; })[0]; return r ? r.summary : ""; };
+        var stt = c.status || {};
+        return { w: (c.type && (c.type.abbreviation || c.type.text)) || "", n: cs.map(cname), r: cs.map(rec), win: win, s: evState(c), m: m, rd: stt.period || 0, tm: stt.displayClock || "", live: stt.type && stt.type.shortDetail || "", ft: !!stt.featured };
+      }).reverse();
+    } else {
+      x.sess = comps.map(function (c) {
+        var s = evState(c);
+        return { n: (c.type && (c.type.abbreviation || c.type.text)) || "Race", s: s, t: c.date, rows: s === "pre" ? [] : byOrder(c).map(function (z, i) { return [z.order || i + 1, cname(z)]; }) };
+      });
+    }
+    g.x = x;
+    return g;
+  }
+
   // Fetch the given day offsets (0 = today) for every league.
   // Resolves {updated, byLeague:{key:[games]}, failed:[league keys that errored]}.
   function fetchScores(offsets, only) {
@@ -71,6 +105,16 @@
     var days = offsets.map(function (n) { return dayKey(new Date(now.getTime() + n * DAY)); });
     var jobs = [];
     LGS.forEach(function (lg) {
+      if (lg.kind) {
+        var rg = lg.range || [-7, 14];
+        jobs.push({
+          lk: lg.key,
+          p: getJson(BASE + "/" + lg.path + "/scoreboard?dates=" + dayKey(new Date(now.getTime() + rg[0] * DAY)) + "-" + dayKey(new Date(now.getTime() + rg[1] * DAY))).then(function (j) {
+            return (j.events || []).map(function (e) { return normEvent(e, lg); }).filter(Boolean);
+          }, function () { return null; }),
+        });
+        return;
+      }
       days.forEach(function (d) {
         jobs.push({
           lk: lg.key,
