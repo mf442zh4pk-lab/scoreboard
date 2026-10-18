@@ -59,12 +59,12 @@
     return h ? "in " + h + "h " + m + "m" : "in " + Math.max(1, m) + "m";
   }
   // Is this live game close and late? Rules per sport, read from the feed's status text ("2:10 - 4th", "Bot 8th", "78'").
-  var CLOSE = { nfl: [4, 8], ncaafb: [4, 8], nba: [4, 5], nhl: [3, 1], mlb: [7, 2], afl: [4, 12] };
+  var CLOSE = { nfl: [3, 8], ncaafb: [3, 8], nba: [3, 7], nhl: [2, 1], mlb: [6, 2], afl: [3, 12] };
   function isClose(x) {
     var g = x.g, c = g.c || "", lg = leagueOf(x.lk);
     if (g.s !== "live" || g.h[2] == null || g.a[2] == null) return false;
     var diff = Math.abs(g.h[2] - g.a[2]);
-    if (lg && lg.soccer) { var mm = /(\d+)'/.exec(c); return diff <= 1 && (/ET|Extra/i.test(c) || (mm && +mm[1] >= 70)); }
+    if (lg && lg.soccer) { var mm = /(\d+)'/.exec(c); return diff <= 1 && (/ET|Extra/i.test(c) || (mm && +mm[1] >= 60)); }
     var r = CLOSE[x.lk]; if (!r) return false;
     var p = /OT|SO\b|ET\b|Extra/i.test(c) ? 99 : 0, m;
     if (!p && (m = /(\d+)(?:st|nd|rd|th)/i.exec(c))) p = +m[1];
@@ -886,5 +886,5 @@
   if (S.ready) { syncFromHash(); loadLeaders(); }
   load(true);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=20").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=21").catch(function () {}); } catch (e) {} });
 })();
