@@ -304,3 +304,5 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .ni:hover .ni-h{color:var(--pri);text-decoration:underline;text-underline-offset:3px}
 .ni-d{font-size:13px;line-height:1.4;color:var(--mute)}
 .ni-w{font-size:11px;color:var(--pri);font-weight:700;letter-spacing:.03em}
+.lgb.news{margin:0;padding:2px 14px 6px;border:0}
+.lgb.news .ni:first-child{border-top:0}
