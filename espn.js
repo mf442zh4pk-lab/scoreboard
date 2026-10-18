@@ -284,7 +284,7 @@
     var s = (e.stats || []).filter(function (z) { return z.name === name || z.type === name; })[0];
     return s ? s.displayValue : null;
   }
-  function findStanding(j, tid) {
+  function findStanding(j, tid, usePts) {
     var groups = walk(j, []);
     for (var gi = 0; gi < groups.length; gi++) {
       var es = groups[gi].entries, idx = -1;
@@ -294,10 +294,10 @@
       var rank = es.every(function (e) { return isFinite(seedOf(e)); }) ? seedOf(es[idx]) : idx + 1;
       var e = es[idx];
       // Whole table for the standings view: sorted by seed/rank, with a points or win% column.
-      var hasPts = es.some(function (x) { return stat(x, "points") != null && Number(stat(x, "points")) > 0; });
+      var hasPts = !!usePts;
       var rows = es.map(function (x, i) {
         var sd = seedOf(x);
-        var rec = stat(x, "overall") || (stat(x, "wins") + "-" + stat(x, "losses"));
+        var rec = (stat(x, "overall") || (stat(x, "wins") + "-" + stat(x, "losses"))).split(",")[0];
         var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
         return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", me: i === idx };
       }).sort(function (p, q) { return p.rank - q.rank; });
@@ -321,7 +321,7 @@
   // Standing (rank, record, streak) and schedule for one team.
   function fetchTeamInfo(lk, tid) {
     var lg = labelOf(lk);
-    var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid); }, function () { return null; });
+    var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
     var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule";
     // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
     var sc = getJson(url).then(parseSchedule, function () { return []; }).then(function (gs) {
