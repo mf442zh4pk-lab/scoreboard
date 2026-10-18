@@ -35,6 +35,13 @@
   }
 
   // One game in the shape the UI uses: {id, lk, s, t, h:[name, abbr, score, record, teamId], a:[...], c, n}
+  // ESPN serves 500px logos; ask its image resizer for a small one so pages stay light.
+  function logoOf(t) {
+    var u = t && (t.logo || (t.logos && t.logos[0] && t.logos[0].href));
+    if (!u) return "";
+    var m = /^https?:\/\/a\.espncdn\.com(\/i\/teamlogos\/.+)$/.exec(u);
+    return m ? "https://a.espncdn.com/combiner/i?img=" + m[1] + "&w=64&h=64" : u;
+  }
   function normalize(ev, lk) {
     var comp = (ev.competitions && ev.competitions[0]) || {};
     var cs = comp.competitors || [];
@@ -44,7 +51,7 @@
     var st = stateOf(ev);
     function side(c) {
       var n = st === "up" || c.score == null || c.score === "" ? null : Number(c.score);
-      return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id];
+      return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id, logoOf(c.team)];
     }
     var g = { id: ev.id, lk: lk, s: st, t: ev.date, h: side(home), a: side(away) };
     if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
@@ -301,7 +308,7 @@
         var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
         return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", me: i === idx };
       }).sort(function (p, q) { return p.rank - q.rank; });
-      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), rows: rows, exLabel: hasPts ? "PTS" : "PCT" };
+      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT" };
     }
     return null;
   }
