@@ -4,25 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#4a5d7e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Scoreboard">
 <title>Scoreboard</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234a5d7e'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%239b8cd9'/%3E%3C/svg%3E">
+<link rel="icon apple-touch-icon" href="data:image/png;base64,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">
+<script>
+(function(){try{var i=document.querySelector("link[rel~=apple-touch-icon]").href,u=location.origin+location.pathname;
+var m={name:"Mack's Scoreboard",short_name:"Scoreboard",start_url:u,scope:u,display:"standalone",background_color:"#4a5d7e",theme_color:"#4a5d7e",icons:[{src:i,sizes:"180x180",type:"image/png"}]};
+var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:"application/manifest+json"}));document.head.appendChild(l)}catch(e){}})();
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Hanken+Grotesk:wght@400;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1 id="title">Scoreboard</h1>
-    <div class="ctl"><span class="dot" id="dot"></span><span id="stamp" aria-live="polite">Loading scores</span><button id="refresh" type="button">Refresh</button></div>
+    <div class="ctl"><span class="dot" id="dot"></span><span id="stamp" aria-live="polite">Loading scores</span><button id="refresh" type="button">Refresh</button><button id="gear" type="button" aria-label="Settings">&#9881;</button></div>
   </header>
   <p class="about" id="about"></p>
   <nav class="rail" id="rail" role="tablist" aria-label="Views"></nav>
   <main id="out"></main>
   <p class="foot" id="foot"></p>
 </div>
+<div id="ptr" aria-hidden="true">Pull to refresh</div>
+<div id="toast" role="status" aria-live="polite"></div>
 <noscript>This scoreboard needs JavaScript.</noscript>
-<script src="config.js?v=1"></script>
-<script src="espn.js?v=1"></script>
-<script src="app.js?v=1"></script>
+<script src="config.js?v=2"></script>
+<script src="espn.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
