@@ -219,7 +219,7 @@
       if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
       row.appendChild(tm);
-      row.appendChild(el("span", "sc", has ? String(r[1]) : "–"));
+      if (has) row.appendChild(el("span", "sc", String(r[1])));
       c.appendChild(row);
     });
     return c;
@@ -308,44 +308,42 @@
       row.appendChild(el("div", "dvs", r.t.result + " " + r.t.my + "-" + r.t.op + (r.t.ot ? " OT" : "")));
       body.appendChild(row);
     });
-    body.appendChild(el("p", "hcold", "Bars compare each win or loss to what's normal for that sport, so hockey and basketball line up."));
-    if (played.length) box.appendChild(ovSection("Yesterday across your teams", W + "-" + L + (T0 ? "-" + T0 : "") + " on the day", body));
+    if (played.length) box.appendChild(ovSection("Yesterday across your teams", W + "-" + L + (T0 ? "-" + T0 : "") + " \u00b7 scaled to each sport", body));
     // 2. everything below comes from the schedules already saved on this phone: no network
     var names = C.followed.filter(function (n) { return tcGames(n).some(function (g) { return g.s === "final" && g.my != null; }); });
     if (names.length) {
       var fb = el("div", "fgw"), info = names.map(function (n) { return { n: n, s: trendStats(tcGames(n)), g: tcGames(n).filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime) }; });
+      info.sort(function (p, q) { return (q.s ? q.s.pct : 0) - (p.s ? p.s.pct : 0); });
       info.forEach(function (r) {
         var row = el("div", "fg"); row.appendChild(el("div", "dvn", r.n));
         var dots = el("div", "fgd");
         r.g.slice(-10).forEach(function (g) { dots.appendChild(el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t")); });
         row.appendChild(dots);
-        row.appendChild(el("div", "dvs", r.s ? r.s.cur.t + r.s.cur.n : ""));
+        var rt = el("div", "dvs", r.s ? Math.round(r.s.pct * 100) + "%" : ""); if (r.s) rt.appendChild(el("small", null, r.s.cur.t + r.s.cur.n));
+        row.appendChild(rt);
         fb.appendChild(row);
       });
-      box.appendChild(ovSection("Form guide", "last 10 games, newest on the right", fb));
-      var pr = info.filter(function (r) { return r.s; }).sort(function (p, q) { return q.s.pct - p.s.pct; });
-      if (pr.length) {
-        var pb = el("div", "dvw");
-        pr.forEach(function (r) {
-          var row = el("div", "dv"), tr = el("div", "hbar tall"), f = el("i", momLabel(r.s, false)[2]); f.style.width = Math.max(3, Math.round(r.s.pct * 100)) + "%"; tr.appendChild(f);
-          row.appendChild(el("div", "dvn", r.n)); row.appendChild(tr); row.appendChild(el("div", "dvs", Math.round(r.s.pct * 100) + "%"));
-          pb.appendChild(row);
-        });
-        box.appendChild(ovSection("Win % this season", "bar colour = last 5 vs season", pb));
-      }
+      box.appendChild(ovSection("Form guide", "last 10 \u00b7 season win %", fb));
     }
-    // 3. the week ahead, one column per day
-    var tl = el("div", "wk"), start = new Date(); start.setHours(0, 0, 0, 0); var cols = [], cnt = 0;
-    for (var d = 0; d < 7; d++) { var c = el("div", "wd"), dt = new Date(start.getTime() + d * DAY); c.appendChild(el("div", "wdl", d === 0 ? "Today" : dt.toLocaleDateString(undefined, { weekday: "short" }))); cols.push(c); tl.appendChild(c); }
-    var now = Date.now();
+    // 3. the week ahead, as a short agenda
+    var now = Date.now(), end = now + 7 * DAY, items = [];
     C.followed.forEach(function (n) {
-      tcGames(n).filter(function (g) { return g.s === "up" && new Date(g.t).getTime() > now && new Date(g.t).getTime() < start.getTime() + 7 * DAY; }).forEach(function (g) {
-        var di = Math.floor((new Date(g.t).getTime() - start.getTime()) / DAY); if (di < 0 || di > 6) return;
-        var ch = el("div", "wc", n.split(" ").slice(-1)[0]); ch.title = n + (g.home ? " vs " : " at ") + g.opp + " \u00b7 " + when(g.t);
-        ch.appendChild(el("small", null, (g.home ? "vs " : "@") + g.opp)); cols[di].appendChild(ch); cnt++;
-      });
+      tcGames(n).forEach(function (g) { var t = new Date(g.t).getTime(); if (g.s === "up" && t > now && t < end) items.push({ n: n, g: g, t: t }); });
     });
-    if (cnt) box.appendChild(ovSection("Next 7 days", cnt + " game" + (cnt === 1 ? "" : "s") + " for your teams", tl));
+    if (items.length) {
+      items.sort(function (p, q) { return p.t - q.t; });
+      var ag = el("div", "ag"), lastDay = "";
+      items.forEach(function (it) {
+        var d = new Date(it.t), dk = d.toDateString();
+        if (dk !== lastDay) { lastDay = dk; ag.appendChild(el("div", "agd", dk === new Date().toDateString() ? "Today" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }))); }
+        var r = el("div", "agr");
+        r.appendChild(el("span", "agt", d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
+        r.appendChild(el("b", null, it.n));
+        r.appendChild(el("span", "ago", (it.g.home ? "vs " : "at ") + it.g.opp));
+        ag.appendChild(r);
+      });
+      box.appendChild(ovSection("Next 7 days", items.length + " game" + (items.length === 1 ? "" : "s") + " for your teams", ag));
+    }
     return box;
   }
   function renderYesterday(out) {
@@ -469,7 +467,8 @@
     ESPN.fetchNarrative(x.lk, x.g.id, true).then(function (n) {
       if (!n || !n.paras || !n.paras.length) return;
       if (onHead) onHead(n);
-      var lede = trunc(n.paras[0], max || 260), more = n.paras.slice(1, 5), cut = lede !== n.paras[0];
+      var p0 = n.paras[0].replace(/^[A-Z][A-Z.,'\u2019 ]{2,40}\s*(?:--|\u2014|\u2013)+\s*(?:\(AP\)\s*)?(?:--|\u2014|\u2013)*\s*/, "");
+      var lede = trunc(p0, max || 260), more = n.paras.slice(1, 5), cut = lede !== p0;
       var p = el("p", "narr-p", lede); box.appendChild(p);
       if (more.length || cut) {
         var rest = el("div", "narr-more"); rest.hidden = true;
@@ -478,7 +477,7 @@
         var tg = el("button", "narr-t", "Read more \u25BE"); tg.type = "button";
         tg.onclick = function (e) {
           e.stopPropagation();
-          var open = rest.hidden; rest.hidden = !open; p.textContent = open ? n.paras[0] : lede; tg.textContent = open ? "Show less \u25B4" : "Read more \u25BE";
+          var open = rest.hidden; rest.hidden = !open; p.textContent = open ? p0 : lede; tg.textContent = open ? "Show less \u25B4" : "Read more \u25BE";
         };
         box.appendChild(rest); box.appendChild(tg);
       }
@@ -846,11 +845,14 @@
     var b = el("div", "tb", big); if (extra) b.appendChild(extra); d.appendChild(b);
     if (sub) d.appendChild(el("div", "ts", sub)); return d;
   }
-  function trendsPanel(s, off) {
-    var box = el("details", "trn"); box.open = true;
+  function trendsPanel(s, off, first) {
+    var box = el("details", "trn"); box.open = !!first;
     var lab = momLabel(s, off), sm = el("summary", null);
     sm.appendChild(el("span", "tm " + lab[2], lab[0] + " " + lab[1]));
     sm.appendChild(el("span", "tsub", s.l5.w + "-" + s.l5.l + (s.l5.t ? "-" + s.l5.t : "") + " in last " + s.l5.n + " \u00b7 season " + recStr(s.W, s.L, s.T)));
+    var dd = el("span", "tdots");
+    s.fin.slice(-5).forEach(function (g) { dd.appendChild(el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t")); });
+    sm.appendChild(dd);
     box.appendChild(sm);
     var body = el("div", "trb");
     body.appendChild(el("div", "tcap", "Margin, last " + Math.min(16, s.n) + " games"));
@@ -862,8 +864,6 @@
     g.appendChild(stat("Allowed", s.l5.pa.toFixed(1), "last " + s.l5.n + " \u00b7 season " + s.paAvg.toFixed(1), dlt(s.l5.pa - s.paAvg, 0.1, true)));
     g.appendChild(stat("Home", recStr(s.hW, s.hL), "Away " + recStr(s.aW, s.aL)));
     g.appendChild(stat("Close games", recStr(s.cW, s.cL), "decided by " + s.thr + " or less"));
-    g.appendChild(stat("Win streak", String(s.best), "longest this season"));
-    g.appendChild(stat("Margin", (s.pfAvg - s.paAvg >= 0 ? "+" : "") + (s.pfAvg - s.paAvg).toFixed(1), "per game" + (unit ? "" : "")));
     body.appendChild(g); box.appendChild(body);
     return box;
   }
@@ -912,9 +912,9 @@
         var gs = T.games || [];
         var stt = T.standing && standTable(name, T.standing);
         if (stt) a.appendChild(stt);
-        var fd = formDots(gs); if (fd) a.appendChild(fd);
         var ts = trendStats(gs);
-        if (ts) { a.appendChild(trendsPanel(ts, off)); heatRows.push({ name: name, s: ts, off: off }); }
+        if (ts) { a.appendChild(trendsPanel(ts, off, !heatRows.length)); heatRows.push({ name: name, s: ts, off: off }); }
+        else { var fd = formDots(gs); if (fd) a.appendChild(fd); }
         if (off) seasonRecap(a, T);
         else {
           var ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime);
@@ -1541,5 +1541,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=38").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=39").catch(function () {}); } catch (e) {} });
 })();
