@@ -37,7 +37,10 @@
   }
   function when(iso) {
     var d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+    if (isNaN(d)) return "";
+    var t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return "Today " + t;
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + t;
   }
   function byTime(a, b) { return new Date(a.t) - new Date(b.t); }
 
@@ -398,19 +401,27 @@
   function render() {
     var rail = $("rail"); rail.textContent = "";
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
-    var tabs = [["pinned", "Following", fol.length], ["yesterday", "What happened yesterday", null], ["teams", "My teams", null], ["all", "All", all.length]]
-      .concat(LG.map(function (l) { return [l.key, l.label, S.games[l.key].length]; }));
-    tabs.forEach(function (t) {
-      var b = el("button", "tab"); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", t[0] === S.tab ? "true" : "false");
-      b.appendChild(document.createTextNode(t[1]));
-      if (t[2] != null) b.appendChild(el("span", "n", String(t[2])));
+    // Two groups: your personal views as big tiles, then the league filters as small chips.
+    function tab(key, label, count, cls, icon) {
+      var b = el("button", cls); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", key === S.tab && !S.settings ? "true" : "false");
+      if (icon) { var ic = el("span", "ico", icon); ic.setAttribute("aria-hidden", "true"); b.appendChild(ic); }
+      b.appendChild(el("span", "lbl", label));
+      if (count != null) b.appendChild(el("span", "n", String(count)));
       b.onclick = function () {
-        S.tab = t[0]; S.view = null; S.settings = false; clearHash();
+        S.tab = key; S.view = null; S.settings = false; clearHash();
         try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
         render();
       };
-      rail.appendChild(b);
-    });
+      return b;
+    }
+    var main = el("div", "rail-main"), lgs = el("div", "rail-lg");
+    main.appendChild(tab("pinned", "Following", null, "tab big", "★"));
+    main.appendChild(tab("yesterday", "Yesterday", null, "tab big", "↺"));
+    main.appendChild(tab("teams", "My teams", null, "tab big", "⚑"));
+    lgs.appendChild(el("span", "rail-lbl", "Leagues"));
+    lgs.appendChild(tab("all", "All", all.length, "tab"));
+    LG.forEach(function (l) { lgs.appendChild(tab(l.key, l.label, S.games[l.key].length, "tab")); });
+    rail.appendChild(main); rail.appendChild(lgs);
 
     var out = $("out"); out.textContent = "";
     var about = "Following: " + C.followed.join(", ") + ".";
