@@ -125,7 +125,17 @@ th.l,td.l{text-align:left}
 #gear{background:var(--card);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;line-height:1;padding:0}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--pri);color:var(--card);padding:10px 16px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:90vw}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-#ptr{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--mute);opacity:0;pointer-events:none;z-index:20}
+#ptr{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-30px);display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px 7px 10px;font-size:13px;font-weight:600;color:var(--mute);box-shadow:0 4px 14px rgba(30,40,70,.15);opacity:0;pointer-events:none;z-index:20;transition:opacity .15s}
+#ptr .ring{width:16px;height:16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--ter);display:inline-block}
+#ptr.armed{color:var(--pri)}
+#ptr.armed .ring{border-color:var(--ter)}
+#ptr.busy .ring{animation:spin .7s linear infinite}
+#ptr.ok{color:var(--win)}
+#ptr.ok .ring{border-color:var(--win);transform:none!important}
+@keyframes spin{to{transform:rotate(360deg)}}
+#bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:30;background:linear-gradient(90deg,transparent,var(--ter),var(--pri),transparent) no-repeat;background-size:50% 100%;opacity:0;transition:opacity .2s;pointer-events:none}
+body.ld #bar{opacity:1;animation:slide 1s linear infinite}
+@keyframes slide{from{background-position:-50% 0}to{background-position:150% 0}}
 .set{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:560px}
 .set h3{margin:16px 0 8px;font:700 18px var(--hd);letter-spacing:.05em;text-transform:uppercase;color:var(--pri)}
 .set h3:first-child{margin-top:0}
