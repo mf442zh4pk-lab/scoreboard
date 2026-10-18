@@ -394,12 +394,21 @@
   // One league news request (cached 5 min) lists the Recap/Preview articles by game id; the full text is fetched only for
   // the game you open, and saved on the phone so reopening it is instant. Nothing here runs for the score lists.
   var newsC = {}, storyC = {}, NK = "sb-narr";
+  // One news request per league, shared by recap/preview lookups and the "in the news" list (cached 5 minutes).
+  var rawC = {};
+  function rawNews(lk) {
+    var e = rawC[lk];
+    if (e && Date.now() - e.at < 300000) return e.p;
+    e = { at: Date.now() };
+    e.p = getJson(BASE + "/" + labelOf(lk).path + "/news?limit=100").catch(function (x) { delete rawC[lk]; throw x; });
+    rawC[lk] = e;
+    return e.p;
+  }
   function leagueNews(lk) {
     var e = newsC[lk];
     if (e && Date.now() - e.at < 300000) return e.p;
-    var lg = labelOf(lk);
     e = { at: Date.now() };
-    e.p = getJson(BASE + "/" + lg.path + "/news?limit=100").then(function (j) {
+    e.p = rawNews(lk).then(function (j) {
       var m = {};
       (j.articles || []).forEach(function (a) {
         if (a.type !== "Recap" && a.type !== "Preview") return;
@@ -414,6 +423,20 @@
     }, function () { delete newsC[lk]; return {}; });
     newsC[lk] = e;
     return e.p;
+  }
+  // Notable non-score news for a league from the last two days: breaking items first, then features. Betting and fantasy pieces are left out.
+  function fetchNews(lk) {
+    return rawNews(lk).then(function (j) {
+      var now = Date.now(), seen = {};
+      return (j.articles || []).filter(function (a) {
+        if (a.type !== "HeadlineNews" && a.type !== "Story") return false;
+        var w = a.links && a.links.web && a.links.web.href, t = Date.parse(a.published);
+        if (!a.headline || !w || !isFinite(t) || now - t > 2 * DAY || a.premium) return false;
+        if (/betting|fantasy|picks|odds|power-rankings|bracket/i.test(w) || /how to bet|fantasy|odds|prop|picks|rankings/i.test(a.headline)) return false;
+        if (seen[a.headline]) return false; seen[a.headline] = 1; return true;
+      }).sort(function (p, q) { return (q.type === "HeadlineNews" ? 1 : 0) - (p.type === "HeadlineNews" ? 1 : 0) || Date.parse(q.published) - Date.parse(p.published); })
+        .slice(0, 4).map(function (a) { return { h: a.headline, d: a.description || "", t: Date.parse(a.published), link: a.links.web.href }; });
+    }).catch(function () { return []; });
   }
   function savedNarr() { try { return JSON.parse(localStorage.getItem(NK) || "{}"); } catch (e) { return {}; } }
   function saveNarr(id, v) {
@@ -551,5 +574,5 @@
     return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
 })();
