@@ -27,7 +27,14 @@
     return s === "in" ? "live" : s === "post" ? "final" : "up";
   }
 
-  // One game in the shape the UI uses: {id, lk, s, t, h:[name, abbr, score], a:[...], c, n}
+  // Season record text such as "12-4" from a scoreboard competitor.
+  function recOf(c) {
+    var rs = c.records || [];
+    var r = rs.filter(function (z) { return z.type === "total" || z.type === "standingsoverall" || z.name === "overall"; })[0] || rs[0];
+    return r && r.summary ? r.summary : "";
+  }
+
+  // One game in the shape the UI uses: {id, lk, s, t, h:[name, abbr, score, record, teamId], a:[...], c, n}
   function normalize(ev, lk) {
     var comp = (ev.competitions && ev.competitions[0]) || {};
     var cs = comp.competitors || [];
@@ -37,7 +44,7 @@
     var st = stateOf(ev);
     function side(c) {
       var n = st === "up" || c.score == null || c.score === "" ? null : Number(c.score);
-      return [c.team.displayName, c.team.abbreviation, n];
+      return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id];
     }
     var g = { id: ev.id, lk: lk, s: st, t: ev.date, h: side(home), a: side(away) };
     if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
@@ -82,7 +89,7 @@
   function fetchGame(lk, id) {
     var lg = labelOf(lk);
     return getJson(BASE + "/" + lg.path + "/summary?event=" + encodeURIComponent(id)).then(function (d) {
-      var out = { periods: null, tables: [], plays: [], preview: null };
+      var out = { periods: null, tables: [], plays: [], preview: null, leaders: [] };
       var box = d.boxscore || {};
       var comp = d.header && d.header.competitions && d.header.competitions[0];
       var cs = (comp && comp.competitors) || [];
@@ -137,6 +144,15 @@
         });
       });
 
+      // Top performers per team (passing leader, top scorer, ...), straight from the feed.
+      (d.leaders || []).forEach(function (tl) {
+        var ab = tl.team && tl.team.abbreviation;
+        (tl.leaders || []).forEach(function (cat) {
+          var top = cat.leaders && cat.leaders[0];
+          if (top && top.athlete) out.leaders.push({ team: ab, cat: cat.displayName || cat.name || "", name: top.athlete.displayName, line: top.displayValue || "" });
+        });
+      });
+
       var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [];
       out.plays = src.slice(-25).reverse().map(function (p) {
         var per = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "";
@@ -147,5 +163,80 @@
     });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, dayKey: dayKey, DAY: DAY };
+  // ---------- teams, standings and schedules ----------
+  var V2 = "https://site.api.espn.com/apis/v2/sports";
+  var teamsP = null;
+  // {leagueKey: [{id, name}]}. Cached for a week so it is only fetched occasionally.
+  function fetchTeams() {
+    if (teamsP) return teamsP;
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem("sb-teams") || "null"); } catch (e) {}
+    if (cached && Date.now() - cached.at < 7 * DAY && cached.n === C.leagues.length) return (teamsP = Promise.resolve(cached.v));
+    teamsP = Promise.all(C.leagues.filter(function (l) { return !l.noTeams; }).map(function (l) {
+      return getJson(BASE + "/" + l.path + "/teams?limit=500").then(function (j) {
+        var lg = ((j.sports || [])[0] || {}).leagues;
+        var ts = (lg && lg[0] && lg[0].teams) || [];
+        return [l.key, ts.map(function (t) { return { id: t.team.id, name: t.team.displayName }; })];
+      }, function () { return [l.key, []]; });
+    })).then(function (rows) {
+      var v = {};
+      rows.forEach(function (r) { v[r[0]] = r[1]; });
+      if (rows.every(function (r) { return r[1].length; })) {
+        try { localStorage.setItem("sb-teams", JSON.stringify({ at: Date.now(), n: C.leagues.length, v: v })); } catch (e) {}
+      }
+      return v;
+    });
+    return teamsP;
+  }
+  function findTeam(name) {
+    return fetchTeams().then(function (v) {
+      for (var k in v) for (var i = 0; i < v[k].length; i++) if (v[k][i].name === name) return { lk: k, id: v[k][i].id };
+      return null;
+    });
+  }
+
+  function walk(n, out) {
+    if (n.standings && n.standings.entries) out.push({ name: n.name, entries: n.standings.entries });
+    (n.children || []).forEach(function (c) { walk(c, out); });
+    return out;
+  }
+  function stat(e, name) {
+    var s = (e.stats || []).filter(function (z) { return z.name === name || z.type === name; })[0];
+    return s ? s.displayValue : null;
+  }
+  function findStanding(j, tid) {
+    var groups = walk(j, []);
+    for (var gi = 0; gi < groups.length; gi++) {
+      var es = groups[gi].entries, idx = -1;
+      es.forEach(function (e, i) { if (String(e.team.id) === String(tid)) idx = i; });
+      if (idx < 0) continue;
+      var seedOf = function (e) { return parseFloat(stat(e, "playoffSeed") || stat(e, "rank")); };
+      var rank = es.every(function (e) { return isFinite(seedOf(e)); }) ? seedOf(es[idx]) : idx + 1;
+      var e = es[idx];
+      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak") };
+    }
+    return null;
+  }
+  function parseSchedule(j) {
+    var me = String((j.team || {}).id);
+    var num = function (c) { var s = c.score; if (s == null) return null; var v = typeof s === "object" ? (s.displayValue != null ? s.displayValue : s.value) : s; return v === "" || v == null ? null : Number(v); };
+    return (j.events || []).map(function (ev) {
+      var comp = (ev.competitions || [])[0] || {};
+      var cs = comp.competitors || [];
+      var mine = cs.filter(function (c) { return String(c.team.id) === me; })[0];
+      var opp = cs.filter(function (c) { return String(c.team.id) !== me; })[0];
+      if (!mine || !opp) return null;
+      var st = ((comp.status || ev.status || {}).type || {}).state;
+      return { id: ev.id, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp) };
+    }).filter(Boolean);
+  }
+  // Standing (rank, record, streak) and schedule for one team.
+  function fetchTeamInfo(lk, tid) {
+    var lg = labelOf(lk);
+    var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid); }, function () { return null; });
+    var sc = getJson(BASE + "/" + lg.path + "/teams/" + tid + "/schedule").then(parseSchedule, function () { return []; });
+    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
+  }
+
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
 })();
