@@ -55,6 +55,7 @@
     }
     var g = { id: ev.id, lk: lk, s: st, t: ev.date, h: side(home), a: side(away) };
     if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
+    else if (st === "final" && /OT|SO\b|ET\b|AET|Pen/i.test((ev.status.type && ev.status.type.shortDetail) || "")) g.o = 1;
     var note = comp.notes && comp.notes[0] && comp.notes[0].headline;
     if (note) g.n = note;
     var bc = (comp.broadcasts && comp.broadcasts[0]) || (comp.geoBroadcasts && comp.geoBroadcasts[0]);
@@ -418,7 +419,7 @@
   function saveNarr(id, v) {
     try {
       var s = savedNarr(); s[id] = v;
-      var ks = Object.keys(s); if (ks.length > 30) delete s[ks[0]];
+      var ks = Object.keys(s); if (ks.length > 60) delete s[ks[0]];
       localStorage.setItem(NK, JSON.stringify(s));
     } catch (e) {}
   }
