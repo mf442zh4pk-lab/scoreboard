@@ -85,6 +85,82 @@
   function labelOf(lk) { return C.leagues.filter(function (l) { return l.key === lk; })[0]; }
   function cell(v) { return v == null || v === "" ? "–" : String(v); }
 
+  // Written-out preview sections built from pregame data: form, odds, players to watch, injuries, setting.
+  function narrative(d, away, home) {
+    var secs = [];
+    var abbrOf = {}; abbrOf[String(away.team.id)] = away.team.displayName; abbrOf[String(home.team.id)] = home.team.displayName;
+
+    // Recent form from each team's last five games.
+    var forms = [], moods = [];
+    (d.lastFiveGames || []).forEach(function (lf) {
+      var evs = (lf.events || []).slice().sort(function (a, b) { return new Date(a.gameDate) - new Date(b.gameDate); });
+      var res = evs.map(function (e) { return e.gameResult; }).filter(Boolean);
+      if (!res.length) return;
+      var w = res.filter(function (r) { return r === "W"; }).length, l = res.filter(function (r) { return r === "L"; }).length, t = res.length - w - l;
+      var last = evs[evs.length - 1], ch = res[res.length - 1], run = 0;
+      for (var i = res.length - 1; i >= 0 && res[i] === ch; i--) run++;
+      var mine = String(last.homeTeamId) === String(lf.team.id) ? last.homeTeamScore : last.awayTeamScore;
+      var theirs = String(last.homeTeamId) === String(lf.team.id) ? last.awayTeamScore : last.homeTeamScore;
+      var score = Math.max(mine, theirs) + "-" + Math.min(mine, theirs);
+      var verb = ch === "W" ? "beating " : ch === "L" ? "losing to " : "drawing with ";
+      var line = lf.team.displayName + " have gone " + w + "-" + l + (t ? "-" + t : "") + " in their last " + res.length + " (" + res.join("") + "), most recently " + verb + (last.opponent && last.opponent.displayName) + " " + score + ".";
+      if (run >= 2 && ch !== "T") { line += " That is " + run + " straight " + (ch === "W" ? "wins." : "losses."); moods.push({ name: lf.team.displayName, ch: ch, run: run }); }
+      forms.push(line);
+    });
+    if (forms.length) secs.push({ h: "Recent form", p: forms.join(" ") });
+
+    // Odds and ESPN's predictor.
+    var pc = d.pickcenter && d.pickcenter[0], odds = [];
+    if (pc && pc.details) odds.push("The line is " + pc.details + (pc.overUnder ? " with a total of " + pc.overUnder : "") + (pc.provider && pc.provider.name ? " (" + pc.provider.name + ")" : "") + ".");
+    var pr = d.predictor;
+    if (pr && pr.homeTeam && pr.awayTeam) {
+      var hp = parseFloat(pr.homeTeam.gameProjection), ap = parseFloat(pr.awayTeam.gameProjection);
+      if (isFinite(hp) && isFinite(ap) && hp !== ap) {
+        var top = hp > ap ? pr.homeTeam : pr.awayTeam;
+        odds.push("ESPN's matchup predictor gives " + abbrOf[String(top.id)] + " a " + Math.max(hp, ap) + "% chance.");
+      }
+    }
+    if (odds.length) secs.push({ h: "Odds and outlook", p: odds.join(" ") });
+
+    // Momentum angle on top.
+    var up = moods.filter(function (m) { return m.ch === "W"; })[0], down = moods.filter(function (m) { return m.ch === "L"; })[0];
+    if (up && down) secs.unshift({ h: "Storyline", p: up.name + " come in hot, while " + down.name + " are trying to stop a slide. Something has to give." });
+    else if (up) secs.unshift({ h: "Storyline", p: up.name + " bring momentum into this one." });
+    else if (down) secs.unshift({ h: "Storyline", p: down.name + " are looking to snap a losing streak." });
+
+    // Season leaders.
+    var ld = [];
+    (d.leaders || []).forEach(function (tl) {
+      var parts = (tl.leaders || []).slice(0, 2).map(function (c) {
+        var top = c.leaders && c.leaders[0];
+        return top && top.athlete ? top.athlete.displayName + " (" + (c.displayName || c.name) + ": " + top.displayValue + ")" : null;
+      }).filter(Boolean);
+      if (parts.length && tl.team) ld.push(tl.team.abbreviation + ": " + parts.join(", "));
+    });
+    if (ld.length) secs.push({ h: "Players to watch", p: ld.join(". ") + "." });
+
+    // Injuries that matter this week.
+    var inj = [];
+    (d.injuries || []).forEach(function (ti) {
+      var list = (ti.injuries || []).filter(function (i) { return /out|doubtful|questionable|day/i.test(i.status || "") && !/reserve/i.test(i.status || ""); }).slice(0, 4).map(function (i) {
+        var pos = i.athlete && i.athlete.position && i.athlete.position.abbreviation;
+        return i.athlete.displayName + " (" + (pos ? pos + ", " : "") + i.status + ")";
+      });
+      if (list.length && ti.team) inj.push(ti.team.abbreviation + ": " + list.join(", "));
+    });
+    if (inj.length) secs.push({ h: "Injuries", p: inj.join(". ") + "." });
+
+    // Series, venue, weather and TV.
+    var ss = d.seasonseries && d.seasonseries[0] && d.seasonseries[0].summary;
+    var gi = d.gameInfo || {}, v = gi.venue, set = [];
+    if (ss) set.push("Season series: " + ss + ".");
+    if (v && v.fullName) set.push("At " + v.fullName + (v.address && v.address.city ? " in " + v.address.city : "") + (gi.weather && gi.weather.temperature ? " (" + gi.weather.temperature + "°F)" : "") + ".");
+    var bc = ((d.header && d.header.competitions && d.header.competitions[0] && d.header.competitions[0].broadcasts) || []).map(function (b) { return b.media && b.media.shortName; }).filter(Boolean);
+    if (bc.length) set.push("TV: " + bc.filter(function (x, i) { return bc.indexOf(x) === i; }).join(", ") + ".");
+    if (set.length) secs.push({ h: "Where and when", p: set.join(" ") });
+    return secs;
+  }
+
   // Box score, player tables, plays and a matchup preview for one game.
   function fetchGame(lk, id) {
     var lg = labelOf(lk);
@@ -109,10 +185,13 @@
           var r = c.record && (c.record.filter(function (z) { return z.type === "total"; })[0] || c.record[0]);
           return r && (r.summary || r.displayValue) ? " (" + (r.summary || r.displayValue) + ")" : "";
         };
+        var split = function (c, t) { var r = (c.record || []).filter(function (z) { return z.type === t; })[0]; return r ? (r.summary || r.displayValue) : ""; };
         var s = away.team.displayName + rec(away) + " visit " + home.team.displayName + rec(home) + ".";
-        var pc = d.pickcenter && d.pickcenter[0];
-        if (pc && pc.details) s += " Line: " + pc.details + (pc.overUnder ? ", over/under " + pc.overUnder : "") + ".";
+        if (split(away, "road") && split(home, "home")) s += " " + away.team.abbreviation + " is " + split(away, "road") + " on the road; " + home.team.abbreviation + " is " + split(home, "home") + " at home.";
         out.preview = s;
+        out.narrative = narrative(d, away, home);
+        var art = d.article;
+        if (art && art.headline && art.links && art.links.web && art.links.web.href) out.link = { text: art.headline, href: art.links.web.href };
       }
 
       var tm = box.teams || [];
@@ -228,7 +307,7 @@
       var opp = cs.filter(function (c) { return String(c.team.id) !== me; })[0];
       if (!mine || !opp) return null;
       var st = ((comp.status || ev.status || {}).type || {}).state;
-      return { id: ev.id, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp) };
+      return { id: ev.id, st: (ev.seasonType || {}).type, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp) };
     }).filter(Boolean);
   }
   // Standing (rank, record, streak) and schedule for one team.
