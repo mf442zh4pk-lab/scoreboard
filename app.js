@@ -484,10 +484,11 @@
     var around = el("section", "grp"); around.appendChild(el("h2", null, "League by league"));
     LG.forEach(function (l) {
       var list = items.filter(function (x) { return x.lk === l.key; }).sort(function (a, b) { return b.heat - a.heat; });
-      if (!list.length) return;
+      if (!list.length && l.lazy) return;
       var box = el("div", "lgbox" + (YCOL[l.key] ? " shut" : "")), more = S.ymore[l.key], LIM = 10;
+      if (!list.length) box.hidden = true;
       var hb = el("button", "lgh"); hb.type = "button"; hb.setAttribute("aria-expanded", YCOL[l.key] ? "false" : "true");
-      hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(el("span", "lgh-n", String(list.length))); hb.appendChild(el("span", "lgh-c", "\u25BE"));
+      hb.appendChild(el("span", "lgh-t", l.label)); var cnt = el("span", "lgh-n", list.length ? String(list.length) : "news"); hb.appendChild(cnt); hb.appendChild(el("span", "lgh-c", "\u25BE"));
       hb.onclick = function () {
         var shut = box.classList.toggle("shut"); hb.setAttribute("aria-expanded", shut ? "false" : "true");
         if (shut) YCOL[l.key] = 1; else delete YCOL[l.key];
@@ -495,6 +496,20 @@
       };
       box.appendChild(hb);
       var body = el("div", "lgb"); box.appendChild(body);
+      var nw = el("div", "news"); nw.hidden = true;
+      ESPN.fetchNews(l.key).then(function (ns) {
+        if (!ns.length) return;
+        nw.appendChild(el("div", "news-l", "In the news"));
+        ns.slice(0, list.length ? 3 : 4).forEach(function (n) {
+          var ai = el("a", "ni"); ai.href = n.link; ai.target = "_blank"; ai.rel = "noopener";
+          ai.appendChild(el("span", "ni-h", n.h));
+          if (n.d) ai.appendChild(el("span", "ni-d", trunc(n.d, 140)));
+          var hrs = Math.max(1, Math.round((Date.now() - n.t) / 3600000));
+          ai.appendChild(el("span", "ni-w", (hrs < 24 ? hrs + "h ago" : Math.round(hrs / 24) + "d ago") + " \u00b7 ESPN \u203A"));
+          nw.appendChild(ai);
+        });
+        nw.hidden = false; box.hidden = false;
+      });
       var br = leagueBrief(list);
       if (br.length) {
         var bu = el("div", "brief");
@@ -506,8 +521,9 @@
           }
         });
         body.appendChild(bu);
+        body.appendChild(nw);
         body.appendChild(el("div", "bl-s", "All scores"));
-      }
+      } else body.appendChild(nw);
       (more ? list : list.slice(0, LIM)).forEach(function (x) {
         var g = x.g, r = el("div", "srow");
         if (g.ev) r.appendChild(el("span", "sr-t", headline(x)));
@@ -1310,5 +1326,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=32").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=33").catch(function () {}); } catch (e) {} });
 })();
