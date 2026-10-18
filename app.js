@@ -437,6 +437,13 @@
       var lw = el("div", "nar"), la = el("a", null, (rc ? "ESPN recap: " : "ESPN preview: ") + d.link.text + " ↗");
       la.href = d.link.href; la.target = "_blank"; la.rel = "noopener"; lw.appendChild(la); pv.appendChild(lw);
     }
+    // Followed teams' finished games get a one-tap YouTube search for the full-game highlights (no extra requests).
+    if (rc && isFollowed(g)) {
+      var yq = g.a[0] + " vs " + g.h[0] + " full game highlights " + new Date(g.t).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      var yw = el("div", "nar"), ya = el("a", null, "▶ Full game highlights on YouTube ↗");
+      ya.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(yq); ya.target = "_blank"; ya.rel = "noopener";
+      yw.appendChild(ya); pv.appendChild(yw);
+    }
     var preview = sec(rc ? "Game recap" : "Matchup preview", pv, up || !!rc, false);
     if (up || rc) list.push(preview);
 
