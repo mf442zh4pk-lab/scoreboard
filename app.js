@@ -365,6 +365,9 @@
         var t = l.soccer ? 1 : (TIGHT[l.key] || 2);
         x.tight = x.diff <= t;
         x.heat = (HEAT[l.key] || (l.soccer ? 30 : 20)) + (isFollowed(g) ? 120 : 0) + (g.o ? 25 : 0) + (x.tight ? 20 : 0) + (g.n ? 25 : 0);
+        // Ranked teams make games bigger; a ranked team losing to an unranked one is the day's biggest kind of story.
+        var rw = g.h[2] > g.a[2] ? g.h : g.a, rl = rw === g.h ? g.a : g.h;
+        if (g.h[6] || g.a[6]) x.heat += 20 + (Math.min(g.h[6] || 99, g.a[6] || 99) <= 10 ? 15 : 0) + (rl[6] && !rw[6] ? 45 : 0) + (rl[6] && rw[6] && rw[6] > rl[6] ? 25 : 0);
         out.push(x);
       });
     });
@@ -1356,5 +1359,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=35").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=36").catch(function () {}); } catch (e) {} });
 })();
