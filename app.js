@@ -433,23 +433,28 @@
     top.forEach(function (x, i) { gr.appendChild(storyCard(x, i === 0)); });
     sec.appendChild(gr); out.appendChild(sec);
 
-    // By the numbers
+    // By the numbers (always says which league each one is from)
     var nums = [];
-    var bl = games.slice().sort(function (a, b) { return b.diff - a.diff; })[0];
-    if (bl && bl.diff > 0) nums.push(["Biggest blowout", headline(bl)]);
-    var hi = games.filter(function (x) { return !x.lg.soccer && x.lk !== "nhl" && x.lk !== "mlb"; }).sort(function (a, b) { return b.tot - a.tot; })[0];
-    if (hi) nums.push(["Highest scoring", hi.g.a[0] + " " + hi.g.a[2] + ", " + hi.g.h[0] + " " + hi.g.h[2] + " (" + hi.tot + " combined)"]);
-    var ot = games.filter(function (x) { return x.g.o; })[0];
-    if (ot) nums.push(["Went to extra time", headline(ot)]);
+    var ratio = function (x) { return x.tot ? x.diff / x.tot : 0; };
+    var bl = games.filter(function (x) { return x.tot >= 4; }).sort(function (a, b) { return ratio(b) - ratio(a) || b.diff - a.diff; })[0];
+    if (bl && bl.diff > 0) nums.push(["Biggest blowout", bl]);
+    var hiL = {}, hi = games.filter(function (x) { return !x.lg.soccer && x.lk !== "nhl" && x.lk !== "mlb" && !/hockey|baseball|softball/.test(x.lg.path); })
+      .sort(function (a, b) { return b.tot - a.tot; }).filter(function (x) { if (hiL[x.lk]) return false; hiL[x.lk] = 1; return true; }).slice(0, 2);
+    hi.forEach(function (x) { nums.push(["Highest scoring", x, x.g.a[0] + " " + x.g.a[2] + ", " + x.g.h[0] + " " + x.g.h[2] + " (" + x.tot + " combined)"]); });
+    var ot = games.filter(function (x) { return x.g.o; });
+    if (ot.length) nums.push(["Went to extra time" + (ot.length > 1 ? " (" + ot.length + " games)" : ""), ot[0]]);
     if (nums.length) {
       var ns = el("section", "grp"); ns.appendChild(el("h2", null, "By the numbers"));
       var ul = el("ul", "nums");
-      nums.forEach(function (n) { var li = el("li"); li.appendChild(el("b", null, n[0])); li.appendChild(document.createTextNode(n[1])); ul.appendChild(li); });
+      nums.forEach(function (n) {
+        var li = el("li"), lb = el("b", null, n[0] + " \u00b7 " + n[1].ll);
+        li.appendChild(lb); li.appendChild(document.createTextNode(n[2] || headline(n[1]))); openX(li, n[1]); ul.appendChild(li);
+      });
       ns.appendChild(ul); out.appendChild(ns);
     }
 
-    // Every result, by league
-    var around = el("section", "grp"); around.appendChild(el("h2", null, "Around the leagues"));
+    // League by league: a short briefing for each league (what happened, what was close, who was lopsided), then every score.
+    var around = el("section", "grp"); around.appendChild(el("h2", null, "League by league"));
     LG.forEach(function (l) {
       var list = items.filter(function (x) { return x.lk === l.key; }).sort(function (a, b) { return b.heat - a.heat; });
       if (!list.length) return;
@@ -463,6 +468,17 @@
       };
       box.appendChild(hb);
       var body = el("div", "lgb"); box.appendChild(body);
+      var br = leagueBrief(list);
+      if (br.length) {
+        var bu = el("div", "brief");
+        br.forEach(function (b) {
+          var d = el("div", "bl"), lab = el("span", "bl-l", b[0]), tx = el("span", "bl-t", headline(b[1]));
+          d.appendChild(lab); d.appendChild(tx); d.appendChild(el("span", "sr-go", "\u203A")); openX(d, b[1]); bu.appendChild(d);
+          if (b[0] === "Game of the day" && !b[1].g.ev) ESPN.fetchNarrative(b[1].lk, b[1].g.id, true).then(function (n) { if (n && n.h) tx.textContent = n.h; }, function () {});
+        });
+        body.appendChild(bu);
+        body.appendChild(el("div", "bl-s", "All scores"));
+      }
       (more ? list : list.slice(0, LIM)).forEach(function (x) {
         var g = x.g, r = el("div", "srow");
         if (g.ev) r.appendChild(el("span", "sr-t", headline(x)));
@@ -471,7 +487,7 @@
           t.appendChild(el("b", null, W[0] + " " + W[2])); t.appendChild(document.createTextNode(", " + L[0] + " " + L[2])); r.appendChild(t);
         }
         var tg = el("span", "sr-g");
-        if (isFollowed(g)) tg.appendChild(el("span", "mk fol", "★"));
+        if (isFollowed(g)) tg.appendChild(el("span", "mk fol", "\u2605"));
         if (g.o) tg.appendChild(el("span", "mk", "OT"));
         else if (x.tight) tg.appendChild(el("span", "mk", "Close"));
         tg.appendChild(el("span", "sr-go", "\u203A")); r.appendChild(tg); openX(r, x); body.appendChild(r);
@@ -485,6 +501,19 @@
     });
     out.appendChild(around);
     out.appendChild(el("p", "rb dim", "Covers your main leagues plus any extra leagues you have opened."));
+  }
+  // The few lines that tell you what mattered in one league (skipped for tiny slates, where the scores say it all).
+  function leagueBrief(list) {
+    if (list.length <= 3) return [];
+    var used = {}, out = [], take = function (label, x) { if (!x || used[x.g.id]) return false; used[x.g.id] = 1; out.push([label, x]); return true; };
+    take("Game of the day", list[0]);
+    var games = list.filter(function (x) { return !x.g.ev; });
+    games.filter(function (x) { return x.g.o || x.tight; }).sort(function (a, b) { return (b.g.o ? 1 : 0) - (a.g.o ? 1 : 0) || a.diff - b.diff; }).slice(0, 2)
+      .forEach(function (x, i) { take(i ? "Also close" : "Down to the wire", x); });
+    var bl = games.filter(function (x) { return x.tot >= 4; }).sort(function (a, b) { return b.diff / b.tot - a.diff / a.tot; })[0];
+    if (bl && bl.diff / bl.tot >= 0.3) take("Biggest margin", bl);
+    games.filter(function (x) { return isFollowed(x.g); }).slice(0, 2).forEach(function (x) { take("Your team", x); });
+    return out;
   }
 
   // Top performers for yesterday's recaps (one box-score fetch per finished game, cached).
@@ -1251,5 +1280,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=29").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=30").catch(function () {}); } catch (e) {} });
 })();
