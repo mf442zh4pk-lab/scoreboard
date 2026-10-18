@@ -169,6 +169,14 @@
       a.appendChild(h);
       a.appendChild(el("div", "rl", t.line));
       a.appendChild(el("p", "rb", t.body));
+      // The whole card opens that game's detail page.
+      a.style.cursor = "pointer"; a.tabIndex = 0; a.setAttribute("role", "button");
+      a.setAttribute("aria-label", "Open game: " + t.line);
+      (function (t) {
+        var go = function () { openGame({ lk: t.lk, g: { id: t.gid } }); };
+        a.onclick = go;
+        a.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+      })(t);
       var L = (S.leaders[t.gid] || []).filter(function (l) { return l.team === t.abbr; }).slice(0, 3);
       if (L.length) {
         var ul = el("ul", "lead");
@@ -179,6 +187,7 @@
         });
         a.appendChild(ul);
       }
+      a.appendChild(el("div", "rl", "Box score and recap ›"));
       gr.appendChild(a);
     });
     out.appendChild(gr);
