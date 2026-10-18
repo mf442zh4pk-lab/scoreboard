@@ -269,3 +269,5 @@ footer,.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:28px}
 .msearch{width:100%;box-sizing:border-box;margin:8px 0 2px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font:500 15px var(--bd)}
 .msearch:focus{outline:2px solid var(--pri);outline-offset:-1px}
 .mres{max-height:55vh;overflow-y:auto}
+.sub-h{margin:14px 0 8px;font:700 14px var(--hd);letter-spacing:.1em;text-transform:uppercase;color:var(--ter)}
+.grp h2+.sub-h{margin-top:4px}
