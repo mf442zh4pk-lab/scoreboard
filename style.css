@@ -296,3 +296,11 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .narr-a{display:inline-block;margin:0 0 4px;color:var(--pri);font:700 12px var(--bd);text-decoration:none}
 .narr-a:hover{text-decoration:underline}
 .narr-s{margin-top:2px;font-size:11px;color:var(--mute);letter-spacing:.04em}
+.news{margin:4px 14px 8px;padding-top:6px;border-top:1px solid var(--line)}
+.news-l{font:700 11px var(--bd);letter-spacing:.07em;text-transform:uppercase;color:var(--mute);margin:4px 0}
+.ni{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid var(--line);text-decoration:none;color:var(--fg)}
+.news-l+.ni{border-top:0}
+.ni-h{font-weight:600;font-size:14px;line-height:1.3}
+.ni:hover .ni-h{color:var(--pri);text-decoration:underline;text-underline-offset:3px}
+.ni-d{font-size:13px;line-height:1.4;color:var(--mute)}
+.ni-w{font-size:11px;color:var(--pri);font-weight:700;letter-spacing:.03em}
