@@ -4,10 +4,22 @@
   var C = window.CONFIG, LG = C.leagues, DAY = ESPN.DAY;
   var $ = function (id) { return document.getElementById(id); };
 
-  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false };
+  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {} };
   var openState = {};   // remembers which detail sections you opened or closed
   LG.forEach(function (l) { S.games[l.key] = []; });
+  var DEFAULT_FOLLOWED = C.followed.slice();
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
+  try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
+  function applyTheme() {
+    var t = "auto";
+    try { t = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
+    if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  }
+  applyTheme();
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.className = "show";
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, 6000);
+  }
 
   // ---------- helpers ----------
   function el(tag, cls, txt) {
@@ -58,7 +70,7 @@
       var res = mine[2] > opp[2] ? "W" : mine[2] < opp[2] ? "L" : "T";
       var hi = mine[2] >= opp[2] ? [mine, opp] : [opp, mine];
       return {
-        name: name, played: true, result: res,
+        name: name, played: true, result: res, gid: g.id, lk: x.lk, abbr: mine[1],
         line: hi[0][0] + " " + hi[0][2] + ", " + hi[1][0] + " " + hi[1][2],
         body: (res === "W" ? "Won " : res === "L" ? "Lost " : "Tied ") + Math.max(mine[2], opp[2]) + "-" + Math.min(mine[2], opp[2]) +
           (home ? " at home against " : " on the road at ") + opp[0] + "." + nextUp(all, name),
@@ -79,7 +91,9 @@
       var row = el("div", "row" + (has && r[1] < r[2] && g.s === "final" ? " lose" : ""));
       var tm = el("div", "tm");
       tm.appendChild(el("span", "ab", r[0][1]));
-      tm.appendChild(el("span", "nm", r[0][0]));
+      var nmw = el("span", "nmw"); nmw.appendChild(el("span", "nm", r[0][0]));
+      if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
+      tm.appendChild(nmw);
       row.appendChild(tm);
       row.appendChild(el("span", "sc", has ? String(r[1]) : "–"));
       c.appendChild(row);
@@ -125,9 +139,138 @@
       a.appendChild(h);
       a.appendChild(el("div", "rl", t.line));
       a.appendChild(el("p", "rb", t.body));
+      var L = (S.leaders[t.gid] || []).filter(function (l) { return l.team === t.abbr; }).slice(0, 3);
+      if (L.length) {
+        var ul = el("ul", "lead");
+        L.forEach(function (l) {
+          var li = el("li"); li.appendChild(el("b", null, l.name));
+          li.appendChild(document.createTextNode(" · " + l.line + (l.cat ? " (" + l.cat.replace(/ Leader$/i, "") + ")" : "")));
+          ul.appendChild(li);
+        });
+        a.appendChild(ul);
+      }
       gr.appendChild(a);
     });
     out.appendChild(gr);
+  }
+
+  // Top performers for yesterday's recaps (one box-score fetch per finished game, cached).
+  function loadLeaders() {
+    if (!S.yesterday) return;
+    S.yesterday.teams.forEach(function (t) {
+      if (!t.played || S.leaders[t.gid] !== undefined) return;
+      S.leaders[t.gid] = null;
+      ESPN.fetchGame(t.lk, t.gid).then(function (d) {
+        S.leaders[t.gid] = d.leaders || [];
+        if (S.tab === "yesterday" && !S.view && !S.settings) render();
+      }, function () { delete S.leaders[t.gid]; });
+    });
+  }
+
+  // ---------- my teams (record, standing, schedule) ----------
+  function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function loadTeam(name) {
+    if (S.teams[name]) return;
+    S.teams[name] = { loading: true };
+    ESPN.findTeam(name).then(function (f) {
+      if (!f) return { missing: true };
+      return ESPN.fetchTeamInfo(f.lk, f.id);
+    }).then(function (i) { S.teams[name] = Object.assign({ done: true }, i); }, function () { S.teams[name] = { done: true, error: true }; })
+      .then(function () { if (S.tab === "teams" && !S.view && !S.settings) render(); });
+  }
+  function gameList(label, gs) {
+    var w = el("div", "tgl"); w.appendChild(el("h4", null, label));
+    if (!gs.length) { w.appendChild(el("p", "rb", label === "Next" ? "No upcoming games found." : "No results yet.")); return w; }
+    gs.forEach(function (g) {
+      var r = el("div", "tg");
+      r.appendChild(el("span", "tgd", g.s === "final" ? new Date(g.t).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : when(g.t)));
+      r.appendChild(el("span", "tgo", (g.home ? "vs " : "at ") + g.opp));
+      if (g.s === "final" && g.my != null && g.op != null) {
+        var res = g.my > g.op ? "W" : g.my < g.op ? "L" : "T";
+        r.appendChild(el("span", "tgr" + (res === "W" ? " win" : ""), res + " " + g.my + "-" + g.op));
+      } else if (g.s === "live") r.appendChild(el("span", "tgr", "Live"));
+      w.appendChild(r);
+    });
+    return w;
+  }
+  function renderTeams(out) {
+    var gr = el("div", "recaps");
+    C.followed.forEach(function (name) {
+      loadTeam(name);
+      var T = S.teams[name] || {};
+      var a = el("article", "recap"), h = el("div", "rh");
+      h.appendChild(el("h3", null, name));
+      if (T.standing) h.appendChild(el("span", "res rc", T.standing.record));
+      a.appendChild(h);
+      if (T.standing) a.appendChild(el("div", "rl", ordinal(T.standing.rank) + " in " + T.standing.group + (T.standing.streak ? " · streak " + T.standing.streak : "")));
+      if (!T.done) a.appendChild(el("p", "rb", "Loading…"));
+      else if (T.missing || T.error) a.appendChild(el("p", "rb", "Could not load this team right now."));
+      else {
+        var gs = T.games || [];
+        a.appendChild(gameList("Next", gs.filter(function (g) { return g.s !== "final"; }).sort(byTime).slice(0, 5)));
+        a.appendChild(gameList("Last", gs.filter(function (g) { return g.s === "final"; }).sort(function (x, y) { return byTime(y, x); }).slice(0, 3)));
+      }
+      gr.appendChild(a);
+    });
+    out.appendChild(gr);
+  }
+
+  // ---------- settings ----------
+  function setFollowed(list) {
+    C.followed = list;
+    try { localStorage.setItem("sb-followed", JSON.stringify(list)); } catch (e) {}
+    S.teams = {}; S.yesterday = buildYesterday(new Date()); loadLeaders(); render(); load(true);
+  }
+  function renderSettings(out) {
+    var box = el("div", "set");
+    box.appendChild(el("h3", null, "Teams you follow"));
+    var ul = el("ul", "fl");
+    C.followed.forEach(function (n) {
+      var li = el("li"); li.appendChild(el("span", null, n));
+      var x = el("button", null, "Remove"); x.type = "button";
+      x.onclick = function () { setFollowed(C.followed.filter(function (q) { return q !== n; })); };
+      li.appendChild(x); ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    var names = {};
+    allGames().forEach(function (x) { names[x.g.h[0]] = 1; names[x.g.a[0]] = 1; });
+    var f = el("form", "add"), inp = el("input"), dl = el("datalist"), add = el("button", null, "Add");
+    inp.placeholder = "Add a team (start typing)"; inp.setAttribute("list", "teamnames"); inp.setAttribute("aria-label", "Team name");
+    dl.id = "teamnames"; add.type = "submit";
+    function fill() { dl.textContent = ""; Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); }); }
+    fill();
+    ESPN.fetchTeams().then(function (v) { Object.keys(v).forEach(function (k) { v[k].forEach(function (t) { names[t.name] = 1; }); }); fill(); });
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var q = inp.value.trim().toLowerCase();
+      var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q; })[0];
+      if (!hit) { toast("Pick a team from the suggestions so the name matches ESPN."); return; }
+      if (C.followed.indexOf(hit) < 0) setFollowed(C.followed.concat([hit]));
+    };
+    f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+
+    box.appendChild(el("h3", null, "Theme"));
+    var seg = el("div", "seg"), cur = "auto";
+    try { cur = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
+    [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].forEach(function (o) {
+      var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", o[0] === cur ? "true" : "false");
+      b.onclick = function () { try { localStorage.setItem("sb-theme", o[0]); } catch (e) {} applyTheme(); render(); };
+      seg.appendChild(b);
+    });
+    box.appendChild(seg);
+
+    box.appendChild(el("h3", null, "Reset"));
+    var rs = el("button", null, "Back to default teams"); rs.type = "button";
+    rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
+    box.appendChild(rs);
+    out.appendChild(box);
+  }
+
+  function shareGame() {
+    var g = S.view.x.g, data = { title: g.a[0] + " at " + g.h[0], url: location.href };
+    if (navigator.share) { navigator.share(data).catch(function () {}); return; }
+    try { navigator.clipboard.writeText(location.href).then(function () { toast("Link copied"); }, function () { toast("Could not copy the link"); }); }
+    catch (e) { toast("Could not copy the link"); }
   }
 
   // ---------- detail view ----------
@@ -163,7 +306,9 @@
   function renderDetail(out) {
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
     var back = el("button", "back", "← All scores"); back.type = "button"; back.onclick = closeGame;
-    out.appendChild(back);
+    var nav = el("div", "navbar"); nav.appendChild(back);
+    var shb = el("button", "back", "Share ↗"); shb.type = "button"; shb.onclick = shareGame; nav.appendChild(shb);
+    out.appendChild(nav);
     var hd = el("div", "dhead"); hd.appendChild(card(v.x)); out.appendChild(hd);
     if (d === undefined) { out.appendChild(el("p", "rmsg", "Loading box score…")); return; }
     if (d === null) { out.appendChild(el("p", "rmsg", "Could not load the box score right now. Try again in a moment.")); return; }
@@ -253,14 +398,14 @@
   function render() {
     var rail = $("rail"); rail.textContent = "";
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
-    var tabs = [["pinned", "Following", fol.length], ["yesterday", "What happened yesterday", null], ["all", "All", all.length]]
+    var tabs = [["pinned", "Following", fol.length], ["yesterday", "What happened yesterday", null], ["teams", "My teams", null], ["all", "All", all.length]]
       .concat(LG.map(function (l) { return [l.key, l.label, S.games[l.key].length]; }));
     tabs.forEach(function (t) {
       var b = el("button", "tab"); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", t[0] === S.tab ? "true" : "false");
       b.appendChild(document.createTextNode(t[1]));
       if (t[2] != null) b.appendChild(el("span", "n", String(t[2])));
       b.onclick = function () {
-        S.tab = t[0]; S.view = null; clearHash();
+        S.tab = t[0]; S.view = null; S.settings = false; clearHash();
         try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
         render();
       };
@@ -273,8 +418,10 @@
     $("about").textContent = about;
 
     if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Hit Refresh if nothing appears.")); return; }
+    if (S.settings) { renderSettings(out); return; }
     if (S.view) { renderDetail(out); return; }
     if (S.tab === "yesterday") { renderYesterday(out); return; }
+    if (S.tab === "teams") { renderTeams(out); return; }
 
     var items = S.tab === "pinned" ? fol : S.tab === "all" ? all : all.filter(function (x) { return x.lk === S.tab; });
     if (!items.length) { out.appendChild(notice("Nothing on right now", "No games for this view in the latest update.")); return; }
@@ -306,6 +453,9 @@
     for (var i = -1; i <= (full ? C.daysAhead : 0); i++) offsets.push(i);
     ESPN.fetchScores(offsets).then(function (r) {
       var before = JSON.stringify([S.games, S.yesterday]);
+      var prev = {};
+      allGames().forEach(function (x) { if (isFollowed(x.g)) prev[x.g.id] = x.g; });
+      if (full) S.teams = {};
       LG.forEach(function (l) {
         if (r.failed.indexOf(l.key) >= 0) return;          // keep the last good data for a league that errored
         var byId = {};
@@ -318,6 +468,15 @@
       S.last = Date.parse(r.updated) || Date.now();
       var firstLoad = !S.ready;
       S.ready = true;
+      if (!firstLoad) allGames().forEach(function (x) {
+        var g = x.g, p = prev[g.id];
+        if (!p || !isFollowed(g)) return;
+        var line = g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2];
+        if (g.s === "final" && p.s !== "final") toast("Final: " + line);
+        else if (g.s === "live" && p.s === "up") toast("Game started: " + g.a[0] + " at " + g.h[0]);
+        else if (g.s === "live" && (p.h[2] !== g.h[2] || p.a[2] !== g.a[2])) toast("Score: " + line);
+      });
+      loadLeaders();
       var changed = JSON.stringify([S.games, S.yesterday]) !== before;
 
       if (S.view) {
@@ -328,8 +487,8 @@
           if (nx.g.s !== "final") loadDetail();
           if (moved) render();
         }
-      } else if (changed || firstLoad) {
-        render();
+      } else if (changed || firstLoad || S.tab === "teams") {
+        if (!S.settings) render();
       }
       if (firstLoad) syncFromHash();
     }).catch(function () {
@@ -351,5 +510,23 @@
   });
   setInterval(function () { if (!document.hidden && anyLive()) load(false); }, C.liveRefreshSeconds * 1000);
   setInterval(stampTick, 30000);
+  $("gear").onclick = function () { S.settings = !S.settings; S.view = null; clearHash(); render(); };
+
+  // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
+  (function () {
+    var ptr = $("ptr"), y0 = null, pull = 0;
+    window.addEventListener("touchstart", function (e) { y0 = window.scrollY <= 0 && !S.loading ? e.touches[0].clientY : null; pull = 0; }, { passive: true });
+    window.addEventListener("touchmove", function (e) {
+      if (y0 == null) return;
+      pull = e.touches[0].clientY - y0;
+      ptr.style.opacity = pull > 15 ? Math.min(1, pull / 80) : 0;
+      ptr.textContent = pull > 80 ? "Release to refresh" : "Pull to refresh";
+    }, { passive: true });
+    window.addEventListener("touchend", function () {
+      if (y0 != null && pull > 80) load(true);
+      ptr.style.opacity = 0; y0 = null;
+    });
+  })();
+
   render(); stampTick(); load(true);
 })();
