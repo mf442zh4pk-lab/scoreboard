@@ -460,6 +460,7 @@
     if (S.loading) return;
     S.loading = true;
     var btn = $("refresh"); btn.disabled = true; btn.textContent = "Refreshing"; stampTick();
+    document.body.classList.add("ld");
     var offsets = [];
     for (var i = -1; i <= (full ? C.daysAhead : 0); i++) offsets.push(i);
     ESPN.fetchScores(offsets).then(function (r) {
@@ -506,6 +507,8 @@
       $("stamp").textContent = "Could not reach the score server"; $("dot").className = "dot stale";
     }).then(function () {
       S.loading = false; btn.disabled = false; btn.textContent = "Refresh"; stampTick();
+      document.body.classList.remove("ld");
+      if (window.ptrDone) window.ptrDone();
     });
   }
   function anyLive() { return allGames().some(function (x) { return x.g.s === "live"; }); }
@@ -525,17 +528,29 @@
 
   // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
   (function () {
-    var ptr = $("ptr"), y0 = null, pull = 0;
-    window.addEventListener("touchstart", function (e) { y0 = window.scrollY <= 0 && !S.loading ? e.touches[0].clientY : null; pull = 0; }, { passive: true });
+    var ptr = $("ptr"), ring = ptr.querySelector(".ring"), lbl = ptr.querySelector(".pl"), y0 = null, pull = 0, armed = false, TH = 80;
+    function show(y, text, cls) { ptr.style.opacity = "1"; ptr.style.transform = "translate(-50%," + y + "px)"; lbl.textContent = text; ptr.className = cls || ""; }
+    function hide() { ptr.style.opacity = "0"; ptr.style.transform = "translate(-50%,-30px)"; ptr.className = ""; }
+    // Called when a refresh finishes: flash "Updated" if the refresh came from a pull.
+    window.ptrDone = function () {
+      if (!ptr.classList.contains("busy")) return;
+      show(14, "Updated", "ok"); setTimeout(hide, 900);
+    };
+    window.addEventListener("touchstart", function (e) { y0 = window.scrollY <= 0 && !S.loading ? e.touches[0].clientY : null; pull = 0; armed = false; }, { passive: true });
     window.addEventListener("touchmove", function (e) {
       if (y0 == null) return;
-      pull = e.touches[0].clientY - y0;
-      ptr.style.opacity = pull > 15 ? Math.min(1, pull / 80) : 0;
-      ptr.textContent = pull > 80 ? "Release to refresh" : "Pull to refresh";
+      pull = Math.max(0, e.touches[0].clientY - y0);
+      if (pull < 8) { hide(); return; }
+      var ready = pull >= TH;
+      show(Math.min(pull * 0.5, 56), ready ? "Release to refresh" : "Pull to refresh", ready ? "armed" : "");
+      ring.style.transform = "rotate(" + pull * 3 + "deg)";
+      if (ready && !armed) { try { if (navigator.vibrate) navigator.vibrate(12); } catch (e2) {} }
+      armed = ready;
     }, { passive: true });
     window.addEventListener("touchend", function () {
-      if (y0 != null && pull > 80) load(true);
-      ptr.style.opacity = 0; y0 = null;
+      if (y0 != null && pull >= TH) { show(30, "Refreshing…", "busy"); ring.style.transform = ""; load(true); }
+      else hide();
+      y0 = null; armed = false;
     });
   })();
 
