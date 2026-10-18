@@ -343,3 +343,29 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .hbar i{display:block;height:100%;border-radius:3px;background:var(--mute)}
 .hbar i.up{background:var(--win)} .hbar i.down{background:var(--live)}
 .hr{display:flex;align-items:center;gap:6px;font-size:13px}
+/* v38: active streaks + cross-sport overview */
+.hcold{font-size:12px;color:var(--mute);margin:10px 0 0}
+.ovs{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}
+.ov{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.ov summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;list-style:none}
+.ov summary::-webkit-details-marker{display:none}
+.ov summary::after{content:"\203A";margin-left:auto;color:var(--mute);transition:transform .15s}
+.ov[open] summary::after{transform:rotate(90deg)}
+.ovt{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mute)}
+.dvw,.fgw{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.dv,.fg{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) auto;gap:8px;align-items:center}
+.dvn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dvs{font-size:12px;font-weight:700;min-width:44px;text-align:right}
+.dvt{position:relative;height:14px;background:var(--pri-soft);border-radius:7px}
+.dvt::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--mute);opacity:.6}
+.dvt i{position:absolute;top:2px;bottom:2px;border-radius:5px}
+.dvt i.w{background:var(--win)} .dvt i.l{background:var(--live)} .dvt i.t{background:var(--mute)}
+.hbar.tall{height:10px;margin:0}
+.fgd{display:flex;gap:4px}
+.fgd i{width:11px;height:11px;border-radius:50%;background:var(--mute);display:block;flex:none}
+.fgd i.w{background:var(--win)} .fgd i.l{background:var(--live)}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
+.wd{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wdl{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.wc{background:var(--pri-soft);border-radius:6px;padding:4px;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wc small{display:block;font-weight:400;color:var(--mute);font-size:10px;overflow:hidden;text-overflow:ellipsis}
