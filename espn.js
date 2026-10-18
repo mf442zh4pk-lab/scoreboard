@@ -51,7 +51,7 @@
     var st = stateOf(ev);
     function side(c) {
       var n = st === "up" || c.score == null || c.score === "" ? null : Number(c.score);
-      return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id, logoOf(c.team)];
+      return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id, logoOf(c.team), c.curatedRank && c.curatedRank.current <= 25 ? c.curatedRank.current : 0];
     }
     var g = { id: ev.id, lk: lk, s: st, t: ev.date, h: side(home), a: side(away) };
     if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
