@@ -168,7 +168,50 @@
     return secs;
   }
 
-  // Box score, player tables, plays and a matchup preview for one game.
+  function recapOf(d, away, home, leaders) {
+    var as = Number(away.score), hs = Number(home.score);
+    if (!isFinite(as) || !isFinite(hs)) return null;
+    var win = hs > as ? home : away, lose = win === home ? away : home;
+    var ws = Math.max(as, hs), ls = Math.min(as, hs), tie = as === hs;
+    var secs = [];
+    var art = d.article;
+    var head = (art && art.headline) || (tie ? away.team.displayName + " and " + home.team.displayName + " tied " + as + "-" + hs + "." : win.team.displayName + " beat " + lose.team.displayName + " " + ws + "-" + ls + ".");
+    if (art && art.description) secs.push({ h: "The story", p: String(art.description).replace(/^[\s—–-]+/, "") });
+
+    // How it unfolded: lead changes and biggest leads from the scoring plays.
+    var sp = (d.scoringPlays || []).filter(function (p) { return isFinite(Number(p.awayScore)) && isFinite(Number(p.homeScore)); });
+    if (sp.length > 2 && !tie) {
+      var lead = 0, changes = 0, maxW = 0, maxL = 0, ties = 0;
+      sp.forEach(function (p) {
+        var m = Number(p.homeScore) - Number(p.awayScore), side = m === 0 ? 0 : m > 0 ? 1 : -1;
+        if (side === 0) ties++;
+        if (side !== 0 && lead !== 0 && side !== lead) changes++;
+        if (side !== 0) lead = side;
+        var wm = win === home ? m : -m;
+        if (wm > maxW) maxW = wm;
+        if (-wm > maxL) maxL = -wm;
+      });
+      var line = [];
+      if (changes === 0 && maxL === 0) line.push(win.team.displayName + " led from the first score to the last.");
+      else line.push("The lead changed hands " + changes + (changes === 1 ? " time" : " times") + ".");
+      if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + (maxW === 1 ? " point" : " points") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
+      var lastP = sp[sp.length - 1];
+      if (lastP && lastP.text) line.push("The final score came on: " + lastP.text + ".");
+      secs.push({ h: "How it unfolded", p: line.join(" ") });
+    }
+
+    // Top performers from the feed's game leaders (up to three per team).
+    var by = {}, order = [];
+    leaders.forEach(function (l) {
+      if (!by[l.team]) { by[l.team] = []; order.push(l.team); }
+      if (by[l.team].length < 3) by[l.team].push(l.name + " " + l.line + (l.cat ? " (" + l.cat.replace(/ Leader$/i, "") + ")" : ""));
+    });
+    if (order.length) secs.push({ h: "Top performers", p: order.map(function (t) { return t + ": " + by[t].join("; ") + "."; }).join(" ") });
+
+    return { head: head, secs: secs };
+  }
+
+  // Box score, player tables, plays and a matchup preview (or, once final, a recap) for one game.
   function fetchGame(lk, id) {
     var lg = labelOf(lk);
     return getJson(BASE + "/" + lg.path + "/summary?event=" + encodeURIComponent(id)).then(function (d) {
@@ -238,6 +281,9 @@
           if (top && top.athlete) out.leaders.push({ team: ab, cat: cat.displayName || cat.name || "", name: top.athlete.displayName, line: top.displayValue || "" });
         });
       });
+
+      // Finished games: a written recap from ESPN's own recap blurb, the scoring flow and the game leaders.
+      if (comp && comp.status && comp.status.type && comp.status.type.completed && away && home) out.recap = recapOf(d, away, home, out.leaders);
 
       var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [];
       out.plays = src.slice(-25).reverse().map(function (p) {
