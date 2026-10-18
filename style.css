@@ -65,6 +65,9 @@ h1{font:800 34px/1 var(--hd);letter-spacing:.02em;text-transform:uppercase;margi
 .tag.fol{color:var(--ter);font-weight:700}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0}
 .row.lose{opacity:.55}
+.ab.lg{background:#fff;border:1px solid var(--line);padding:0;height:36px;display:flex;align-items:center;justify-content:center}
+.ab.lg img{width:28px;height:28px;object-fit:contain;display:block}
+.ab.lg.sm{display:inline-flex;vertical-align:middle;width:36px;height:36px;margin-right:10px}
 .tm{display:flex;align-items:center;gap:10px;min-width:0}
 .ab{flex:none;width:44px;text-align:center;background:var(--pri-soft);color:var(--pri);border-radius:8px;padding:3px 0;font:700 14px var(--hd);letter-spacing:.04em}
 .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
