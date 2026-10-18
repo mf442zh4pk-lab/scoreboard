@@ -287,3 +287,12 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .bl-t{min-width:0;font-weight:600}
 .bl-s{margin:6px 14px 0;padding-top:8px;border-top:1px solid var(--line);font:700 11px var(--bd);letter-spacing:.07em;text-transform:uppercase;color:var(--mute)}
 .bl-s+.srow{border-top:0}
+.narr{margin:0 14px 8px;padding:8px 12px;border-left:3px solid var(--ter);background:var(--ter-soft);border-radius:0 8px 8px 0}
+.story .narr{margin:6px 0 0}
+.narr-p{margin:0 0 6px;font-size:13.5px;line-height:1.5;color:var(--fg)}
+.narr-more .narr-p:last-child{margin-bottom:6px}
+.narr-t{border:0;background:none;color:var(--pri);font:700 12px var(--bd);padding:2px 0;cursor:pointer}
+.narr-t:hover{text-decoration:underline}
+.narr-a{display:inline-block;margin:0 0 4px;color:var(--pri);font:700 12px var(--bd);text-decoration:none}
+.narr-a:hover{text-decoration:underline}
+.narr-s{margin-top:2px;font-size:11px;color:var(--mute);letter-spacing:.04em}
