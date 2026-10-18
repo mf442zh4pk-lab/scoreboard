@@ -4,9 +4,11 @@
   var C = window.CONFIG, LG = C.leagues, DAY = ESPN.DAY;
   var $ = function (id) { return document.getElementById(id); };
 
-  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {} };
+  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false };
   var openState = {};   // remembers which detail sections you opened or closed
-  var PINS = [], TC = {};
+  var PINS = [], TC = {}, EAGER = [];
+  try { EAGER = JSON.parse(localStorage.getItem("sb-eager") || "[]") || []; } catch (e) {}
+  function addEager(k) { if (EAGER.indexOf(k) < 0) { EAGER.push(k); try { localStorage.setItem("sb-eager", JSON.stringify(EAGER)); } catch (e) {} } }
   try { PINS = JSON.parse(localStorage.getItem("sb-pins") || "[]") || []; } catch (e) {}
   try { TC = JSON.parse(localStorage.getItem("sb-tcache") || "{}") || {}; } catch (e) {}
   function savePins() { try { localStorage.setItem("sb-pins", JSON.stringify(PINS)); } catch (e) {} }
@@ -59,7 +61,8 @@
     return h ? "in " + h + "h " + m + "m" : "in " + Math.max(1, m) + "m";
   }
   // Is this live game close and late? Rules per sport, read from the feed's status text ("2:10 - 4th", "Bot 8th", "78'").
-  var CLOSE = { nfl: [3, 8], ncaafb: [3, 8], nba: [3, 7], nhl: [2, 1], mlb: [6, 2], afl: [3, 12] };
+  var CLOSE = { nfl: [3, 8], ncaafb: [3, 8], nba: [3, 7], nhl: [2, 1], mlb: [6, 2], afl: [3, 12],
+    wnba: [3, 7], gleague: [3, 7], ncaamb: [2, 6], ncaawb: [3, 7], ufl: [3, 8], ncaah: [2, 1], ncaawh: [2, 1], ncaabsb: [6, 2], ncaasb: [5, 2], nll: [3, 3], pll: [3, 3], ncaaml: [3, 3] };
   function isClose(x) {
     var g = x.g, c = g.c || "", lg = leagueOf(x.lk);
     if (g.s !== "live" || g.h[2] == null || g.a[2] == null) return false;
@@ -428,13 +431,17 @@
     dl.id = "teamnames"; add.type = "submit";
     function fill() { dl.textContent = ""; Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); }); }
     fill();
-    ESPN.fetchTeams().then(function (v) { Object.keys(v).forEach(function (k) { v[k].forEach(function (t) { names[t.name] = 1; }); }); fill(); });
+    var addNames = function (v) { Object.keys(v).forEach(function (k) { v[k].forEach(function (t) { names[t.name] = 1; }); }); fill(); };
+    ESPN.fetchTeams().then(addNames); ESPN.fetchTeams(true).then(addNames);
     f.onsubmit = function (e) {
       e.preventDefault();
       var q = inp.value.trim().toLowerCase();
       var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q; })[0];
       if (!hit) { toast("Pick a team from the suggestions so the name matches ESPN."); return; }
-      if (C.followed.indexOf(hit) < 0) setFollowed(C.followed.concat([hit]));
+      if (C.followed.indexOf(hit) < 0) {
+        setFollowed(C.followed.concat([hit]));
+        ESPN.findTeam(hit).then(function (f) { var fl = f && leagueOf(f.lk); if (fl && fl.lazy) { addEager(f.lk); loadLeague(f.lk); } });
+      }
     };
     f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
 
@@ -457,7 +464,7 @@
 
   // One tap: copies a clean score line, ready to paste into Discord or a text.
   function copyScore() {
-    var x = S.view.x, g = x.g, em = { nfl: "🏈", ncaafb: "🏈", nba: "🏀", nhl: "🏒", mlb: "⚾", afl: "🏉", epl: "⚽", ucl: "⚽" }[x.lk] || "";
+    var x = S.view.x, g = x.g, pa = (leagueOf(x.lk) || {}).path || "", em = /^football/.test(pa) ? "🏈" : /^basketball/.test(pa) ? "🏀" : /^hockey/.test(pa) ? "🏒" : /^baseball/.test(pa) ? "⚾" : /^australian/.test(pa) ? "🏉" : /^soccer/.test(pa) ? "⚽" : /^volleyball/.test(pa) ? "🏐" : /^lacrosse/.test(pa) ? "🥍" : /^field-hockey/.test(pa) ? "🏑" : "";
     var txt = g.s === "up" ? g.a[0] + " at " + g.h[0] + " · " + when(g.t)
       : g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2] + " · " + (g.s === "final" ? "Final" : g.c || "Live");
     txt = (em ? em + " " : "") + txt;
@@ -489,8 +496,11 @@
   function perLabel(lk, i) {
     var lg = leagueOf(lk) || {};
     if (lg.soccer) return i === 0 ? "1H" : i === 1 ? "2H" : "ET";
-    if (lk === "nhl") return i < 3 ? "P" + (i + 1) : "OT";
-    if (lk === "mlb") return String(i + 1);
+    var pa = lg.path || "";
+    if (/^hockey/.test(pa)) return i < 3 ? "P" + (i + 1) : "OT";
+    if (/^baseball/.test(pa)) return String(i + 1);
+    if (lk === "ncaamb") return i < 2 ? (i + 1) + "H" : "OT";
+    if (/^volleyball/.test(pa)) return "S" + (i + 1);
     return i < 4 ? "Q" + (i + 1) : "OT" + (i > 4 ? i - 3 : "");
   }
   // Home win chance over the game as a tiny line chart (top = home team more likely to win).
@@ -680,8 +690,9 @@
       b.appendChild(el("span", "lbl", label));
       if (count != null) b.appendChild(el("span", "n", String(count)));
       b.onclick = function () {
-        S.tab = key; S.view = null; S.settings = false; clearHash();
+        S.tab = key; S.view = null; S.settings = false; S.more = false; clearHash();
         if (key === "yesterday") loadLeaders();
+        var lz = leagueOf(key); if (lz && lz.lazy) loadLeague(key);
         try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
         render();
       };
@@ -693,7 +704,10 @@
     main.appendChild(tab("teams", "My teams", null, "tab big", "⚑"));
     lgs.appendChild(el("span", "rail-lbl", "Leagues"));
     lgs.appendChild(tab("all", "All", all.length, "tab"));
-    LG.forEach(function (l) { lgs.appendChild(tab(l.key, l.label, S.games[l.key].length, "tab")); });
+    LG.forEach(function (l) { if (!l.lazy || l.key === S.tab) lgs.appendChild(tab(l.key, l.label, S.games[l.key].length || (l.lazy && S.lgState[l.key] === "loading" ? null : 0), "tab")); });
+    var mb = el("button", "tab more-btn", S.more ? "More leagues ▴" : "More leagues ▾"); mb.type = "button"; mb.setAttribute("aria-expanded", S.more ? "true" : "false");
+    mb.onclick = function () { S.more = !S.more; render(); };
+    lgs.appendChild(mb);
     rail.appendChild(main); rail.appendChild(lgs);
 
     var out = $("out"); out.textContent = "";
@@ -704,13 +718,18 @@
     if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Hit Refresh if nothing appears.")); return; }
     if (S.settings) { renderSettings(out); return; }
     if (S.view) { renderDetail(out); return; }
+    if (S.more) out.appendChild(morePanel());
     if (S.tab === "yesterday") { renderYesterday(out); return; }
     if (S.tab === "teams") { renderTeams(out); return; }
 
     var items = S.tab === "pinned" ? fol : S.tab === "all" ? all : all.filter(function (x) { return x.lk === S.tab; });
     var pins = all.filter(isPinned);
     items = items.filter(function (x) { return !isPinned(x); });
-    if (!items.length && !pins.length) { out.appendChild(notice("Nothing on right now", "No games for this view in the latest update.")); return; }
+    var cl = leagueOf(S.tab), cst = cl && S.lgState[cl.key];
+    if (!items.length && !pins.length) {
+      out.appendChild(cst === "loading" ? notice("Loading " + cl.label, "Fetching the latest games…") : cst === "failed" ? notice("Could not load " + cl.label, "Tap Refresh to try again.") : notice("Nothing on right now", "No games for this view in the latest update."));
+      return;
+    }
     var big = S.tab === "pinned";
     var close = items.filter(isClose).sort(function (a, b) { return Math.abs(a.g.h[2] - a.g.a[2]) - Math.abs(b.g.h[2] - b.g.a[2]); });
     var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; });
@@ -719,6 +738,27 @@
     [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big), group("Final", "", fin, big)].forEach(function (s) { if (s) out.appendChild(s); });
   }
 
+  // Picker for the extra leagues, grouped by sport.
+  function morePanel() {
+    var box = el("div", "more"), groups = {}, order = [];
+    LG.forEach(function (l) { if (!l.lazy) return; if (!groups[l.grp]) { groups[l.grp] = []; order.push(l.grp); } groups[l.grp].push(l); });
+    order.forEach(function (g) {
+      box.appendChild(el("h4", null, g));
+      var row = el("div", "opts");
+      groups[g].forEach(function (l) {
+        var b = el("button", "tab", l.label); b.type = "button";
+        b.setAttribute("aria-selected", S.tab === l.key ? "true" : "false");
+        b.onclick = function () {
+          S.tab = l.key; S.more = false; S.view = null; S.settings = false; clearHash();
+          try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
+          loadLeague(l.key); render(); window.scrollTo(0, 0);
+        };
+        row.appendChild(b);
+      });
+      box.appendChild(row);
+    });
+    return box;
+  }
   function stampTick() {
     var s = $("stamp"), d = $("dot");
     if (!S.last) { s.textContent = S.loading ? "Loading scores" : "No scores yet"; d.className = "dot"; return; }
@@ -736,6 +776,24 @@
 
   // ---------- loading ----------
   // full = true loads yesterday through the next few days; otherwise just yesterday and today.
+  // Core leagues always load. Extra leagues load when opened, or always if you follow a team there or pinned a game there.
+  function wantLeagues() {
+    var pinL = PINS.map(function (k) { return k.split("_")[0]; });
+    return LG.filter(function (l) { return !l.lazy || EAGER.indexOf(l.key) >= 0 || pinL.indexOf(l.key) >= 0 || S.lgState[l.key] === "done"; }).map(function (l) { return l.key; });
+  }
+  function loadLeague(key) {
+    var st = S.lgState[key];
+    if (st === "loading" || st === "done") return;
+    S.lgState[key] = "loading";
+    var offs = [];
+    for (var i = -1; i <= C.daysAhead; i++) offs.push(i);
+    var fin = function (ok, r) {
+      if (ok) { S.games[key] = trim(r.byLeague[key]); S.lgState[key] = "done"; saveCache(); } else S.lgState[key] = "failed";
+      if (!S.view && !S.settings) render();
+    };
+    ESPN.fetchScores(offs, [key]).then(function (r) { fin(r.failed.indexOf(key) < 0, r); }, function () { fin(false); });
+    if (!S.view && !S.settings) render();
+  }
   function saveCache() { try { localStorage.setItem("sb-cache", JSON.stringify({ at: S.last, g: S.games })); } catch (e) {} }
   function activeLeagues() {
     var o = {};
@@ -750,6 +808,9 @@
     var offsets = [];
     for (var i = -1; i <= (full ? C.daysAhead : 0); i++) offsets.push(i);
     if (only && !only.length) only = null;
+    if (!only) only = wantLeagues();
+    var cl = leagueOf(S.tab);
+    if (cl && cl.lazy && S.lgState[cl.key] === "failed") { S.lgState[cl.key] = ""; loadLeague(cl.key); }
     ESPN.fetchScores(offsets, only).then(function (r) {
       var before = JSON.stringify([S.games, S.yesterday]);
       var prev = {};
@@ -771,6 +832,7 @@
       saveCache();
       PINS = PINS.filter(function (k) {
         var x = allGames().filter(function (q) { return pinKey(q) === k; })[0];
+        if (!x && only.indexOf(k.split("_")[0]) < 0) return true;
         return x && !(x.g.s === "final" && Date.now() - new Date(x.g.t) > 12 * 3600000);
       });
       savePins();
@@ -878,13 +940,15 @@
   try {
     var cc = JSON.parse(localStorage.getItem("sb-cache") || "null");
     if (cc && cc.g && Date.now() - cc.at < 3 * 86400000) {
-      LG.forEach(function (l) { if (cc.g[l.key]) S.games[l.key] = cc.g[l.key]; });
+      var wl = wantLeagues();
+      LG.forEach(function (l) { if (cc.g[l.key] && wl.indexOf(l.key) >= 0) S.games[l.key] = cc.g[l.key]; });
       S.last = cc.at; S.ready = true; S.yesterday = buildYesterday(new Date());
     }
   } catch (e) {}
   render(); stampTick();
   if (S.ready) { syncFromHash(); loadLeaders(); }
   load(true);
+  var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=21").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=22").catch(function () {}); } catch (e) {} });
 })();
