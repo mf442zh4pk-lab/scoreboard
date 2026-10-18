@@ -276,3 +276,14 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .usec.shut .lgh-c{transform:rotate(-90deg)}
 .usec.shut .grid{display:none}
 .sub-h .lgh-n{background:var(--ter-soft);color:var(--fg)}
+.nums li.click{cursor:pointer}
+.nums li.click:hover{border-color:var(--pri)}
+.nums li.click:hover{background:var(--pri-soft)}
+.brief{padding:6px 0 0}
+.bl{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 14px;cursor:pointer;font-size:14px}
+.bl:hover,.bl:active{background:var(--pri-soft)}
+.bl:hover .bl-t{color:var(--pri);text-decoration:underline;text-underline-offset:3px}
+.bl-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);min-width:92px}
+.bl-t{min-width:0;font-weight:600}
+.bl-s{margin:6px 14px 0;padding-top:8px;border-top:1px solid var(--line);font:700 11px var(--bd);letter-spacing:.07em;text-transform:uppercase;color:var(--mute)}
+.bl-s+.srow{border-top:0}
