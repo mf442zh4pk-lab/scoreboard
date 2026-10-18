@@ -306,7 +306,7 @@
         var sd = seedOf(x);
         var rec = (stat(x, "overall") || (stat(x, "wins") + "-" + stat(x, "losses"))).split(",")[0];
         var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
-        return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", me: i === idx };
+        return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", lg: logoOf(x.team), me: i === idx };
       }).sort(function (p, q) { return p.rank - q.rank; });
       return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT" };
     }
