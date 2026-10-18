@@ -37,6 +37,13 @@
     if (txt != null) e.textContent = txt;
     return e;
   }
+  // Team name with its top-25 ranking in front ("#5 Georgia Bulldogs"), for text lines; rankedName() does the same for card rows.
+  function tn(t) { return (t[6] ? "#" + t[6] + " " : "") + t[0]; }
+  function rankedName(t) {
+    var s = el("span", "nm");
+    if (t[6]) s.appendChild(el("span", "rk", String(t[6])));
+    s.appendChild(document.createTextNode(t[0])); return s;
+  }
   function isFollowed(g) { return C.followed.indexOf(g.h[0]) >= 0 || C.followed.indexOf(g.a[0]) >= 0; }
   function leagueOf(lk) { return LG.filter(function (l) { return l.key === lk; })[0]; }
   function allGames() {
@@ -208,7 +215,7 @@
       var row = el("div", "row" + (has && r[1] < r[2] && g.s === "final" ? " lose" : ""));
       var tm = el("div", "tm");
       tm.appendChild(badge(r[0]));
-      var nmw = el("span", "nmw"); nmw.appendChild(el("span", "nm", r[0][0]));
+      var nmw = el("span", "nmw"); nmw.appendChild(rankedName(r[0]));
       if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
       row.appendChild(tm);
@@ -373,13 +380,13 @@
       return w ? w[1] + " wins the " + g.h[0] : g.h[0];
     }
     var hw = g.h[2] >= g.a[2], W = hw ? g.h : g.a, L = hw ? g.a : g.h;
-    if (g.h[2] === g.a[2]) return g.h[0] + " and " + g.a[0] + " draw " + g.h[2] + "-" + g.a[2];
+    if (g.h[2] === g.a[2]) return tn(g.h) + " and " + tn(g.a) + " draw " + g.h[2] + "-" + g.a[2];
     var low = lg.soccer || x.lk === "nhl" || x.lk === "mlb" || /hockey|baseball|softball/.test(lg.path), r = x.diff / x.tot, v;
     if (L[2] === 0 && low) v = "blank";
     else if (g.o || (x.tight && !low)) v = "edge";
     else if (low) v = x.diff === 1 ? "edge" : x.diff === 2 ? "beat" : x.diff <= 4 ? "top" : "rout";
     else v = r < 0.05 ? "edge" : r < 0.15 ? "beat" : r < 0.28 ? "cruise past" : "rout";
-    return W[0] + " " + v + " " + L[0] + " " + W[2] + "-" + L[2] + (g.o ? (lg.soccer ? " after extra time" : " in overtime") : "");
+    return tn(W) + " " + v + " " + tn(L) + " " + W[2] + "-" + L[2] + (g.o ? (lg.soccer ? " after extra time" : " in overtime") : "");
   }
   function trunc(s, n) { if (s.length <= n) return s; var t = s.slice(0, n), i = t.lastIndexOf(" "); return t.slice(0, i > n * 0.6 ? i : n) + "…"; }
   function openX(c, x) {
@@ -426,7 +433,7 @@
       [[g.a, as, hs], [g.h, hs, as]].forEach(function (r) {
         var row = el("div", "row" + (r[1] < r[2] ? " lose" : "")), tm = el("div", "tm");
         tm.appendChild(badge(r[0]));
-        var nmw = el("span", "nmw"); nmw.appendChild(el("span", "nm", r[0][0]));
+        var nmw = el("span", "nmw"); nmw.appendChild(rankedName(r[0]));
         if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
         tm.appendChild(nmw); row.appendChild(tm); row.appendChild(el("span", "sc", String(r[1]))); c.appendChild(row);
       });
@@ -468,7 +475,7 @@
     if (bl) nums.push(["Biggest blowout", bl]);
     var hiL = {}, hi = games.filter(function (x) { return SCORING[x.lk]; })
       .sort(function (a, b) { return b.tot - a.tot; }).filter(function (x) { if (hiL[x.lk]) return false; hiL[x.lk] = 1; return true; }).slice(0, 2);
-    hi.forEach(function (x) { nums.push(["Highest scoring", x, x.g.a[0] + " " + x.g.a[2] + ", " + x.g.h[0] + " " + x.g.h[2] + " (" + x.tot + " combined)"]); });
+    hi.forEach(function (x) { nums.push(["Highest scoring", x, tn(x.g.a) + " " + x.g.a[2] + ", " + tn(x.g.h) + " " + x.g.h[2] + " (" + x.tot + " combined)"]); });
     var ot = games.filter(function (x) { return x.g.o; });
     if (ot.length) nums.push(["Went to extra time" + (ot.length > 1 ? " (" + ot.length + " games)" : ""), ot[0]]);
     if (nums.length) {
@@ -514,7 +521,7 @@
         if (g.ev) r.appendChild(el("span", "sr-t", headline(x)));
         else {
           var hw = g.h[2] >= g.a[2], W = hw ? g.h : g.a, L = hw ? g.a : g.h, t = el("span", "sr-t");
-          t.appendChild(el("b", null, W[0] + " " + W[2])); t.appendChild(document.createTextNode(", " + L[0] + " " + L[2])); r.appendChild(t);
+          t.appendChild(el("b", null, tn(W) + " " + W[2])); t.appendChild(document.createTextNode(", " + tn(L) + " " + L[2])); r.appendChild(t);
         }
         var tg = el("span", "sr-g");
         if (isFollowed(g)) tg.appendChild(el("span", "mk fol", "\u2605"));
@@ -1349,5 +1356,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=34").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=35").catch(function () {}); } catch (e) {} });
 })();
