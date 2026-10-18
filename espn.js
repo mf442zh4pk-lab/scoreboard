@@ -173,10 +173,11 @@
     try { cached = JSON.parse(localStorage.getItem("sb-teams") || "null"); } catch (e) {}
     if (cached && Date.now() - cached.at < 7 * DAY && cached.n === C.leagues.length) return (teamsP = Promise.resolve(cached.v));
     teamsP = Promise.all(C.leagues.filter(function (l) { return !l.noTeams; }).map(function (l) {
-      return getJson(BASE + "/" + l.path + "/teams?limit=500").then(function (j) {
-        var lg = ((j.sports || [])[0] || {}).leagues;
-        var ts = (lg && lg[0] && lg[0].teams) || [];
-        return [l.key, ts.map(function (t) { return { id: t.team.id, name: t.team.displayName }; })];
+      // ESPN's /teams endpoint blocks browsers (CORS); the standings feed lists every team too.
+      return getJson(V2 + "/" + l.path + "/standings").then(function (j) {
+        var seen = {}, ts = [];
+        walk(j, []).forEach(function (g) { g.entries.forEach(function (e) { if (!seen[e.team.id]) { seen[e.team.id] = 1; ts.push({ id: e.team.id, name: e.team.displayName }); } }); });
+        return [l.key, ts];
       }, function () { return [l.key, []]; });
     })).then(function (rows) {
       var v = {};
