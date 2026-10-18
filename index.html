@@ -443,6 +443,17 @@ bar.appendChild(b1); bar.appendChild(b2);
 out.appendChild(bar);
 list.forEach(function(s){out.appendChild(s)});
 }
+var favN=0;
+function sec(title,node,open,fav){
+if(title==="Matchup preview") favN=0;
+if(fav){favN++; open=favN<=3}
+var t=title.replace(/([a-z])([A-Z])/g,"$1 $2");
+var d=el("details","sec"+(fav?" fav":"")); if(open) d.open=true;
+d.appendChild(el("summary",null,t));
+var b=el("div","body"); b.appendChild(node); d.appendChild(b);
+return d;
+}
+DS.textContent+=" details.sec .blk{margin-bottom:0}";
 })();
 </script>
 </body></html>
