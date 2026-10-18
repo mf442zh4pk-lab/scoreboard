@@ -960,8 +960,8 @@
     main.appendChild(tab("teams", "My teams", null, "tab big", "⚑"));
     lgs.appendChild(el("span", "rail-lbl", "Leagues"));
     lgs.appendChild(tab("all", "All", all.length, "tab"));
-    LG.forEach(function (l) { if (!l.lazy || l.key === S.tab) lgs.appendChild(tab(l.key, l.label, S.games[l.key].length || (l.lazy && S.lgState[l.key] === "loading" ? null : 0), "tab")); });
-    var mb = el("button", "tab more-btn", S.more ? "More leagues ▴" : "More leagues ▾"); mb.type = "button"; mb.setAttribute("aria-expanded", S.more ? "true" : "false");
+    LG.forEach(function (l) { if (MAIN.indexOf(l.key) >= 0 || l.key === S.tab) lgs.appendChild(tab(l.key, l.label, S.games[l.key].length || (l.lazy && S.lgState[l.key] === "loading" ? null : 0), "tab")); });
+    var mb = el("button", "tab more-btn", S.more ? "Close ▴" : "More leagues ▾"); mb.type = "button"; mb.setAttribute("aria-expanded", S.more ? "true" : "false");
     mb.onclick = function () { S.more = !S.more; render(); };
     lgs.appendChild(mb);
     rail.appendChild(main); rail.appendChild(lgs);
@@ -995,24 +995,42 @@
   }
 
   // Picker for the extra leagues, grouped by sport.
+  var MAIN = ["nfl", "nba", "nhl", "mlb"], GRP = { ncaafb: "Football", epl: "Soccer", ucl: "Soccer", afl: "Australian football" };
+  function pickLeague(l) {
+    S.tab = l.key; S.more = false; S.view = null; S.settings = false; clearHash();
+    try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
+    if (l.lazy) loadLeague(l.key);
+    render(); window.scrollTo(0, 0);
+  }
+  // Type-ahead picker for every league that is not one of the main four.
   function morePanel() {
-    var box = el("div", "more"), groups = {}, order = [];
-    LG.forEach(function (l) { if (!l.lazy) return; if (!groups[l.grp]) { groups[l.grp] = []; order.push(l.grp); } groups[l.grp].push(l); });
-    order.forEach(function (g) {
-      box.appendChild(el("h4", null, g));
-      var row = el("div", "opts");
-      groups[g].forEach(function (l) {
-        var b = el("button", "tab", l.label); b.type = "button";
-        b.setAttribute("aria-selected", S.tab === l.key ? "true" : "false");
-        b.onclick = function () {
-          S.tab = l.key; S.more = false; S.view = null; S.settings = false; clearHash();
-          try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
-          loadLeague(l.key); render(); window.scrollTo(0, 0);
-        };
-        row.appendChild(b);
+    var box = el("div", "more"), inp = el("input", "msearch"), res = el("div", "mres"), cur = [];
+    inp.type = "search"; inp.placeholder = "Search leagues (soccer, UFC, college\u2026)"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Search leagues");
+    function fill() {
+      var q = inp.value.trim().toLowerCase(), groups = {}, order = []; cur = []; res.textContent = "";
+      LG.forEach(function (l) {
+        if (MAIN.indexOf(l.key) >= 0) return;
+        var g = l.grp || GRP[l.key] || "Other";
+        if (q && (l.label + " " + g + " " + l.key).toLowerCase().indexOf(q) < 0) return;
+        if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(l); cur.push(l);
       });
-      box.appendChild(row);
-    });
+      if (!cur.length) res.appendChild(el("p", "rb", "No leagues match \u201C" + inp.value.trim() + "\u201D."));
+      order.forEach(function (g) {
+        res.appendChild(el("h4", null, g));
+        var row = el("div", "opts");
+        groups[g].forEach(function (l) {
+          var b = el("button", "tab", l.label); b.type = "button";
+          b.setAttribute("aria-selected", S.tab === l.key ? "true" : "false");
+          b.onclick = function () { pickLeague(l); };
+          row.appendChild(b);
+        });
+        res.appendChild(row);
+      });
+    }
+    inp.oninput = fill;
+    inp.onkeydown = function (e) { if (e.key === "Enter" && cur.length) { e.preventDefault(); pickLeague(cur[0]); } };
+    box.appendChild(inp); box.appendChild(res); fill();
+    setTimeout(function () { try { inp.focus(); } catch (e) {} }, 0);
     return box;
   }
   function stampTick() {
@@ -1209,5 +1227,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=26").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=27").catch(function () {}); } catch (e) {} });
 })();
