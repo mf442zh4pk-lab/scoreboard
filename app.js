@@ -121,7 +121,7 @@
       var res = mine[2] > opp[2] ? "W" : mine[2] < opp[2] ? "L" : "T";
       var hi = mine[2] >= opp[2] ? [mine, opp] : [opp, mine];
       return {
-        name: name, played: true, result: res, gid: g.id, lk: x.lk, abbr: mine[1], my: mine[2], op: opp[2], ot: !!g.o,
+        name: name, played: true, result: res, gid: g.id, lk: x.lk, abbr: mine[1], my: mine[2], op: opp[2], ot: !!g.o, opp: opp[0], home: home,
         line: hi[0][0] + " " + hi[0][2] + ", " + hi[1][0] + " " + hi[1][2],
         body: (res === "W" ? "Won " : res === "L" ? "Lost " : "Tied ") + Math.max(mine[2], opp[2]) + "-" + Math.min(mine[2], opp[2]) +
           (home ? " at home against " : " on the road at ") + opp[0] + "." + nextUp(all, name),
@@ -296,19 +296,17 @@
   function overview(y, played) {
     var box = el("div", "ovs"), W = 0, L = 0, T0 = 0;
     played.forEach(function (t) { if (t.result === "W") W++; else if (t.result === "L") L++; else T0++; });
-    // 1. results, scaled so a 20-point NBA win and a 3-goal NHL win read the same
-    var body = el("div", "dvw");
-    var rows = played.map(function (t) { var z = (t.my - t.op) / (SIGMA[t.lk] || 1.5); return { t: t, z: Math.max(-2.5, Math.min(2.5, z)) }; }).sort(function (p, q) { return q.z - p.z; });
-    rows.forEach(function (r) {
-      var row = el("div", "dv"), nm = el("div", "dvn", r.t.name);
-      var tr = el("div", "dvt"), f = el("i", r.z > 0 ? "w" : r.z < 0 ? "l" : "t");
-      var w = Math.max(2, Math.abs(r.z) / 2.5 * 50); f.style.width = w + "%"; if (r.z < 0) f.style.right = "50%"; else f.style.left = "50%";
-      tr.appendChild(f);
-      row.appendChild(nm); row.appendChild(tr);
-      row.appendChild(el("div", "dvs", r.t.result + " " + r.t.my + "-" + r.t.op + (r.t.ot ? " OT" : "")));
+    // 1. yesterday's results, simple: win/loss badge, team, score
+    var body = el("div", "rsw");
+    played.forEach(function (t) {
+      var row = el("div", "rs " + (t.result === "W" ? "w" : t.result === "L" ? "l" : "t"));
+      row.appendChild(el("span", "rsb", t.result));
+      var mid = el("div", "rsm"); mid.appendChild(el("b", null, t.name)); mid.appendChild(el("span", null, (t.home ? "vs " : "at ") + t.opp));
+      row.appendChild(mid);
+      row.appendChild(el("span", "rss", t.my + "\u2013" + t.op + (t.ot ? " OT" : "")));
       body.appendChild(row);
     });
-    if (played.length) box.appendChild(ovSection("Yesterday across your teams", W + "-" + L + (T0 ? "-" + T0 : "") + " \u00b7 scaled to each sport", body));
+    if (played.length) box.appendChild(ovSection("Yesterday's scores", W + "-" + L + (T0 ? "-" + T0 : ""), body));
     // 2. everything below comes from the schedules already saved on this phone: no network
     var names = C.followed.filter(function (n) { return tcGames(n).some(function (g) { return g.s === "final" && g.my != null; }); });
     if (names.length) {
@@ -366,7 +364,6 @@
     out.appendChild(el("p", "lg", y.date));
     var played = y.teams.filter(function (t) { return t.played; });
     if (!played.length) { out.appendChild(notice("No games yesterday", "None of your teams played yesterday.")); out.appendChild(overview(y, played)); return; }
-    out.appendChild(overview(y, played));
     var gr = el("div", "recaps");
     played.forEach(function (t) {
       var a = el("article", "recap");
@@ -400,6 +397,7 @@
       gr.appendChild(a);
     });
     out.appendChild(gr);
+    out.appendChild(overview(y, played));
   }
 
   // ---------- Daily recap: yesterday's biggest stories first, then every result by league ----------
@@ -1541,5 +1539,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=39").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=41").catch(function () {}); } catch (e) {} });
 })();
