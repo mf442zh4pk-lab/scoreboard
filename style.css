@@ -100,6 +100,12 @@ details.sec>summary::-webkit-details-marker{display:none}
 details.sec>summary::after{content:"+";font:600 20px var(--bd);color:var(--ter)}
 details.sec[open]>summary::after{content:"–"}
 details.sec .body{padding:0 12px 12px}
+details.sec.tier{border-left:4px solid var(--pri)}
+details.sec.tier>summary{font-size:21px}
+details.sec.tier>.body{padding:0 10px 2px}
+details.sec.tier details.sec{background:var(--bg);margin-bottom:8px}
+details.sec.tier details.sec>summary{font-size:16px;padding:11px 14px}
+details.sec.tier details.sec .body{padding:0 10px 10px}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
 th,td{padding:6px 8px;text-align:right;white-space:nowrap}
