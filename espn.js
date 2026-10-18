@@ -407,14 +407,16 @@
 
   // ---------- teams, standings and schedules ----------
   var V2 = "https://site.api.espn.com/apis/v2/sports";
-  var teamsP = null;
-  // {leagueKey: [{id, name}]}. Cached for a week so it is only fetched occasionally.
-  function fetchTeams() {
-    if (teamsP) return teamsP;
+  var teamsP = {};
+  // {leagueKey: [{id, name}]}. Cached for a week. lazy=true covers the extra leagues (fetched only when needed).
+  function fetchTeams(lazy) {
+    var pk = lazy ? "l" : "c";
+    if (teamsP[pk]) return teamsP[pk];
+    var ck = lazy ? "sb-teams2" : "sb-teams", ls = C.leagues.filter(function (l) { return !l.noTeams && !!l.lazy === !!lazy; });
     var cached = null;
-    try { cached = JSON.parse(localStorage.getItem("sb-teams") || "null"); } catch (e) {}
-    if (cached && Date.now() - cached.at < 7 * DAY && cached.n === C.leagues.length) return (teamsP = Promise.resolve(cached.v));
-    teamsP = Promise.all(C.leagues.filter(function (l) { return !l.noTeams; }).map(function (l) {
+    try { cached = JSON.parse(localStorage.getItem(ck) || "null"); } catch (e) {}
+    if (cached && Date.now() - cached.at < 7 * DAY && cached.n === ls.length) return (teamsP[pk] = Promise.resolve(cached.v));
+    teamsP[pk] = Promise.all(ls.map(function (l) {
       // ESPN's /teams endpoint blocks browsers (CORS); the standings feed lists every team too.
       return getJson(V2 + "/" + l.path + "/standings").then(function (j) {
         var seen = {}, ts = [];
@@ -424,17 +426,20 @@
     })).then(function (rows) {
       var v = {};
       rows.forEach(function (r) { v[r[0]] = r[1]; });
-      if (rows.every(function (r) { return r[1].length; })) {
-        try { localStorage.setItem("sb-teams", JSON.stringify({ at: Date.now(), n: C.leagues.length, v: v })); } catch (e) {}
+      if (lazy || rows.every(function (r) { return r[1].length; })) {
+        try { localStorage.setItem(ck, JSON.stringify({ at: Date.now(), n: ls.length, v: v })); } catch (e) {}
       }
       return v;
     });
-    return teamsP;
+    return teamsP[pk];
+  }
+  function findIn(v, name) {
+    for (var k in v) for (var i = 0; i < v[k].length; i++) if (v[k][i].name === name) return { lk: k, id: v[k][i].id };
+    return null;
   }
   function findTeam(name) {
     return fetchTeams().then(function (v) {
-      for (var k in v) for (var i = 0; i < v[k].length; i++) if (v[k][i].name === name) return { lk: k, id: v[k][i].id };
-      return null;
+      return findIn(v, name) || fetchTeams(true).then(function (v2) { return findIn(v2, name); });
     });
   }
 
