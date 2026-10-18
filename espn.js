@@ -314,7 +314,15 @@
   function fetchTeamInfo(lk, tid) {
     var lg = labelOf(lk);
     var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid); }, function () { return null; });
-    var sc = getJson(BASE + "/" + lg.path + "/teams/" + tid + "/schedule").then(parseSchedule, function () { return []; });
+    var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule";
+    // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
+    var sc = getJson(url).then(parseSchedule, function () { return []; }).then(function (gs) {
+      if (!gs.length || gs.some(function (g) { return g.st === 2; })) return gs;
+      return getJson(url + "?seasontype=2").then(parseSchedule, function () { return []; }).then(function (reg) {
+        var seen = {};
+        return reg.concat(gs).filter(function (g) { if (seen[g.id]) return false; seen[g.id] = 1; return true; });
+      });
+    });
     return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
   }
 
