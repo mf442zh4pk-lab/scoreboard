@@ -387,6 +387,32 @@
     c.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(x); } };
     prefetchOn(c, x);
   }
+  // ESPN's AP recap for a finished game: a short lede that expands to the first few paragraphs. Fills in when it arrives (cached), nothing if ESPN has none.
+  function narrBlock(x, onHead, max) {
+    if (x.g.ev) return null;
+    var box = el("div", "narr"); box.hidden = true;
+    ESPN.fetchNarrative(x.lk, x.g.id, true).then(function (n) {
+      if (!n || !n.paras || !n.paras.length) return;
+      if (onHead) onHead(n);
+      var lede = trunc(n.paras[0], max || 260), more = n.paras.slice(1, 5), cut = lede !== n.paras[0];
+      var p = el("p", "narr-p", lede); box.appendChild(p);
+      if (more.length || cut) {
+        var rest = el("div", "narr-more"); rest.hidden = true;
+        more.forEach(function (t) { rest.appendChild(el("p", "narr-p", t)); });
+        if (n.link) { var ln = el("a", "narr-a", "Full story on ESPN \u203A"); ln.href = n.link; ln.target = "_blank"; ln.rel = "noopener"; ln.onclick = function (e) { e.stopPropagation(); }; rest.appendChild(ln); }
+        var tg = el("button", "narr-t", "Read more \u25BE"); tg.type = "button";
+        tg.onclick = function (e) {
+          e.stopPropagation();
+          var open = rest.hidden; rest.hidden = !open; p.textContent = open ? n.paras[0] : lede; tg.textContent = open ? "Show less \u25B4" : "Read more \u25BE";
+        };
+        box.appendChild(rest); box.appendChild(tg);
+      }
+      box.appendChild(el("div", "narr-s", "Recap via ESPN"));
+      box.hidden = false;
+    }, function () {});
+    box.addEventListener("click", function (e) { e.stopPropagation(); });
+    return box;
+  }
   function storyCard(x, lead) {
     var g = x.g, c = el("article", "story" + (lead ? " top1" : "") + (isFollowed(g) ? " followed" : ""));
     var top = el("div", "top");
@@ -408,14 +434,8 @@
       if (g.ev === "mma" && f) c.appendChild(el("p", "st-p", g.h[0] + ". " + f.n.join(" vs ") + (g.x.fights.length > 1 ? " and " + (g.x.fights.length - 1) + " more fights." : "")));
       else if (g.x && g.x.venue) c.appendChild(el("p", "st-p", g.x.venue));
     }
-    var p = el("p", "st-p"); p.hidden = true; c.appendChild(p);
+    var nb = narrBlock(x, function (n) { if (n.h) h.textContent = n.h; }, lead ? 320 : 220); if (nb) c.appendChild(nb);
     openX(c, x);
-    // Upgrade to ESPN's own recap headline and the AP opening paragraph when they exist (cached after the first time).
-    if (!g.ev) ESPN.fetchNarrative(x.lk, g.id, true).then(function (n) {
-      if (!n) return;
-      if (n.h) h.textContent = n.h;
-      if (n.paras && n.paras[0]) { p.textContent = trunc(n.paras[0], lead ? 320 : 220); p.hidden = false; }
-    }, function () {});
     return c;
   }
   function renderRecap(out) {
@@ -479,9 +499,11 @@
       if (br.length) {
         var bu = el("div", "brief");
         br.forEach(function (b) {
-          var d = el("div", "bl"), lab = el("span", "bl-l", b[0]), tx = el("span", "bl-t", headline(b[1]));
-          d.appendChild(lab); d.appendChild(tx); d.appendChild(el("span", "sr-go", "\u203A")); openX(d, b[1]); bu.appendChild(d);
-          if (b[0] === "Game of the day" && !b[1].g.ev) ESPN.fetchNarrative(b[1].lk, b[1].g.id, true).then(function (n) { if (n && n.h) tx.textContent = n.h; }, function () {});
+          var bw = el("div", "bw"), d = el("div", "bl"), lab = el("span", "bl-l", b[0]), tx = el("span", "bl-t", headline(b[1]));
+          d.appendChild(lab); d.appendChild(tx); d.appendChild(el("span", "sr-go", "\u203A")); openX(d, b[1]); bw.appendChild(d); bu.appendChild(bw);
+          if (b[0] === "Game of the day" || b[0] === "Down to the wire") {
+            var nb = narrBlock(b[1], b[0] === "Game of the day" ? function (n) { if (n.h) tx.textContent = n.h; } : null, 240); if (nb) bw.appendChild(nb);
+          }
         });
         body.appendChild(bu);
         body.appendChild(el("div", "bl-s", "All scores"));
@@ -498,6 +520,7 @@
         if (g.o) tg.appendChild(el("span", "mk", "OT"));
         else if (x.tight) tg.appendChild(el("span", "mk", "Close"));
         tg.appendChild(el("span", "sr-go", "\u203A")); r.appendChild(tg); openX(r, x); body.appendChild(r);
+        if (list.length <= 3) { var sn = narrBlock(x, null, 240); if (sn) body.appendChild(sn); }
       });
       if (list.length > LIM && !more) {
         var mb = el("button", "sr-more", "Show " + (list.length - LIM) + " more"); mb.type = "button";
@@ -1287,5 +1310,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=31").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=32").catch(function () {}); } catch (e) {} });
 })();
