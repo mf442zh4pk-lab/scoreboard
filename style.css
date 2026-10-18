@@ -122,6 +122,17 @@ th.l,td.l{text-align:left}
 .lead li{padding:3px 0;border-top:1px solid var(--line)}
 .lead b{color:var(--fg)}
 .res.rc{color:var(--pri);font-size:14px}
+.stn{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.stn summary{cursor:pointer;padding:7px 10px;font:700 14px var(--hd);letter-spacing:.08em;text-transform:uppercase;color:var(--ter);list-style:none;display:flex;justify-content:space-between}
+.stn summary::-webkit-details-marker{display:none}
+.stn summary::after{content:"▾";transition:transform .2s}
+.stn[open] summary::after{transform:rotate(180deg)}
+.stbox{max-height:236px;overflow-y:auto;border-top:1px solid var(--line);position:relative}
+.stbox table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.stbox th{position:sticky;top:0;background:var(--bg);color:var(--mute);font-weight:600;text-align:right;padding:4px 6px}
+.stbox td{text-align:right;padding:4px 6px;border-top:1px solid var(--line)}
+.stbox th.l,.stbox td.l{text-align:left;font-weight:600}
+.stbox tr.me td{background:color-mix(in srgb,var(--ter) 18%,transparent);color:var(--pri);font-weight:700}
 .tgl{margin-top:12px}
 .tgl h4{margin:0 0 4px;font:700 14px var(--hd);letter-spacing:.08em;text-transform:uppercase;color:var(--ter)}
 .tg{display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
