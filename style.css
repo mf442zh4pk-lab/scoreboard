@@ -108,6 +108,14 @@ th.l,td.l{text-align:left}
 .play{display:flex;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13px}
 .pt{flex:none;width:70px;color:var(--ter);font-weight:700}
 .px{min-width:0}
+.recap.off{border-left-color:var(--pri)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{background:var(--pri-soft);border-radius:10px;padding:4px 10px;display:flex;flex-direction:column;align-items:center;min-width:58px}
+.chip b{font:700 17px var(--hd);color:var(--pri)}
+.chip i{font-style:normal;font-size:11px;color:var(--mute)}
+.nar h4{margin:12px 0 2px;font:700 14px var(--hd);letter-spacing:.08em;text-transform:uppercase;color:var(--ter)}
+.nar p{margin:0}
+.nar a{color:var(--pri);font-weight:600}
 .nmw{display:flex;flex-direction:column;min-width:0}
 .rec{font-size:12px;color:var(--mute);line-height:1.2}
 .lead{margin:10px 0 0;padding:0;list-style:none;font-size:13px;color:var(--mute)}
