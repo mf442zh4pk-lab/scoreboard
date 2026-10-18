@@ -408,6 +408,14 @@
     d.addEventListener("toggle", function () { openState[key] = d.open; });
     return d;
   }
+  // A top-level collapsible that holds several section cards (primary / secondary stats).
+  function tier(title, kids, open) {
+    if (!kids.length) return null;
+    var w = el("div", "tiered");
+    kids.forEach(function (k) { w.appendChild(k); });
+    var t = sec(title, w, open, false); t.classList.add("tier");
+    return t;
+  }
   function renderDetail(out) {
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
     var back = el("button", "back", "← All scores"); back.type = "button"; back.onclick = closeGame;
@@ -418,7 +426,7 @@
     if (d === undefined) { out.appendChild(el("p", "rmsg", "Loading box score…")); return; }
     if (d === null) { out.appendChild(el("p", "rmsg", "Could not load the box score right now. Try again in a moment.")); return; }
 
-    var up = g.s === "up", list = [];
+    var up = g.s === "up", list = [], prim = [], secd = [];
     var pv = el("div", "sum");
     pv.appendChild(el("p", null, d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + ".")));
     (d.narrative || []).forEach(function (n) {
@@ -437,10 +445,10 @@
         for (var i = 1; i < r.length; i++) if (typeof r[i] === "number") tot += r[i];
         return r.concat([tot]);
       });
-      list.push(sec(lg && lg.soccer ? "Score by half" : "Score by period", tbl({ cols: [""].concat(d.periods.labels, ["T"]), rows: rows }), true, false));
+      prim.push(sec(lg && lg.soccer ? "Score by half" : "Score by period", tbl({ cols: [""].concat(d.periods.labels, ["T"]), rows: rows }), true, false));
     }
     d.tables.filter(function (t) { return t.kind === "team"; }).forEach(function (t) {
-      list.push(sec(up ? "Season team stats" : t.title, tbl(t), true, false));
+      prim.push(sec(up ? "Season team stats" : t.title, tbl(t), true, false));
     });
 
     // Players: followed team first (first three tables open), then the other team.
@@ -452,11 +460,11 @@
         var ths = t.cols;
         name = ths.indexOf("IP") >= 0 ? "Pitching" : (ths.indexOf("AB") >= 0 || ths.indexOf("H-AB") >= 0 ? "Batting" : name);
       }
-      return { title: t.team + " " + name, node: tbl(t), logo: lgo[t.team], fav: followedAbbr.indexOf(t.team) >= 0 };
+      return { title: t.team + " " + name, node: tbl(t), logo: lgo[t.team], minor: /defens|kick|punt|return|fumble|intercept|tackle/i.test(name), fav: followedAbbr.indexOf(t.team) >= 0 };
     });
     var favs = players.filter(function (p) { return p.fav; }), others = players.filter(function (p) { return !p.fav; });
-    favs.forEach(function (p, i) { list.push(sec(p.title, p.node, i < 3, true, p.logo)); });
-    others.forEach(function (p) { list.push(sec(p.title, p.node, !favs.length && !up && list.length < 5, false, p.logo)); });
+    favs.forEach(function (p, i) { (p.minor ? secd : prim).push(sec(p.title, p.node, p.minor || i < 3, true, p.logo)); });
+    others.forEach(function (p) { (p.minor ? secd : prim).push(sec(p.title, p.node, p.minor || (!favs.length && !up && prim.length < 5), false, p.logo)); });
 
     if (d.plays.length) {
       var sc = el("div", "plays"); sc.tabIndex = 0;
@@ -466,15 +474,18 @@
         r.appendChild(el("span", "px", p.x));
         sc.appendChild(r);
       });
-      list.push(sec("Recent plays", sc, g.s === "live", false));
+      secd.push(sec("Recent plays", sc, true, false));
     }
+    // Two tiers: the main numbers first, minor categories and the play log tucked into the second one.
+    [tier("Primary stats", prim, true), tier("Secondary stats", secd, g.s === "live")].forEach(function (t) { if (t) list.push(t); });
     if (!up) list.push(preview);
 
     var bar = el("div", "allbar");
     var b1 = el("button", null, "Expand all"), b2 = el("button", null, "Collapse all");
     b1.type = b2.type = "button";
-    b1.onclick = function () { list.forEach(function (s) { s.open = true; }); };
-    b2.onclick = function () { list.forEach(function (s) { s.open = false; }); };
+    var setAll = function (o) { list.forEach(function (s) { s.open = o; [].forEach.call(s.querySelectorAll("details"), function (c) { c.open = o; }); }); };
+    b1.onclick = function () { setAll(true); };
+    b2.onclick = function () { setAll(false); };
     bar.appendChild(b1); bar.appendChild(b2);
     out.appendChild(bar);
     list.forEach(function (s) { out.appendChild(s); });
