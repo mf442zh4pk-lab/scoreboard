@@ -189,13 +189,15 @@
     // How it unfolded: lead changes and biggest leads from the scoring plays.
     var sp = (d.scoringPlays || []).filter(function (p) { return isFinite(Number(p.awayScore)) && isFinite(Number(p.homeScore)); });
     if (sp.length > 2 && !tie) {
-      var lead = 0, changes = 0, maxW = 0, maxL = 0, ties = 0;
+      var lead = 0, changes = 0, maxW = 0, maxL = 0, ties = 0, gp = null, pw = false;
       sp.forEach(function (p) {
         var m = Number(p.homeScore) - Number(p.awayScore), side = m === 0 ? 0 : m > 0 ? 1 : -1;
         if (side === 0) ties++;
         if (side !== 0 && lead !== 0 && side !== lead) changes++;
         if (side !== 0) lead = side;
         var wm = win === home ? m : -m;
+        if (wm > 0 && !pw) gp = p;
+        pw = wm > 0;
         if (wm > maxW) maxW = wm;
         if (-wm > maxL) maxL = -wm;
       });
@@ -203,8 +205,11 @@
       if (changes === 0 && maxL === 0) line.push(win.team.displayName + " led from the first score to the last.");
       else line.push("The lead changed hands " + changes + (changes === 1 ? " time" : " times") + ".");
       if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + (maxW === 1 ? " point" : " points") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
-      var lastP = sp[sp.length - 1];
-      if (lastP && lastP.text) line.push("The last score of the game: " + lastP.text + ".");
+      // The score that put the winner ahead for good.
+      if (gp && gp.text) {
+        var gt = [gp.period && gp.period.number != null ? (gp.period.displayValue || gp.period.number) : "", gp.clock && gp.clock.displayValue].filter(Boolean).join(" ");
+        line.push("The go-ahead score: " + gp.text + (gt ? " (" + gt + ")" : "") + ".");
+      }
       secs.push({ h: "How it unfolded", p: line.join(" ") });
     }
 
