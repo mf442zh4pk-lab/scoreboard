@@ -139,7 +139,41 @@
     }
     return "";
   }
+  // Card for an event sport (UFC card, race weekend): title, the main fight or the podium, and a short note.
+  function evCard(x) {
+    var g = x.g, c = el("div", "card"), top = el("div", "top"), P = g.x || {};
+    top.appendChild(el("span", "pill " + g.s, g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t)));
+    top.appendChild(el("span", "tag", x.ll));
+    c.appendChild(top);
+    c.appendChild(el("div", "evt", g.h[0]));
+    var row = function (name, rec, right, lose) {
+      var r = el("div", "row" + (lose ? " lose" : "")), tm = el("div", "tm"), nw = el("span", "nmw");
+      nw.appendChild(el("span", "nm", name)); if (rec) nw.appendChild(el("span", "rec", rec));
+      tm.appendChild(nw); r.appendChild(tm); r.appendChild(el("span", "sc sm", right)); return r;
+    };
+    if (g.ev === "mma") {
+      var f = (P.fights || [])[0];
+      if (f) {
+        var done = f.s === "post" && f.win >= 0;
+        [0, 1].forEach(function (i) { c.appendChild(row(f.n[i] || "–", f.r[i], done && f.win === i ? "W" : "", done && f.win !== i)); });
+        var info = [f.w, done ? [f.m, f.rd ? "R" + f.rd : "", f.tm].filter(Boolean).join(" ") : f.s === "in" ? f.live : ""].filter(Boolean).join(" · ");
+        c.appendChild(el("div", "evs", "Main event · " + info));
+      }
+      if (P.fights && P.fights.length > 1) c.appendChild(el("div", "evs", "+" + (P.fights.length - 1) + " more fights" + (P.venue ? " · " + P.venue : "")));
+    } else {
+      var ses = P.sess || [], race = ses.filter(function (s) { return /^race$/i.test(s.n); })[0] || ses[ses.length - 1];
+      if (g.s !== "up" && race && race.rows.length) race.rows.slice(0, 3).forEach(function (r) { c.appendChild(row(r[1], "", String(r[0]), false)); });
+      else {
+        var nx = ses.filter(function (s) { return s.s === "pre"; })[0];
+        c.appendChild(el("div", "evs", (nx ? "Next: " + sessName(nx.n) + " · " + when(nx.t) : "") + (P.venue ? (nx ? " · " : "") + P.venue : "")));
+      }
+    }
+    return c;
+  }
+  var SESS = { FP1: "Practice 1", FP2: "Practice 2", FP3: "Practice 3", SS: "Sprint qualifying", SR: "Sprint race", Qual: "Qualifying", Race: "Race" };
+  function sessName(n) { return SESS[n] || n; }
   function card(x) {
+    if (x.g.ev) return evCard(x);
     var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : ""));
     var top = el("div", "top");
     var ptxt = g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
@@ -197,6 +231,7 @@
   // Start fetching a game's box score as soon as a finger or mouse settles on its card, so the tap opens instantly.
   function prefetchOn(c, x) {
     var t = 0;
+    if (x.g.ev) return;
     var go = function () { ESPN.fetchGame(x.lk, x.g.id).catch(function () {}); };
     var arm = function () { clearTimeout(t); t = setTimeout(go, 60); }, stop = function () { clearTimeout(t); };
     c.addEventListener("mouseenter", arm); c.addEventListener("mouseleave", stop);
@@ -465,6 +500,12 @@
   // One tap: copies a clean score line, ready to paste into Discord or a text.
   function copyScore() {
     var x = S.view.x, g = x.g, pa = (leagueOf(x.lk) || {}).path || "", em = /^football/.test(pa) ? "🏈" : /^basketball/.test(pa) ? "🏀" : /^hockey/.test(pa) ? "🏒" : /^baseball/.test(pa) ? "⚾" : /^australian/.test(pa) ? "🏉" : /^soccer/.test(pa) ? "⚽" : /^volleyball/.test(pa) ? "🏐" : /^lacrosse/.test(pa) ? "🥍" : /^field-hockey/.test(pa) ? "🏑" : "";
+    if (g.ev) {
+      var top = g.ev === "mma" ? (g.x.fights[0] && g.x.fights[0].win >= 0 ? g.x.fights[0].n[g.x.fights[0].win] + " won the main event" : "") : (((g.x.sess.filter(function (s) { return /^race$/i.test(s.n); })[0] || { rows: [] }).rows[0] || [])[1] || "");
+      var etx = (g.ev === "mma" ? "🥊 " : "🏁 ") + g.h[0] + " · " + (g.s === "final" ? "Final" + (top ? " · " + (g.ev === "mma" ? top : "Winner: " + top) : "") : g.s === "live" ? g.c || "Live" : when(g.t));
+      try { navigator.clipboard.writeText(etx).then(function () { toast("Copied: " + etx); }, function () { toast("Could not copy"); }); } catch (e) { toast("Could not copy"); }
+      return;
+    }
     var txt = g.s === "up" ? g.a[0] + " at " + g.h[0] + " · " + when(g.t)
       : g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2] + " · " + (g.s === "final" ? "Final" : g.c || "Live");
     txt = (em ? em + " " : "") + txt;
@@ -542,6 +583,42 @@
     var t = sec(title, w, open, false); t.classList.add("tier");
     return t;
   }
+  // Detail for an event sport: every fight on the card, or every session of the race weekend with its results.
+  function renderEvent(out, g) {
+    var P = g.x || {};
+    if (P.venue) out.appendChild(el("p", "rb", P.venue));
+    if (g.ev === "mma") {
+      var fs = P.fights || [], main = fs.filter(function (f) { return f.ft; }), prel = fs.filter(function (f) { return !f.ft; });
+      if (!main.length) { main = fs; prel = []; }
+      var mk = function (list) {
+        var ul = el("ul", "fights");
+        list.forEach(function (f) {
+          var li = el("li"), tp = el("div", "ft"), done = f.s === "post" && f.win >= 0;
+          tp.appendChild(el("span", "fw", f.w || "Bout"));
+          tp.appendChild(el("span", "fr", f.s === "post" ? (done ? [f.m, f.rd ? "R" + f.rd : "", f.tm].filter(Boolean).join(" · ") : "No result") : f.s === "in" ? (f.live || "Live") : ""));
+          li.appendChild(tp);
+          var nm = el("div", "fn"), who = function (i, w) {
+            var s = el("span"); s.appendChild(el("b", w ? "fwin" : "", f.n[i] || "–"));
+            if (f.r[i]) s.appendChild(document.createTextNode(" (" + f.r[i] + ")"));
+            return s;
+          }, o = done ? [f.win, 1 - f.win] : [0, 1];
+          nm.appendChild(who(o[0], done)); nm.appendChild(document.createTextNode(done ? " def. " : " vs ")); nm.appendChild(who(o[1], false));
+          li.appendChild(nm); ul.appendChild(li);
+        });
+        return ul;
+      };
+      if (!fs.length) out.appendChild(el("p", "rmsg", "The fight card has not been announced yet."));
+      if (main.length) out.appendChild(sec("Main card", mk(main), true, false));
+      if (prel.length) out.appendChild(sec("Prelims", mk(prel), g.s === "up", false));
+    } else {
+      var ses = (P.sess || []).slice().reverse();
+      ses.forEach(function (s, i) {
+        var title = sessName(s.n) + " · " + (s.s === "post" ? "Final" : s.s === "in" ? "Live" : when(s.t));
+        var body = s.rows.length ? tbl({ cols: ["Pos", "Driver"], rows: s.rows }) : el("p", "rb", "Starts " + when(s.t) + ".");
+        out.appendChild(sec(title, body, i === 0 || s.s === "in", false));
+      });
+    }
+  }
   function renderDetail(out) {
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
     var back = el("button", "back", "← All scores"); back.type = "button"; back.onclick = closeGame;
@@ -559,6 +636,7 @@
     nav.appendChild(acts);
     out.appendChild(nav);
     var hd = el("div", "dhead"); hd.appendChild(card(v.x)); out.appendChild(hd);
+    if (g.ev) { renderEvent(out, g); return; }
     if (d === undefined) { out.appendChild(el("p", "rmsg", "Loading box score…")); return; }
     if (d === null) { out.appendChild(el("p", "rmsg", "Could not load the box score right now. Try again in a moment.")); return; }
 
@@ -651,7 +729,7 @@
   }
   function clearHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} S.pushed = false; }
   function syncFromHash() {
-    var m = /^#game\/([a-z]+)\/(\d+)$/.exec(location.hash);
+    var m = /^#game\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
     if (!m) { if (S.view) { S.view = null; render(); window.scrollTo(0, 0); } return; }
     if (!S.ready) return;
     var key = m[1] + "_" + m[2];
@@ -664,14 +742,14 @@
   // The written recap/preview (AP via ESPN) loads alongside the box score and is added when it arrives.
   function loadNarr() {
     var v = S.view;
-    if (!v) return;
+    if (!v || v.x.g.ev) return;
     ESPN.fetchNarrative(v.x.lk, v.x.g.id, v.x.g.s === "final").then(function (n) {
       if (S.view && S.view.key === v.key && n) { S.view.n = n; render(); }
     });
   }
   function loadDetail() {
     var v = S.view;
-    if (!v) return;
+    if (!v || v.x.g.ev) return;
     ESPN.fetchGame(v.x.lk, v.x.g.id).then(function (d) {
       if (S.view && S.view.key === v.key && JSON.stringify(d) !== JSON.stringify(S.view.d)) { S.view.d = d; render(); }
     }, function () {
@@ -950,5 +1028,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=22").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=23").catch(function () {}); } catch (e) {} });
 })();
