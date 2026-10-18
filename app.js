@@ -196,6 +196,40 @@
     });
     return w;
   }
+  // Offseason view for a team with no games left: a written season recap built from its schedule results.
+  function dshort(g) { return new Date(g.t).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+  function resLine(g) { return (g.my > g.op ? "W " : g.my < g.op ? "L " : "T ") + g.my + "-" + g.op + " " + (g.home ? "vs " : "at ") + g.opp; }
+  function seasonRecap(a, T) {
+    var fin = T.games.filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime);
+    var reg = fin.filter(function (g) { return g.st !== 3 && g.st !== 1; }), post = fin.filter(function (g) { return g.st === 3; });
+    if (!reg.length) reg = fin;
+    var W = 0, L = 0, TT = 0, hw = 0, hl = 0, rw = 0, rl = 0, pf = 0, pa = 0, run = 0, best = 0, bestEnd = null, bw = null, bl = null;
+    reg.forEach(function (g) {
+      var m = g.my - g.op;
+      pf += g.my; pa += g.op;
+      if (m > 0) { W++; run++; if (g.home) hw++; else rw++; if (run > best) { best = run; bestEnd = g; } if (!bw || m > bw.my - bw.op) bw = g; }
+      else if (m < 0) { L++; run = 0; if (g.home) hl++; else rl++; if (!bl || m < bl.my - bl.op) bl = g; }
+      else { TT++; run = 0; }
+    });
+    var l10 = reg.slice(-10), lw = l10.filter(function (g) { return g.my > g.op; }).length;
+    var diff = pf - pa, rec = (T.standing && T.standing.record) || (W + "-" + L + (TT ? "-" + TT : ""));
+    var chips = el("div", "chips");
+    [[rec, "Record"], [hw + "-" + hl, "Home"], [rw + "-" + rl, "Road"], [lw + "-" + (l10.length - lw), "Last 10"], [(diff >= 0 ? "+" : "") + diff, "Point diff"]].forEach(function (c) {
+      var ch = el("span", "chip"); ch.appendChild(el("b", null, c[0])); ch.appendChild(el("i", null, c[1])); chips.appendChild(ch);
+    });
+    a.appendChild(chips);
+    var s = ["Scored " + pf + " and allowed " + pa + " over " + reg.length + " games."];
+    if (best >= 3) s.push("Best stretch: " + best + " straight wins, ending " + dshort(bestEnd) + ".");
+    if (bw) s.push("Biggest win: " + resLine(bw) + " (" + dshort(bw) + ").");
+    if (bl) s.push("Toughest loss: " + resLine(bl) + " (" + dshort(bl) + ").");
+    if (post.length) {
+      var pw = post.filter(function (g) { return g.my > g.op; }).length;
+      s.push("Reached the postseason and went " + pw + "-" + (post.length - pw) + ".");
+    } else if (T.standing) s.push("No postseason games.");
+    s.push("The season ended with " + resLine(fin[fin.length - 1]) + ".");
+    a.appendChild(el("p", "rb", s.join(" ")));
+    a.appendChild(gameList("Final games", fin.slice(-3).reverse()));
+  }
   function renderTeams(out) {
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) {
@@ -205,13 +239,19 @@
       h.appendChild(el("h3", null, name));
       if (T.standing) h.appendChild(el("span", "res rc", T.standing.record));
       a.appendChild(h);
-      if (T.standing) a.appendChild(el("div", "rl", ordinal(T.standing.rank) + " in " + T.standing.group + (T.standing.streak ? " · streak " + T.standing.streak : "")));
+      var gsAll = T.games || [];
+      var off = !!T.done && gsAll.some(function (g) { return g.s === "final"; }) && !gsAll.some(function (g) { return g.s !== "final"; });
+      if (off) a.className = "recap off";
+      if (T.standing) a.appendChild(el("div", "rl", (off ? "Season recap · " : "") + ordinal(T.standing.rank) + " in " + T.standing.group + (!off && T.standing.streak ? " · streak " + T.standing.streak : "")));
       if (!T.done) a.appendChild(el("p", "rb", "Loading…"));
       else if (T.missing || T.error) a.appendChild(el("p", "rb", "Could not load this team right now."));
       else {
         var gs = T.games || [];
-        a.appendChild(gameList("Next", gs.filter(function (g) { return g.s !== "final"; }).sort(byTime).slice(0, 5)));
-        a.appendChild(gameList("Last", gs.filter(function (g) { return g.s === "final"; }).sort(function (x, y) { return byTime(y, x); }).slice(0, 3)));
+        if (off) seasonRecap(a, T);
+        else {
+          a.appendChild(gameList("Next", gs.filter(function (g) { return g.s !== "final"; }).sort(byTime).slice(0, 5)));
+          a.appendChild(gameList("Last", gs.filter(function (g) { return g.s === "final"; }).sort(function (x, y) { return byTime(y, x); }).slice(0, 3)));
+        }
       }
       gr.appendChild(a);
     });
@@ -319,6 +359,13 @@
     var up = g.s === "up", list = [];
     var pv = el("div", "sum");
     pv.appendChild(el("p", null, d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + ".")));
+    (d.narrative || []).forEach(function (n) {
+      var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); pv.appendChild(w);
+    });
+    if (d.link) {
+      var lw = el("div", "nar"), la = el("a", null, "ESPN preview: " + d.link.text + " ↗");
+      la.href = d.link.href; la.target = "_blank"; la.rel = "noopener"; lw.appendChild(la); pv.appendChild(lw);
+    }
     var preview = sec("Matchup preview", pv, up, false);
     if (up) list.push(preview);
 
