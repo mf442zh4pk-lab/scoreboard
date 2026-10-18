@@ -712,7 +712,114 @@
     });
     return w;
   }
+  // ---------- team trends: charts and numbers built from the season schedule we already loaded ----------
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function sv(tag, at, kid) {
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in at) n.setAttribute(k, at[k]);
+    if (kid) { var t = document.createElementNS(SVGNS, "title"); t.textContent = kid; n.appendChild(t); }
+    return n;
+  }
+  function recStr(w, l, t) { return w + "-" + l + (t ? "-" + t : ""); }
+  function trendStats(gs) {
+    var fin = gs.filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime);
+    if (fin.length < 3) return null;
+    var S0 = { n: fin.length, fin: fin, W: 0, L: 0, T: 0, pf: 0, pa: 0, cum: [], hW: 0, hL: 0, aW: 0, aL: 0, best: 0, run: 0 }, tot = 0;
+    fin.forEach(function (g) {
+      var w = g.my > g.op ? 1 : g.my < g.op ? 0 : 0.5;
+      if (w === 1) S0.W++; else if (w === 0) S0.L++; else S0.T++;
+      S0.pf += g.my; S0.pa += g.op; tot += g.my + g.op;
+      if (g.home) { if (w === 1) S0.hW++; else if (w === 0) S0.hL++; } else { if (w === 1) S0.aW++; else if (w === 0) S0.aL++; }
+      S0.run = w === 1 ? S0.run + 1 : 0; if (S0.run > S0.best) S0.best = S0.run;
+      S0.cum.push((S0.W + 0.5 * S0.T) / (S0.W + S0.L + S0.T));
+    });
+    var avg = tot / fin.length, thr = avg >= 120 ? 5 : avg >= 30 ? 8 : 1;
+    S0.thr = thr; S0.cW = 0; S0.cL = 0;
+    fin.forEach(function (g) { var d = Math.abs(g.my - g.op); if (d && d <= thr) { if (g.my > g.op) S0.cW++; else S0.cL++; } });
+    S0.pct = (S0.W + 0.5 * S0.T) / S0.n;
+    var l5 = fin.slice(-5), w5 = 0, t5 = 0, l5l = 0, pf5 = 0, pa5 = 0;
+    l5.forEach(function (g) { if (g.my > g.op) w5++; else if (g.my < g.op) l5l++; else t5++; pf5 += g.my; pa5 += g.op; });
+    S0.l5 = { w: w5, l: l5l, t: t5, n: l5.length, pct: (w5 + 0.5 * t5) / l5.length, pf: pf5 / l5.length, pa: pa5 / l5.length };
+    S0.pfAvg = S0.pf / S0.n; S0.paAvg = S0.pa / S0.n;
+    S0.mom = S0.l5.pct - S0.pct;                         // how much better (or worse) the last five are than the season
+    S0.heat = Math.round(S0.l5.pct * 60 + (S0.mom + 1) * 20 + Math.max(-10, Math.min(10, ((S0.l5.pf - S0.l5.pa) - (S0.pfAvg - S0.paAvg)) / (avg / 8 || 1) * 10)));
+    return S0;
+  }
+  function momLabel(s, off) {
+    var up = s.mom >= 0.15, down = s.mom <= -0.15;
+    if (off) return up ? ["\u25B2", "Finished hot", "up"] : down ? ["\u25BC", "Faded late", "down"] : ["\u25B6", "Steady to the end", "flat"];
+    return up ? ["\u25B2", "Heating up", "up"] : down ? ["\u25BC", "Cooling off", "down"] : ["\u25B6", "Holding steady", "flat"];
+  }
+  function marginChart(s) {
+    var gs = s.fin.slice(-16), W = 300, H = 64, mid = H / 2, mx = 1;
+    gs.forEach(function (g) { mx = Math.max(mx, Math.abs(g.my - g.op)); });
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, class: "tsv", role: "img", "aria-label": "Winning and losing margin of the last " + gs.length + " games" }), bw = W / gs.length;
+    svg.appendChild(sv("line", { x1: 0, x2: W, y1: mid, y2: mid, class: "t-mid" }));
+    gs.forEach(function (g, i) {
+      var m = g.my - g.op, h = Math.max(2, Math.abs(m) / mx * (mid - 4));
+      svg.appendChild(sv("rect", { x: (i * bw + bw * 0.14).toFixed(1), width: (bw * 0.72).toFixed(1), y: m >= 0 ? (mid - h).toFixed(1) : mid, height: h.toFixed(1), rx: 2, class: m > 0 ? "t-w" : m < 0 ? "t-l" : "t-t" }, (g.home ? "vs " : "at ") + g.opp + " \u00b7 " + (m > 0 ? "W " : m < 0 ? "L " : "T ") + g.my + "-" + g.op));
+    });
+    return svg;
+  }
+  function pctChart(s) {
+    var W = 300, H = 46, n = s.cum.length, svg = sv("svg", { viewBox: "0 0 " + W + " " + H, class: "tsv", role: "img", "aria-label": "Win percentage over the season" });
+    var y = function (p) { return (4 + (1 - p) * (H - 8)).toFixed(1); }, x = function (i) { return n > 1 ? (4 + i * (W - 8) / (n - 1)).toFixed(1) : W / 2; };
+    svg.appendChild(sv("line", { x1: 0, x2: W, y1: y(0.5), y2: y(0.5), class: "t-half" }));
+    svg.appendChild(sv("polyline", { points: s.cum.map(function (p, i) { return x(i) + "," + y(p); }).join(" "), class: "t-line", fill: "none" }));
+    svg.appendChild(sv("circle", { cx: x(n - 1), cy: y(s.cum[n - 1]), r: 3.5, class: "t-dot" }));
+    return svg;
+  }
+  function dlt(v, d, inv) {   // small up/down arrow comparing the last five to the season average
+    var diff = v; if (Math.abs(diff) < d) return null;
+    var good = inv ? diff < 0 : diff > 0;
+    return el("span", "tdl " + (good ? "g" : "b"), (diff > 0 ? "\u25B2 " : "\u25BC ") + Math.abs(diff).toFixed(1));
+  }
+  function stat(label, big, sub, extra) {
+    var d = el("div", "tstat"); d.appendChild(el("div", "tl", label));
+    var b = el("div", "tb", big); if (extra) b.appendChild(extra); d.appendChild(b);
+    if (sub) d.appendChild(el("div", "ts", sub)); return d;
+  }
+  function trendsPanel(s, off) {
+    var box = el("details", "trn"); box.open = true;
+    var lab = momLabel(s, off), sm = el("summary", null);
+    sm.appendChild(el("span", "tm " + lab[2], lab[0] + " " + lab[1]));
+    sm.appendChild(el("span", "tsub", s.l5.w + "-" + s.l5.l + (s.l5.t ? "-" + s.l5.t : "") + " in last " + s.l5.n + " \u00b7 season " + recStr(s.W, s.L, s.T)));
+    box.appendChild(sm);
+    var body = el("div", "trb");
+    body.appendChild(el("div", "tcap", "Margin, last " + Math.min(16, s.n) + " games"));
+    body.appendChild(marginChart(s));
+    body.appendChild(el("div", "tcap", "Win % through the season \u00b7 now " + Math.round(s.cum[s.n - 1] * 100) + "%"));
+    body.appendChild(pctChart(s));
+    var g = el("div", "tstats"), unit = s.pfAvg >= 30 ? "pts" : "";
+    g.appendChild(stat("Scored", s.l5.pf.toFixed(1), "last " + s.l5.n + " \u00b7 season " + s.pfAvg.toFixed(1), dlt(s.l5.pf - s.pfAvg, 0.1)));
+    g.appendChild(stat("Allowed", s.l5.pa.toFixed(1), "last " + s.l5.n + " \u00b7 season " + s.paAvg.toFixed(1), dlt(s.l5.pa - s.paAvg, 0.1, true)));
+    g.appendChild(stat("Home", recStr(s.hW, s.hL), "Away " + recStr(s.aW, s.aL)));
+    g.appendChild(stat("Close games", recStr(s.cW, s.cL), "decided by " + s.thr + " or less"));
+    g.appendChild(stat("Win streak", String(s.best), "longest this season"));
+    g.appendChild(stat("Margin", (s.pfAvg - s.paAvg >= 0 ? "+" : "") + (s.pfAvg - s.paAvg).toFixed(1), "per game" + (unit ? "" : "")));
+    body.appendChild(g); box.appendChild(body);
+    return box;
+  }
+  // Who is hottest right now across the teams you follow.
+  function heatCheck(rows) {
+    if (rows.length < 2) return null;
+    rows.sort(function (p, q) { return q.s.heat - p.s.heat; });
+    var box = el("section", "heat"); box.appendChild(el("h2", null, "Heat check"));
+    var ul = el("ol", "hl");
+    rows.forEach(function (r, i) {
+      var li = el("li"), lb = momLabel(r.s, r.off);
+      li.appendChild(el("span", "hn", String(i + 1)));
+      var mid = el("div", "hm"); mid.appendChild(el("div", "hname", r.name));
+      var bar = el("div", "hbar"), fill = el("i", lb[2]); fill.style.width = Math.max(6, Math.round(r.s.l5.pct * 100)) + "%"; bar.appendChild(fill); mid.appendChild(bar);
+      li.appendChild(mid);
+      var rt = el("div", "hr"); rt.appendChild(el("b", null, r.s.l5.w + "-" + r.s.l5.l + (r.s.l5.t ? "-" + r.s.l5.t : ""))); rt.appendChild(el("span", "tm " + lb[2], lb[0]));
+      li.appendChild(rt); ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    return box;
+  }
   function renderTeams(out) {
+    var heatRows = [], heatSlot = el("div"); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) {
       loadTeam(name);
@@ -734,6 +841,8 @@
         var stt = T.standing && standTable(name, T.standing);
         if (stt) a.appendChild(stt);
         var fd = formDots(gs); if (fd) a.appendChild(fd);
+        var ts = trendStats(gs);
+        if (ts) { a.appendChild(trendsPanel(ts, off)); heatRows.push({ name: name, s: ts, off: off }); }
         if (off) seasonRecap(a, T);
         else {
           var ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime);
@@ -749,6 +858,7 @@
       }
       gr.appendChild(a);
     });
+    var hc = heatCheck(heatRows); if (hc) heatSlot.appendChild(hc);
     out.appendChild(gr);
   }
 
@@ -1359,5 +1469,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=36").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=37").catch(function () {}); } catch (e) {} });
 })();
