@@ -217,6 +217,8 @@
     });
     return c;
   }
+  var UCOL = {};
+  try { UCOL = JSON.parse(localStorage.getItem("sb-ucol") || "{}") || {}; } catch (e) {}
   function group(title, cls, items, big, split) {
     if (!items.length) return null;
     var s = el("section", "grp"), h = el("h2", cls || "");
@@ -230,9 +232,15 @@
       if (lks.length > 1) {
         LG.forEach(function (l) {
           if (!seenL[l.key]) return;
-          var sub = el("h3", "sub-h", l.label);
-          s.appendChild(sub);
-          s.appendChild(gridOf(items.filter(function (x) { return x.lk === l.key; }), cls, big));
+          var its = items.filter(function (x) { return x.lk === l.key; }), wrap = el("div", "usec" + (UCOL[l.key] ? " shut" : ""));
+          var sb = el("button", "sub-h"); sb.type = "button"; sb.setAttribute("aria-expanded", UCOL[l.key] ? "false" : "true");
+          sb.appendChild(el("span", "lgh-t", l.label)); sb.appendChild(el("span", "lgh-n", String(its.length))); sb.appendChild(el("span", "lgh-c", "\u25BE"));
+          sb.onclick = function () {
+            var shut = wrap.classList.toggle("shut"); sb.setAttribute("aria-expanded", shut ? "false" : "true");
+            if (shut) UCOL[l.key] = 1; else delete UCOL[l.key];
+            try { localStorage.setItem("sb-ucol", JSON.stringify(UCOL)); } catch (e) {}
+          };
+          wrap.appendChild(sb); wrap.appendChild(gridOf(its, cls, big)); s.appendChild(wrap);
         });
         return s;
       }
@@ -1243,5 +1251,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=28").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=29").catch(function () {}); } catch (e) {} });
 })();
