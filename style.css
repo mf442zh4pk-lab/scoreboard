@@ -176,3 +176,22 @@ body.ld #bar{opacity:1;animation:slide 1s linear infinite}
 .seg{display:flex;gap:8px}
 .seg button[aria-pressed=true]{background:var(--pri);color:var(--card)}
 footer,.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:28px}
+
+/* v18: close games, pins, countdowns, form dots, win-probability chart */
+.card.close{border-color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)}
+.grp h2.close{color:var(--warn)}
+.grp h2.pin{color:var(--ter)}
+.flame{font-size:13px}
+.pill.w{color:var(--win)} .pill.l{color:var(--live)}
+.cd{color:var(--ter);text-transform:none;letter-spacing:0;font-weight:600}
+.frm{display:flex;align-items:center;gap:4px;margin:8px 0 0}
+.frm span{font-size:11px;color:var(--mute);margin-right:4px;text-transform:uppercase;letter-spacing:.08em}
+.frm i{width:10px;height:10px;border-radius:50%;background:var(--mute);display:block}
+.frm i.w{background:var(--win)} .frm i.l{background:var(--live)}
+.tgb{flex:none;margin-left:8px;font-size:12px;color:var(--mute)}
+.navbar .acts{display:flex;gap:14px;align-items:center}
+.h2h{color:var(--mute);font-size:13px;margin:4px 0 0}
+.wp svg{width:100%;height:64px;display:block;background:var(--pri-soft);border-radius:8px}
+.wp p{margin:4px 0 0;font-size:12px;color:var(--mute)}
+.wp polyline{fill:none;stroke:var(--pri);stroke-width:1.8;vector-effect:non-scaling-stroke}
+.wp line{stroke:var(--mute);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;opacity:.6}
