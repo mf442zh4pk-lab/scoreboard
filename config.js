@@ -10,17 +10,19 @@ window.CONFIG = {
     "Boston Celtics",
     "Boston Bruins",
     "Boston Red Sox",
+    "Brisbane Lions",
   ],
   // Followed teams with no data feed yet (listed in the footer note only).
-  noFeed: ["Brisbane Lions"],
+  noFeed: [],
   // Leagues shown as tabs. path comes from ESPN: sport/league.
   leagues: [
     { key: "nfl", label: "NFL", path: "football/nfl" },
     { key: "nba", label: "NBA", path: "basketball/nba" },
     { key: "nhl", label: "NHL", path: "hockey/nhl" },
     { key: "mlb", label: "MLB", path: "baseball/mlb" },
-    { key: "ncaafb", label: "College FB", path: "football/college-football" },
+    { key: "ncaafb", label: "College FB", path: "football/college-football", noTeams: true },
     { key: "epl", label: "Premier League", path: "soccer/eng.1", soccer: true },
     { key: "ucl", label: "Champions League", path: "soccer/uefa.champions", soccer: true },
+    { key: "afl", label: "AFL", path: "australian-football/afl" },
   ],
 };
