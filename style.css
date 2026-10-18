@@ -353,7 +353,7 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .ov[open] summary::after{transform:rotate(90deg)}
 .ovt{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mute)}
 .dvw,.fgw{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.dv,.fg{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) auto;gap:8px;align-items:center}
+.dv,.fg{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr) 44px;gap:8px;align-items:center}
 .dvn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dvs{font-size:12px;font-weight:700;min-width:44px;text-align:right}
 .dvt{position:relative;height:14px;background:var(--pri-soft);border-radius:7px}
@@ -369,3 +369,21 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .wdl{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;text-align:center}
 .wc{background:var(--pri-soft);border-radius:6px;padding:4px;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wc small{display:block;font-weight:400;color:var(--mute);font-size:10px;overflow:hidden;text-overflow:ellipsis}
+/* v39: polish */
+.tdots{display:inline-flex;gap:3px;align-items:center}
+.tdots i{width:8px;height:8px;border-radius:50%;background:var(--mute);display:block}
+.tdots i.w{background:var(--win)} .tdots i.l{background:var(--live)}
+.dvs small{display:block;font-size:10px;font-weight:600;color:var(--mute)}
+.ag{display:flex;flex-direction:column;margin-top:8px}
+.agd{font-size:11px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 4px}
+.agd:first-child{margin-top:2px}
+.agr{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px;min-width:0}
+.agt{flex:none;width:62px;color:var(--mute);font-size:12px}
+.agr b{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ago{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.story .row{padding:3px 0}
+.sc,.dvs,.tb,.tgr{font-variant-numeric:tabular-nums}
+.card,.story,.sub,button,summary,.chip{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ov summary:active,.trn summary:active,.usec summary:active{opacity:.7}
+.recap{content-visibility:auto;contain-intrinsic-size:auto 420px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
