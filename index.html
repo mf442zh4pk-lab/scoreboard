@@ -373,6 +373,25 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&view){view=
 document.addEventListener("visibilitychange",function(){ if(!document.hidden&&Date.now()-lastUpdated>60000) load(); });
 setInterval(function(){ if(!document.hidden&&anyLive()) load(); },60000);
 load();
+function fetchScores(){
+var now=new Date();
+var dates=[-1,0,1,2,3].map(function(n){return etDate(new Date(now.getTime()+n*DAY)).replace(/-/g,"")});
+var jobs=[];
+LG.forEach(function(l,li){dates.forEach(function(d){
+jobs.push({li:li,p:getJson(BASE+"/"+l[2]+"/scoreboard?dates="+d).then(function(j){return (j.events||[]).map(function(e){return normalize(e,l[0])}).filter(Boolean)},function(){return null})});
+})});
+return Promise.all(jobs.map(function(j){return j.p})).then(function(res){
+var by=LG.map(function(){return {ok:0,games:[]}});
+res.forEach(function(r,i){var o=by[jobs[i].li]; if(r){o.ok++; o.games=o.games.concat(r)}});
+var scores={}, all=[], bad=[];
+by.forEach(function(o,i){
+if(!o.ok){bad.push(LG[i][1]); scores[LG[i][0]]=[]; return}
+var seen={}; var gs=o.games.filter(function(g){if(seen[g.id]) return false; seen[g.id]=1; return true});
+all=all.concat(gs); scores[LG[i][0]]=trim(gs);
+});
+return {updated:now.toISOString(),scores:scores,yesterday:buildYesterday(all,now),failed:bad};
+});
+}
 })();
 </script>
 </body></html>
