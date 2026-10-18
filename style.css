@@ -195,3 +195,8 @@ footer,.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:28px}
 .wp p{margin:4px 0 0;font-size:12px;color:var(--mute)}
 .wp polyline{fill:none;stroke:var(--pri);stroke-width:1.8;vector-effect:non-scaling-stroke}
 .wp line{stroke:var(--mute);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;opacity:.6}
+
+.nh{font-weight:700;margin:0 0 8px}
+.ap{margin:0 0 9px}
+.src{margin:2px 0 6px;font-size:12px;color:var(--mute)}
+.src a{color:var(--pri);font-weight:600}
