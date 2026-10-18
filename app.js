@@ -795,6 +795,17 @@
   // ---------- start ----------
   document.title = C.title;
   $("title").textContent = C.title;
+  // Tapping the title goes home (Following tab).
+  (function () {
+    var ti = $("title"), home = function () {
+      S.tab = "pinned"; S.view = null; S.settings = false; clearHash();
+      try { localStorage.setItem("sb-tab", "pinned"); } catch (e) {}
+      render(); window.scrollTo(0, 0);
+    };
+    ti.style.cursor = "pointer"; ti.tabIndex = 0; ti.setAttribute("role", "link");
+    ti.onclick = home;
+    ti.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); home(); } };
+  })();
   $("refresh").onclick = function () { load(true); };
   window.addEventListener("hashchange", syncFromHash);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && S.view) closeGame(); });
@@ -860,5 +871,5 @@
   if (S.ready) { syncFromHash(); loadLeaders(); }
   load(true);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=18").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=19").catch(function () {}); } catch (e) {} });
 })();
