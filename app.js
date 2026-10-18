@@ -83,6 +83,16 @@
   }
 
   // ---------- list view ----------
+  // Team badge: the logo when we have one (lazy, fixed size so nothing jumps), else the abbreviation.
+  function logoImg(u, ab) {
+    var i = new Image(); i.src = u; i.alt = ""; i.width = 28; i.height = 28; i.loading = "lazy"; i.decoding = "async";
+    i.onerror = function () { var p = i.parentNode; if (p) { p.className = "ab"; p.textContent = ab || ""; } };
+    return i;
+  }
+  function badge(t) {
+    if (!t[5]) return el("span", "ab", t[1]);
+    var b = el("span", "ab lg"); b.appendChild(logoImg(t[5], t[1])); return b;
+  }
   function card(x) {
     var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : ""));
     var top = el("div", "top");
@@ -93,7 +103,7 @@
     [[g.a, as, hs], [g.h, hs, as]].forEach(function (r) {
       var row = el("div", "row" + (has && r[1] < r[2] && g.s === "final" ? " lose" : ""));
       var tm = el("div", "tm");
-      tm.appendChild(el("span", "ab", r[0][1]));
+      tm.appendChild(badge(r[0]));
       var nmw = el("span", "nmw"); nmw.appendChild(el("span", "nm", r[0][0]));
       if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
@@ -261,7 +271,9 @@
       loadTeam(name);
       var T = S.teams[name] || {};
       var a = el("article", "recap"), h = el("div", "rh");
-      h.appendChild(el("h3", null, name));
+      var h3 = el("h3", null, name);
+      if (T.standing && T.standing.logo) { var lb = el("span", "ab lg sm"); lb.appendChild(logoImg(T.standing.logo, "")); h3.insertBefore(lb, h3.firstChild); }
+      h.appendChild(h3);
       if (T.standing) h.appendChild(el("span", "res rc", T.standing.record));
       a.appendChild(h);
       var gsAll = T.games || [];
