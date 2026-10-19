@@ -5,15 +5,18 @@
   var D0 = document, $ = function (id) { return document.getElementById(id); };
   // The build number comes from this script's own ?v= in index.html, so there is exactly one place to bump it.
   var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
-  var RM = false; try { RM = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+  // Reduced motion comes from the phone's setting or the Animations switch in Settings; either one turns every move off.
+  var RM0 = false; try { RM0 = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+  var RM = RM0;
   // Preferences (Settings). Defaults here; anything the person changes is saved under sb-pref.
-  var PREF = { tab0: "last", compact: false, h24: false, haptic: true, alerts: true, upwin: "3", splash: true, text: "n", logos: true, notify: false, hideL: [] };
+  var PREF = { tab0: "last", compact: false, h24: false, haptic: true, alerts: true, upwin: "3", splash: true, text: "n", logos: true, notify: false, hideL: [], motion: true };
   try { var pf = JSON.parse(localStorage.getItem("sb-pref") || "{}"); for (var pk in pf) if (pk in PREF) PREF[pk] = pf[pk]; } catch (e) {}
   function setPref(k, v) { PREF[k] = v; try { localStorage.setItem("sb-pref", JSON.stringify(PREF)); } catch (e) {} applyPref(); }
   function applyPref() {
     document.body.classList.toggle("cmp", !!PREF.compact);
     document.body.classList.toggle("nolg", !PREF.logos);
     document.documentElement.classList.toggle("txl", PREF.text === "l");
+    RM = RM0 || !PREF.motion; document.documentElement.classList.toggle("rm", !PREF.motion);
     try { if (PREF.splash) localStorage.removeItem("sb-splash"); else localStorage.setItem("sb-splash", "0"); } catch (e) {}
   }
   applyPref();
@@ -60,9 +63,10 @@
   }
   applyTheme();
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {}
-  function toast(msg) {
-    var t = $("toast"); t.textContent = msg; t.className = "show"; t.onclick = null;
-    clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, 6000);
+  // toast(msg) shows for six seconds; toast(msg, ms, fn) stays longer and runs fn when tapped.
+  function toast(msg, ms, fn) {
+    var t = $("toast"); t.textContent = msg; t.className = "show" + (fn ? " act" : ""); t.onclick = fn ? function () { t.className = ""; fn(); } : null;
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, ms || 6000);
   }
 
   // ---------- helpers ----------
@@ -80,7 +84,8 @@
     s.appendChild(document.createTextNode(t[0])); return s;
   }
   function isFollowed(g) { return C.followed.indexOf(g.h[0]) >= 0 || C.followed.indexOf(g.a[0]) >= 0 || (C.fp.length > 0 && !!g.pp && fpIn(g).length > 0); }
-  function leagueOf(lk) { return LG.filter(function (l) { return l.key === lk; })[0]; }
+  var LGM = {}; LG.forEach(function (l) { LGM[l.key] = l; });   // key → league, looked up constantly while rendering
+  function leagueOf(lk) { return LGM[lk]; }
   function allGames() {
     var out = [];
     LG.forEach(function (l) { S.games[l.key].forEach(function (g) { out.push({ g: g, lk: l.key, ll: l.label }); }); });
@@ -166,8 +171,9 @@
 
   // ---------- list view ----------
   // Team badge: the logo when we have one (lazy, fixed size so nothing jumps), else the abbreviation.
+  var IMGN = 0;   // logos drawn so far in this render: the first screenful loads at once, the rest wait until scrolled near
   function logoImg(u, ab) {
-    var i = new Image(); i.src = u; i.alt = ""; i.width = 28; i.height = 28; i.loading = "lazy"; i.decoding = "async";
+    var i = new Image(); i.src = u; i.alt = ""; i.width = 28; i.height = 28; i.loading = IMGN++ < 16 ? "eager" : "lazy"; i.decoding = "async";
     i.onerror = function () { var p = i.parentNode; if (p) { p.className = "ab"; p.textContent = ab || ""; } };
     return i;
   }
@@ -295,6 +301,8 @@
     out.addEventListener("pointerdown", function (e) {
       var c = cardOf(e); if (!c || !c.classList.contains("lpx") || e.button > 0) return;
       cur = c; sx = e.clientX; sy = e.clientY; fired = false; clearTimeout(t);
+      // A finger that settles for 60ms is about to tap: start the box score now so the page opens with it (a scroll cancels this).
+      if (c.classList.contains("pfx")) { clearTimeout(pt); pt = setTimeout(function () { ESPN.fetchGame(c._x.lk, c._x.g.id).catch(function () {}); }, 60); }
       t = setTimeout(function () { fired = true; cur = null; c.classList.add("lp"); setTimeout(function () { c.classList.remove("lp"); }, 480); buzz(18); lpMenu(c._x); setTimeout(function () { fired = false; }, 700); }, 520);
     });
     out.addEventListener("pointermove", function (e) { if (cur && (Math.abs(e.clientX - sx) > 9 || Math.abs(e.clientY - sy) > 9)) cancel(); }, { passive: true });
@@ -340,10 +348,16 @@
     s.appendChild(gridOf(items, cls, big));
     return s;
   }
+  // Everything a card shows, in one string: when it hasn't changed between two quiet refreshes, the old card stays.
+  function sigOf(x) {
+    var g = x.g;
+    return [g.s, g.c, g.t, g.n, g.b, g.o ? 1 : 0, g.a.slice(0, 7).join("~"), g.h.slice(0, 7).join("~"), x.ll, g.x ? JSON.stringify(g.x) : "", PREF.compact ? 1 : 0, PREF.logos ? 1 : 0, PREF.h24 ? 1 : 0].join("|");
+  }
   function gridOf(items, cls, big) {
     var gr = el("div", "grid" + (big ? " big" : ""));
     items.forEach(function (x) {
       var c = card(x);
+      c.setAttribute("data-k", x.lk + "_" + x.g.id); c.setAttribute("data-sig", sigOf(x));
       c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
       c.setAttribute("aria-label", "Open box score: " + x.g.a[0] + " at " + x.g.h[0]);
       c.onclick = function () { openGame(x); };
@@ -1394,6 +1408,7 @@
     box.appendChild(lw);
     box.appendChild(pref("h24", "24-hour clock", "", ONOFF, true));
     box.appendChild(pref("haptic", "Haptics", "Little taps on buttons (phones)", ONOFF));
+    box.appendChild(pref("motion", "Animations", "Off makes every move instant", ONOFF));
     box.appendChild(pref("splash", "Splash screen", "The one-second intro when the app opens", ONOFF));
 
     box.appendChild(el("h3", null, "Reset"));
@@ -1401,7 +1416,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.8 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.9 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
@@ -1813,9 +1828,10 @@
       var ps = nv.paras.map(function (t, i) { return i ? t : delede(t); }), rest = ps.slice(2);
       ps.slice(0, 2).forEach(function (t) { pv.appendChild(el("p", "ap", t)); });
       if (rest.length) {
-        var rw = el("div", "ap-more"); rw.hidden = true; rest.forEach(function (t) { rw.appendChild(el("p", "ap", t)); });
-        var rt = el("button", "narr-t", "Read the full story \u25BE"); rt.type = "button";
-        rt.onclick = function () { rw.hidden = !rw.hidden; rt.textContent = rw.hidden ? "Read the full story \u25BE" : "Show less \u25B4"; };
+        var rw = el("div", "ap-more"); rest.forEach(function (t) { rw.appendChild(el("p", "ap", t)); });
+        var rt = el("button", "narr-t"); rt.type = "button";
+        var rtx = function () { rw.hidden = !v.full; rt.textContent = v.full ? "Show less \u25B4" : "Read the full story \u25BE"; }; rtx();   // survives the live re-renders
+        rt.onclick = function () { v.full = !v.full; rtx(); };
         pv.appendChild(rw); pv.appendChild(rt);
       }
       var sl = el("p", "src", "Story: AP, via ESPN"), sa = nv.link && el("a", null, " Read on ESPN ↗");
@@ -1871,8 +1887,10 @@
     favs.forEach(function (p, i) { (p.minor ? secd : prim).push(sec(p.title, p.node, p.minor || i < 3, true, p.logo)); });
     others.forEach(function (p) { (p.minor ? secd : prim).push(sec(p.title, p.node, p.minor || (!favs.length && !up && prim.length < 5), false, p.logo)); });
 
+    var sc = null;
     if (d.plays.length) {
-      var sc = el("div", "plays"); sc.tabIndex = 0;
+      sc = el("div", "plays"); sc.tabIndex = 0;
+      sc.onscroll = function () { v.ps = sc.scrollTop; };   // where you were in the log, kept across the 20-second live refreshes
       var seenP = LASTPL[g.id] || null, firstP = d.plays[0] ? d.plays[0].t + "|" + d.plays[0].x : "";
       if (g.s === "live") LASTPL[g.id] = firstP;
       d.plays.forEach(function (p, pi) {
@@ -1901,6 +1919,7 @@
     bar.appendChild(b1); bar.appendChild(b2);
     out.appendChild(bar);
     list.forEach(function (s) { out.appendChild(s); });
+    if (sc && v.ps) sc.scrollTop = v.ps;
   }
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
@@ -1990,9 +2009,16 @@
   function render() {
     updateRail();
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
-    var out = $("out"); out.textContent = "";
+    var out = $("out"); IMGN = 0;
     // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
     var vk = [S.tab, S.ysub, S.view ? S.view.key : "", S.settings ? 1 : 0, S.more ? 1 : 0].join("|");
+    // A quiet refresh of a list keeps every card that didn't change (no logo reload, no flicker) and keeps your focus.
+    var quiet = vk === RK && !S.view && !S.settings && S.ready, OLD = null, FK = null;
+    if (quiet) {
+      OLD = {}; [].forEach.call(out.querySelectorAll(".card[data-k]"), function (c) { OLD[c.getAttribute("data-k")] = c; });
+      var ae = D0.activeElement, fc = ae && ae.closest && ae.closest("#out [data-k]"); FK = fc && fc.getAttribute("data-k");
+    }
+    out.textContent = "";
     if (vk !== RK) {
       RK = vk; out.classList.add("enter"); clearTimeout(RT);
       out.setAttribute("data-fx", window.FUN ? FUN.enterFx() : "rise");
@@ -2023,7 +2049,18 @@
     var fin = items.filter(function (x) { return x.g.s === "final"; }).sort(function (a, b) { return byTime(b.g, a.g); });
     [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big, true), group("Final", "", fin, big, true)].forEach(function (s) { if (s) out.appendChild(s); });
     if (hidden) { var hb = el("button", "sr-more dim2", hidden + " more game" + (hidden > 1 ? "s" : "") + " later this week \u00b7 show"); hb.type = "button"; hb.onclick = function () { setPref("upwin", "all"); render(); }; out.appendChild(hb); }
+    if (OLD) reuseCards(out, OLD, FK);
     emit("render", out);
+  }
+  // Swap unchanged new cards for the ones already on screen (same game, same signature), then put focus back.
+  function reuseCards(out, OLD, FK) {
+    [].forEach.call(out.querySelectorAll(".card[data-k]"), function (c) {
+      var o = OLD[c.getAttribute("data-k")];
+      if (!o || o.getAttribute("data-sig") !== c.getAttribute("data-sig") || o.className !== c.className) return;
+      o._x = c._x; o.onclick = c.onclick; o.onkeydown = c.onkeydown; o.style.visibility = "";
+      c.parentNode.replaceChild(o, c);
+    });
+    if (FK) { var n = out.querySelector('[data-k="' + FK + '"]'); if (n) { try { n.focus({ preventScroll: true }); } catch (e) {} } }
   }
 
   // ---------- Find a game: type-ahead over every loaded game, then a portal to it ----------
@@ -2128,8 +2165,9 @@
     var m = Math.max(0, Math.round((Date.now() - S.last) / 60000));
     s.textContent = m < 1 ? "now" : m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d";
     d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = "Updated " + (m < 1 ? "just now" : s.textContent + " ago");
-    var bad = S.failed.map(function (k) { return leagueOf(k).label; }), nl = 0;
-    allGames().forEach(function (x) { if (x.g.s === "live") nl++; });
+    var bad = S.failed.map(function (k) { return leagueOf(k).label; }), nl = 0, fl = false;
+    allGames().forEach(function (x) { if (x.g.s === "live") { nl++; if (isFollowed(x.g)) fl = true; } });
+    if (RAIL) RAIL.btns[0].classList.toggle("lv", fl);   // red dot on Following while one of your teams is playing
     document.title = (nl ? "\u25CF " + nl + " live \u00b7 " : "") + C.title;
     $("foot").textContent = (bad.length ? "Couldn\u2019t load " + bad.join(", ") + ". " : "") + "Live games refresh every minute. Pull down for the latest.";
   }
@@ -2154,7 +2192,14 @@
     ESPN.fetchScores(offs, [key]).then(function (r) { fin(r.failed.indexOf(key) < 0, r); }, function () { fin(false); });
     if (!S.view && !S.settings) render();
   }
-  function saveCache() { try { localStorage.setItem("sb-cache", JSON.stringify({ at: S.last, g: S.games, yf: S.yf })); } catch (e) {} }
+  // The saved-scores copy is written when the browser is idle, never in the middle of painting a refresh.
+  var SCQ = 0;
+  function flushCache() { if (!SCQ) return; SCQ = 0; try { localStorage.setItem("sb-cache", JSON.stringify({ at: S.last, g: S.games, yf: S.yf })); } catch (e) {} }
+  function saveCache() {
+    if (SCQ) return;
+    SCQ = window.requestIdleCallback ? requestIdleCallback(flushCache, { timeout: 1500 }) : setTimeout(flushCache, 120);
+  }
+  window.addEventListener("pagehide", flushCache);
   function activeLeagues() {
     var o = {};
     allGames().forEach(function (x) { if (x.g.s === "live" || (x.g.s === "up" && Math.abs(new Date(x.g.t) - Date.now()) < 35 * 60000)) o[x.lk] = 1; });
@@ -2438,5 +2483,9 @@
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?" + FV).catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?" + FV).catch(function () {}); } catch (e) {} });
+    // The app shell opens from the saved copy for speed; when the worker finds a newer build behind it, offer the reload.
+    try { navigator.serviceWorker.addEventListener("message", function (e) { if (e.data && e.data.type === "update") toast("New version ready · tap to reload", 20000, function () { location.reload(); }); }); } catch (e) {}
+  }
 })();
