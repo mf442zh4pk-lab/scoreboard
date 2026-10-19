@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=78` → `?v=79` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=79` → `?v=80` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -61,6 +61,10 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 ## Settings (`PREF` in `app.js`)
 
 Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `notify` (final-score notifications), `hideL` (leagues hidden from All), `h24`, `haptic`, `splash`, `motion` (Animations on/off).
+
+## Account prompt
+
+About a minute into first use with no profile signed in (`sb-active`), `app.js` shows one card ("Want to keep your cards?") that says an account only saves the Collection Log and joins the leaderboard, with Make an account / No thanks. It waits if a sheet, the finder or the share bar is open, and it is shown once ever (`sb-acct-ask`).
 
 ## Find a game and the portal
 
