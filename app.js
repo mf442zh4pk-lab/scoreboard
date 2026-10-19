@@ -1026,10 +1026,17 @@
   // ---------- my teams (record, standing, schedule) ----------
   function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   // lk and id are known when the team came from the Find index; otherwise the name is looked up in the team lists.
+  // My teams redraws once when its teams have landed (or after 1.2s at most), not once per team: no jumping.
+  var TQ = 0, TQS = 0;
+  function teamsSoon() {
+    if (TQ) return;
+    TQ = setTimeout(function () { TQ = 0; if (Object.keys(LT).length && Date.now() - TQS < 1200) { teamsSoon(); return; } renderSoon(); }, 90);
+  }
   var LT = {};   // teams with a request in flight (a stale copy on screen re-renders often; it must not refetch each time)
   function loadTeam(name, lk, id, fresh) {
     if ((S.teams[name] && !S.teams[name].stale && !fresh) || LT[name]) return;
     if (!lk && TID[name]) { lk = TID[name].lk; id = TID[name].id; }
+    if (!Object.keys(LT).length) TQS = Date.now();
     LT[name] = 1;
     // Show the last saved copy right away; the fresh one replaces it when it arrives.
     if (!S.teams[name] || !S.teams[name].done) S.teams[name] = TC[name] ? Object.assign({ done: true, stale: true }, TC[name]) : { loading: true };   // what's on screen stays until the new copy lands
@@ -1040,7 +1047,7 @@
       S.teams[name] = Object.assign({ done: true }, i);
       if (!i.missing && C.followed.indexOf(name) >= 0) { TC[name] = i; try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {} }   // only your teams are kept on disk
     }, function () { if (!S.teams[name] || !S.teams[name].stale) S.teams[name] = { done: true, error: true }; else S.teams[name].stale = false; })
-      .then(function () { delete LT[name]; if ((S.tab === "teams" && !S.view) || (S.view && S.view.team)) { if (!S.settings) renderSoon(); } });
+      .then(function () { delete LT[name]; if (S.settings) return; if (S.tab === "teams" && !S.view) teamsSoon(); else if (S.view && S.view.team) renderSoon(); });
   }
   // Turns a schedule entry into the game shape the detail page uses, when the schedule carried both teams' details.
   function schedGame(g, T, lk) {
@@ -1243,12 +1250,10 @@
   }
   // Active streaks across the teams you follow, wins and losses alike, longest first.
   function heatCheck(rows) {
-    if (!rows.length) return null;
     var on = rows.filter(function (r) { return !r.off && r.s.cur.t !== "T" && r.s.cur.n >= (r.s.cur.t === "W" ? 1 : 2); }).sort(function (p, q) { return q.s.cur.n - p.s.cur.n || q.s.heat - p.s.heat; });
-    var rest = rows.filter(function (r) { return on.indexOf(r) < 0; });
+    if (!on.length) return null;   // only teams on a streak are listed; nobody on one means no panel
     var box = el("section", "heat"); box.appendChild(el("h2", null, "Active streaks"));
-    if (!on.length) box.appendChild(el("p", "rb", "No one you follow is on a streak right now."));
-    else {
+    {
       var ul = el("ol", "hl"), mx = on[0].s.cur.n;
       on.forEach(function (r, i) {
         var w = r.s.cur.t === "W", li = el("li", w ? "" : "cold");
@@ -1261,7 +1266,6 @@
       });
       box.appendChild(ul);
     }
-    if (rest.length) box.appendChild(el("p", "hcold", "No streak: " + rest.map(function (r) { return r.name; }).join(", ")));
     return box;
   }
   // Where a followed person stands right now: live event first, else the next one coming up, else the latest result.
@@ -1337,7 +1341,7 @@
     var off = !!T.done && gsAll.some(function (g) { return g.s === "final"; }) && !gsAll.some(function (g) { return g.s !== "final"; });
     if (off) a.className = "recap off";
     if (T.standing) a.appendChild(el("div", "rl", (off ? "Season recap · " : "") + ordinal(T.standing.rank) + " in " + T.standing.group + (!off && T.standing.streak ? " · streak " + T.standing.streak : "")));
-    if (!T.done) a.appendChild(el("p", "rb", "Loading…"));
+    if (!T.done) { var tsk = el("div", "tsk"); ["w40", "", "w70", ""].forEach(function (w) { tsk.appendChild(el("div", "sk-l" + (w ? " " + w : ""))); }); tsk.appendChild(el("div", "sk-b")); a.appendChild(tsk); a.classList.add("ld"); }
     else if (T.missing || T.error) a.appendChild(el("p", "rb", "Couldn\u2019t load this team."));
     else {
       var gs = T.games || [];
@@ -2448,7 +2452,7 @@
       out.setAttribute("data-fx", window.FUN ? FUN.enterFx() : "rise");
       if (window.FUN) requestAnimationFrame(function () { FUN.after(out); }); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500);
     }
-    else if (!RT) out.classList.remove("enter");
+    else { out.classList.remove("enter"); clearTimeout(RT); RT = 0; }   // same view, new data: swap in place, no second entrance
 
     if (!S.ready) { out.appendChild(skel(4, true)); emit("render", out); return; }
     if (S.settings) { renderSettings(out); emit("render", out); return; }
