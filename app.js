@@ -1609,6 +1609,7 @@
       addScript("profile.js", function () { PROF.open(v); });
     });
   }
+  window.SB_LOAD = function (cb) { ensureFun(function () { if (window.PROF) cb(); else addScript("profile.js", cb); }); };
   $("prof").onclick = function () { openProf(); };
   try { // header button shows the signed-in profile's initial
     var pa = localStorage.getItem("sb-active"), pp = pa && JSON.parse(localStorage.getItem("sb-profiles") || "{}")[pa];
@@ -1620,5 +1621,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=46").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=47").catch(function () {}); } catch (e) {} });
 })();
