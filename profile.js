@@ -256,6 +256,9 @@
     top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard" }[view] || ""));
     var x = btn("✕", "pm-x", close); x.setAttribute("aria-label", "Close"); top.appendChild(x);
     sheet.appendChild(top);
+    var sy0 = null;                                  // swipe down on the title bar to close
+    top.addEventListener("touchstart", function (e) { sy0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+    top.addEventListener("touchend", function (e) { if (sy0 != null && e.changedTouches[0].clientY - sy0 > 70) close(); sy0 = null; });
     var body = el("div", "pm-body"); sheet.appendChild(body);
     ({ home: vHome, log: vLog, lb: vLb })[view](body, arg);
   }
@@ -331,6 +334,7 @@
     function chip(k, label) { var b = btn(label, "pm-chip" + (filter === k ? " on" : ""), function () { filter = k; draw(); }); chips.appendChild(b); }
     var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
     var fl = el("div", "pm-chips pm-fl"), cnt = el("p", "pm-note pm-cnt"), qt = 0;
+    qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; lq = ""; drawFl(); drawGrid(); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
     qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawFl(); drawGrid(); }, 70); };
     function active2() { return !!(lq.trim() || lst !== "all" || Object.keys(lr).length); }
     function drawFl() {
@@ -381,7 +385,7 @@
       });
     }
     function RAR(k) { return RL[k]; }
-    body.appendChild(qi); body.appendChild(fl); body.appendChild(chips); body.appendChild(cnt); body.appendChild(grid); draw();
+    var stk = el("div", "pm-stk"); stk.appendChild(qi); stk.appendChild(fl); stk.appendChild(chips); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
     var lg = el("div", "pm-key");
     ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
