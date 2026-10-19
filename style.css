@@ -726,3 +726,17 @@ td.chg{animation:cellf 1.6s ease-out}
 .agr.pf b{flex:none}
 .agr.pf .ago{flex:1 1 100%;padding-left:86px;font-size:12px;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agr.pf:hover b{color:var(--ter)}
+/* v71: quick scoreboard */
+.qsw{display:flex;flex-direction:column;margin-top:6px}
+.qsl{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.qsl b{color:var(--ter)}
+.qsl:first-child{margin-top:2px}
+.qs{display:grid;grid-template-columns:1fr auto 1fr 40px;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.qs.fol{background:linear-gradient(90deg,color-mix(in srgb,var(--ter) 10%,transparent),transparent);margin:0 -6px;padding:7px 6px;border-radius:8px}
+.qst{display:flex;justify-content:space-between;align-items:baseline;gap:6px;min-width:0;color:var(--mute)}
+.qst i{font-style:normal;font-weight:700;letter-spacing:.03em}
+.qst u{text-decoration:none;font:800 16px var(--hd)}
+.qst.w{color:var(--fg)}
+.qsat{color:var(--line);font-size:12px}
+.qsf{text-align:right;font-size:11px;font-weight:700;color:var(--mute)}
+.qs:hover .qst.w{color:var(--ter)}
