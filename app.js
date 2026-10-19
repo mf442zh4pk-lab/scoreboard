@@ -38,6 +38,8 @@
   function addEager(k) { if (EAGER.indexOf(k) < 0) { EAGER.push(k); try { localStorage.setItem("sb-eager", JSON.stringify(EAGER)); } catch (e) {} } }
   try { PINS = JSON.parse(localStorage.getItem("sb-pins") || "[]") || []; } catch (e) {}
   try { TC = JSON.parse(localStorage.getItem("sb-tcache") || "{}") || {}; } catch (e) {}
+  // Trim the team cache to the teams you follow (teams browsed once live only in memory).
+  try { var tcN = 0; Object.keys(TC).forEach(function (n) { if ((JSON.parse(localStorage.getItem("sb-followed") || "null") || C.followed).indexOf(n) < 0) { delete TC[n]; tcN++; } }); if (tcN) localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {}
   function savePins() { try { localStorage.setItem("sb-pins", JSON.stringify(PINS)); } catch (e) {} }
   function pinKey(x) { return x.lk + "_" + x.g.id; }
   function isPinned(x) { return PINS.indexOf(pinKey(x)) >= 0; }
@@ -174,13 +176,16 @@
   var IMGN = 0;   // logos drawn so far in this render: the first screenful loads at once, the rest wait until scrolled near
   function logoImg(u, ab) {
     var i = new Image(); i.src = u; i.alt = ""; i.width = 28; i.height = 28; i.loading = IMGN++ < 16 ? "eager" : "lazy"; i.decoding = "async";
-    i.onerror = function () { var p = i.parentNode; if (p) { p.className = "ab"; p.textContent = ab || ""; } };
+    i.onerror = function () { var p = i.parentNode; if (p) { p.classList.remove("lg"); p.textContent = ab || ""; } };   // keep .tbtn etc.
     return i;
   }
-  function badge(t) {
-    if (!t[5] || !PREF.logos) return el("span", "ab", t[1]);
-    var b = el("span", "ab lg"); b.appendChild(logoImg(t[5], t[1])); return b;
+  function badge(t, lk) {
+    var b;
+    if (!t[5] || !PREF.logos) b = el("span", "ab", t[1]); else { b = el("span", "ab lg"); b.appendChild(logoImg(t[5], t[1])); }
+    if (lk && t[4]) { b.classList.add("tbtn"); b._t = teamOfSide(lk, t); b.title = "Open " + t[0]; }   // tap the badge: the team's page
+    return b;
   }
+  function teamOfSide(lk, t) { return { lk: lk, id: String(t[4]), name: t[0], ab: t[1], lg: t[5] || "" }; }
   // Small inline logo for table rows and section titles.
   function mini(u) {
     var i = new Image(); i.src = u; i.alt = ""; i.width = 18; i.height = 18; i.loading = "lazy"; i.decoding = "async"; i.className = "mini";
@@ -280,7 +285,7 @@
     [[g.a, as, hs, bA], [g.h, hs, as, bH]].forEach(function (r) {
       var row = el("div", "row" + (has && r[1] < r[2] && g.s === "final" ? " lose" : ""));
       var tm = el("div", "tm");
-      tm.appendChild(badge(r[0]));
+      tm.appendChild(badge(r[0], x.lk));
       var nmw = el("span", "nmw"); nmw.appendChild(rankedName(r[0]));
       if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
@@ -308,7 +313,11 @@
     out.addEventListener("pointermove", function (e) { if (cur && (Math.abs(e.clientX - sx) > 9 || Math.abs(e.clientY - sy) > 9)) cancel(); }, { passive: true });
     out.addEventListener("pointerup", cancel); out.addEventListener("pointercancel", cancel); out.addEventListener("pointerleave", cancel);
     window.addEventListener("scroll", cancel, { passive: true });
-    out.addEventListener("click", function (e) { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    out.addEventListener("click", function (e) {
+      if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); return; }
+      var tb = e.target.closest && e.target.closest(".tbtn"); if (tb && tb._t) { e.stopPropagation(); e.preventDefault(); openTeam(tb._t); }   // badge tap beats the card tap
+    }, true);
+    document.addEventListener("click", function (e) { var tb = e.target.closest && e.target.closest(".find .tbtn"); if (tb && tb._t) { e.stopPropagation(); e.preventDefault(); closeFind(); openTeam(tb._t); } }, true);
     out.addEventListener("contextmenu", function (e) { if (cardOf(e)) e.preventDefault(); });
     // Start fetching a game's box score as soon as a finger or mouse settles on its card, so the tap opens instantly.
     out.addEventListener("pointerover", function (e) {
@@ -1011,7 +1020,7 @@
       return ESPN.fetchTeamInfo(f.lk, f.id).then(function (i) { i.lk = f.lk; i.id = f.id; return i; });
     }).then(function (i) {
       S.teams[name] = Object.assign({ done: true }, i);
-      if (!i.missing) { TC[name] = i; try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {} }
+      if (!i.missing && C.followed.indexOf(name) >= 0) { TC[name] = i; try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {} }   // only your teams are kept on disk
     }, function () { if (!S.teams[name] || !S.teams[name].stale) S.teams[name] = { done: true, error: true }; else S.teams[name].stale = false; })
       .then(function () { if ((S.tab === "teams" && !S.view) || (S.view && S.view.team)) { if (!S.settings) renderSoon(); } });
   }
@@ -1081,7 +1090,7 @@
   }
   // Compact standings table: collapsed by default, scrolls inside its own box so it never stretches the page.
   S.stOpen = S.stOpen || {};
-  function standTable(name, st) {
+  function standTable(name, st, lk) {
     if (!st.rows || !st.rows.length) return null;
     var d = el("details", "stn");
     d.open = !!S.stOpen[name];
@@ -1098,6 +1107,11 @@
         tr.appendChild(td);
       });
       if (r.me) mine = tr;
+      if (lk && r.id && r.nm && !r.me) {   // any other team in the table opens its page
+        tr.classList.add("click"); tr.tabIndex = 0; tr.setAttribute("role", "button");
+        tr.onclick = function () { openTeam({ lk: lk, id: r.id, name: r.nm, ab: r.n, lg: r.lg }); };
+        tr.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); tr.onclick(); } };
+      }
       t.appendChild(tr);
     });
     box.appendChild(t); d.appendChild(box);
@@ -1293,6 +1307,11 @@
     var a = el("article", "recap"), h = el("div", "rh"), lk = T.lk || (S.view && S.view.team && S.view.team.name === name ? S.view.team.lk : "");
     var h3 = el("h3", null, name);
     if (T.standing && T.standing.logo) { var lb = el("span", "ab lg sm"); lb.appendChild(logoImg(T.standing.logo, "")); h3.insertBefore(lb, h3.firstChild); }
+    if (!tv && T.lk && T.id) {   // on My teams the name is the way into the team page
+      h3.classList.add("click"); h3.tabIndex = 0; h3.setAttribute("role", "link"); h3.appendChild(el("span", "find-go", " \u203A"));
+      var goT = function () { openTeam({ lk: T.lk, id: T.id, name: name, ab: T.me ? T.me[1] : "", lg: T.me ? T.me[2] : "" }); };
+      h3.onclick = goT; h3.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); goT(); } };
+    }
     h.appendChild(h3);
     if (T.standing) h.appendChild(el("span", "res rc", T.standing.record));
     a.appendChild(h);
@@ -1304,7 +1323,7 @@
     else if (T.missing || T.error) a.appendChild(el("p", "rb", "Couldn\u2019t load this team."));
     else {
       var gs = T.games || [];
-      var stt = T.standing && standTable(name, T.standing);
+      var stt = T.standing && standTable(name, T.standing, lk);
       if (stt) a.appendChild(stt);
       var ts = trendStats(gs);
       if (ts) {
@@ -1327,8 +1346,31 @@
     }
     return a;
   }
+  // Find a team (My teams): the same index Find uses; the results open the team page.
+  var TFQ = "", TFM = false, TFF = false;
+  function teamFinder() {
+    var box = el("div", "tfind"), inp = el("input", "tf-q"), res = el("div", "tf-res");
+    inp.type = "search"; inp.placeholder = "Find any team \u00b7 schedule, standing, form"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a team"); inp.value = TFQ;
+    function fill() {
+      var q = inp.value.trim().toLowerCase(); TFQ = inp.value; res.textContent = "";
+      if (!q) return;
+      var th = teamHits(q, TFM), cur = th.slice(0, 6);
+      if (!cur.length) res.appendChild(el("p", "find-h", TEAMS ? "No teams match \u201c" + inp.value.trim() + "\u201d." : "Loading the team list\u2026"));
+      cur.forEach(function (t) { res.appendChild(teamRow(t)); });
+      if (th.length > cur.length) res.appendChild(el("p", "find-h", "+" + (th.length - cur.length) + " more \u00b7 keep typing"));
+      if (!TFM && TEAMS) res.appendChild(moreBtn(function () { TFM = true; fill(); }));
+    }
+    inp.onfocus = function () { teamIndex(false).then(function () { if (inp.value.trim()) fill(); }); };
+    inp.oninput = fill;
+    inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); var r = res.querySelector(".find-tm"); if (r) r.onclick(); } if (e.key === "Escape") { inp.value = ""; fill(); inp.blur(); } };
+    box.appendChild(inp); box.appendChild(res);
+    if (TFQ) { teamIndex(false).then(fill); fill(); }
+    if (TFF) { TFF = false; requestAnimationFrame(function () { try { inp.focus(); } catch (e) {} }); }
+    return box;
+  }
   function renderTeams(out) {
-    var heatRows = [], heatSlot = el("div"), ps = peopleStatus(); if (ps) out.appendChild(ps); out.appendChild(heatSlot);
+    var heatRows = [], heatSlot = el("div"), ps = peopleStatus(); if (ps) out.appendChild(ps);
+    out.appendChild(teamFinder()); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) { gr.appendChild(teamBlock(name, heatRows)); });
     var hc = heatCheck(heatRows); if (hc) heatSlot.appendChild(hc);
@@ -1523,6 +1565,7 @@
     sh.appendChild(el("div", "lpm-t", g.ev ? g.h[0] : g.a[0] + " at " + g.h[0]));
     var acts = [["Copy score", function () { copyScore(x); }], [isPinned(x) ? "Unpin" : "Pin to top", function () { togglePin(x); }], ["Share", function () { sharePlay(x); }]], eu = espnUrl(x);
     if (g.s === "up") acts.push(["Add to calendar", function () { icsFor(x); }]);
+    if (!g.ev && g.a[4] && g.h[4]) { acts.push([g.a[0], function () { openTeam(teamOfSide(x.lk, g.a)); }]); acts.push([g.h[0], function () { openTeam(teamOfSide(x.lk, g.h)); }]); }
     if (eu) acts.push(["Open on ESPN", function () { var a = el("a"); a.href = eu; a.target = "_blank"; a.rel = "noopener"; a.click(); }]);
     acts.forEach(function (r) {
       var b = el("button", "lpm-b", r[0]); b.type = "button"; b.onclick = function () { lpClose(); r[1](); }; sh.appendChild(b);
@@ -1941,6 +1984,28 @@
 
   // ---------- team page (#team/<league>/<id>): any team from the Find index, loaded only when opened ----------
   var TEAMS = null, TEAMS2 = null;   // the Find index: core leagues, then the extra leagues once asked for
+  function teamRow(t) {
+    var r = el("div", "find-tm click"), lb = el("span", "ab" + (t.lg && PREF.logos ? " lg" : ""));
+    if (t.lg && PREF.logos) lb.appendChild(logoImg(t.lg, t.ab)); else lb.textContent = t.ab || t.name.slice(0, 3).toUpperCase();
+    r.appendChild(lb); var w = el("span", "find-tw"); w.appendChild(el("b", null, t.name)); w.appendChild(el("small", null, t.ll + (C.followed.indexOf(t.name) >= 0 ? " \u00b7 following" : ""))); r.appendChild(w);
+    r.appendChild(el("span", "find-go", "\u203A")); r.tabIndex = 0; r.setAttribute("role", "button");
+    var go = function () { if (FIND) closeFind(); openTeam(t); };
+    r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } };
+    return r;
+  }
+  // Teams matching every word of the query, your teams first, then names that start with it.
+  function teamHits(q, more) {
+    var toks = q.split(/\s+/).filter(Boolean); if (!toks.length) return [];
+    var tl = (TEAMS || []).concat(more && TEAMS2 !== "loading" ? TEAMS2 || [] : []);
+    var th = tl.filter(function (t) { return toks.every(function (k) { return t.h.indexOf(k) >= 0; }); });
+    th.sort(function (a, b) { return (C.followed.indexOf(b.name) >= 0 ? 1 : 0) - (C.followed.indexOf(a.name) >= 0 ? 1 : 0) || (b.h.indexOf(q) === 0 ? 1 : 0) - (a.h.indexOf(q) === 0 ? 1 : 0) || a.name.localeCompare(b.name); });
+    return th;
+  }
+  function moreBtn(onDone) {
+    var mb = el("button", "find-more", TEAMS2 === "loading" ? "Loading every league\u2026" : "Search every league"); mb.type = "button"; mb.disabled = TEAMS2 === "loading";
+    mb.onclick = function () { mb.disabled = true; mb.textContent = "Loading every league\u2026"; teamIndex(true).then(onDone); };
+    return mb;
+  }
   function teamIndex(lazy) {
     if (lazy ? TEAMS2 && TEAMS2 !== "loading" : TEAMS) return Promise.resolve();
     if (lazy) TEAMS2 = "loading";
@@ -1966,22 +2031,112 @@
     S.view = { team: t, key: key }; S.sy1 = 0;
     swap(function () { render(); window.scrollTo(0, back); }); emit("view", null);
   }
+  // ---------- the team page: status in words, where they sit in the league, top performers, standings, schedule ----------
+  var TLD = {};   // top performers per team, from its latest finished game (in memory only)
+  function teamLeaders(name, T, lk) {
+    if (!T || !T.me || !lk) return null;
+    var fin = (T.games || []).filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime), last = fin[fin.length - 1];
+    if (!last) return null;
+    var k = lk + "_" + last.id + "_" + T.me[1];
+    if (TLD[k] === undefined) {
+      TLD[k] = null;
+      ESPN.fetchGame(lk, last.id).then(function (d) {
+        var seen = {}, out = [];
+        (d.leaders || []).forEach(function (l) { if (l.team === T.me[1] && !seen[l.name] && out.length < 3) { seen[l.name] = 1; out.push(l); } });
+        TLD[k] = out; if (S.view && S.view.team && S.view.team.name === name) renderSoon();
+      }, function () { TLD[k] = []; });
+    }
+    return { k: k, list: TLD[k], game: last };
+  }
+  var NUMW = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+  function numw(n) { return NUMW[n] || String(n); }
+  // Season tier from the league-wide rank: top quarter, middle, below average, or the bottom tenth.
+  function teamTier(T) {
+    var st = T.standing, lr = st && st.lr, ts = trendStats(T.games || []);
+    var pct = lr ? lr.pos / lr.n : ts ? (ts.pct >= 0.6 ? 0.2 : ts.pct >= 0.45 ? 0.5 : 0.75) : null;
+    if (pct == null) return null;
+    var k = pct > 0.9 ? "fire" : pct > 0.6 ? "cold" : pct > 0.25 ? "avg" : "hot";
+    return { k: k, pct: pct, lr: lr, ts: ts };
+  }
+  function teamStory(name, T, lk) {
+    var lg = leagueOf(lk) || {}, st = T.standing, gs = T.games || [], ts = trendStats(gs), tier = teamTier(T), who = lg.soccer ? name : "The " + name, p = [];
+    var fin = gs.filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime), ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime);
+    if (st) p.push(who + " are " + st.record + ", " + ordinal(st.rank) + " in the " + st.group + (st.gb && /^[\d.]+$/.test(st.gb) && +st.gb > 0 ? " (" + st.gb + " back)" : "") + ".");
+    else if (ts) p.push(who + " are " + recStr(ts.W, ts.L, ts.T) + " so far.");
+    if (ts) {
+      var c = ts.cur, l5 = ts.l5;
+      if (c.n >= 2 && c.t !== "T") p.push("They’ve " + (c.t === "W" ? "won " : "lost ") + numw(c.n) + " straight" + (l5.n >= 4 && l5.n > c.n ? " and are " + recStr(l5.w, l5.l, l5.t) + " over the last " + numw(l5.n) : "") + ".");
+      else if (l5.n >= 3) p.push("They’re " + recStr(l5.w, l5.l, l5.t) + " over the last " + numw(l5.n) + (ts.mom > 0.15 ? " and trending up" : ts.mom < -0.15 ? " and trending down" : "") + ".");
+    }
+    if (tier && tier.lr) {
+      var ll = lg.label || "league", n = tier.lr.n, pos = tier.lr.pos;
+      p.push(tier.k === "hot" ? (pos <= 3 ? "That’s " + ordinal(pos) + " of " + n + " in the " + ll + "." : "That puts them in the top quarter of the " + ll + ".") : tier.k === "avg" ? "That’s the middle of the pack, " + ordinal(pos) + " of " + n + " in the " + ll + "." : tier.k === "cold" ? "That’s below average, " + ordinal(pos) + " of " + n + " in the " + ll + "." : "That’s the bottom of the " + ll + ", " + ordinal(pos) + " of " + n + ". Rough stretch.");
+    }
+    var last = fin[fin.length - 1];
+    if (last) p.push("Last time out they " + (last.my > last.op ? "beat " : last.my < last.op ? "lost to " : "tied ") + last.opp + " " + Math.max(last.my, last.op) + "–" + Math.min(last.my, last.op) + (last.home ? " at home." : " on the road."));
+    if (ups[0]) p.push("Next: " + (ups[0].home ? "vs " : "at ") + ups[0].opp + ", " + when(ups[0].t) + ".");
+    return p.join(" ");
+  }
+  // The trend graphic: a four-zone bar with the team's marker, the last five as dots, and a dumpster fire for the bottom tenth.
+  function tierGauge(T) {
+    var tier = teamTier(T); if (!tier) return null;
+    var w = el("div", "tdg " + tier.k), bar = el("div", "tdg-b");
+    ["fire", "cold", "avg", "hot"].forEach(function (z) { bar.appendChild(el("i", z)); });
+    var mk = el("span", "tdg-m"); mk.style.left = Math.round((1 - tier.pct) * 100) + "%"; bar.appendChild(mk);
+    w.appendChild(bar);
+    var lab = el("div", "tdg-l");
+    lab.appendChild(el("b", null, tier.k === "hot" ? "Doing well" : tier.k === "avg" ? "About average" : tier.k === "cold" ? "Below average" : "Bottom of the league"));
+    if (tier.lr) lab.appendChild(el("span", null, ordinal(tier.lr.pos) + " of " + tier.lr.n + " by record"));
+    w.appendChild(lab);
+    if (tier.k === "fire") { var f = el("div", "tdg-f"); f.appendChild(el("span", "bin", "🗑️")); f.appendChild(el("span", "fl", "🔥")); f.setAttribute("aria-label", "Dumpster fire"); w.appendChild(f); }
+    var fd = formDots(T.games || []); if (fd) w.appendChild(fd);
+    return w;
+  }
   function renderTeamPage(out) {
-    var t = S.view.team, lg = leagueOf(t.lk) || {};
-    var back = el("button", "back", "\u2039 Back"); back.type = "button"; back.onclick = closeGame;
-    var nav = el("div", "navbar"); nav.appendChild(back); nav.appendChild(el("span", "mini-sc", lg.label || "")); out.appendChild(nav);
+    var t = S.view.team, lk = t.lk, lg = leagueOf(lk) || {};
+    var back = el("button", "back", "‹ Back"); back.type = "button"; back.onclick = closeGame;
+    var nav = el("div", "navbar"); nav.appendChild(back); nav.appendChild(el("span", "mini-sc", t.name || lg.label || "")); out.appendChild(nav);
     if (!t.name) { out.appendChild(skel(2)); return; }
-    var fol = C.followed.indexOf(t.name) >= 0, bar = el("div", "tpbar");
-    var fb = el("button", "tpf" + (fol ? " on" : ""), fol ? "\u2605 Following" : "\u2606 Follow"); fb.type = "button";
+    loadTeam(t.name, lk, t.id);
+    var T = S.teams[t.name] || {}, me = T.me || [t.name, t.ab || "", t.lg || "", t.id];
+    // Header: logo, name, league, record and standing line, follow button.
+    var hd = el("div", "tph"), lb = el("span", "ab lg big");
+    if (me[2] && PREF.logos) lb.appendChild(logoImg(me[2], me[1])); else { lb.className = "ab big"; lb.textContent = me[1] || t.name.slice(0, 3).toUpperCase(); }
+    hd.appendChild(lb);
+    var tw = el("div", "tpw"); tw.appendChild(el("h2", null, t.name));
+    var sub = [lg.label]; if (T.standing) { sub.push(T.standing.record); sub.push(ordinal(T.standing.rank) + " in " + T.standing.group); if (T.standing.streak) sub.push("streak " + T.standing.streak); }
+    tw.appendChild(el("p", "tps", sub.filter(Boolean).join(" · ")));
+    var fol = C.followed.indexOf(t.name) >= 0, fb = el("button", "tpf" + (fol ? " on" : ""), fol ? "★ Following" : "☆ Follow"); fb.type = "button";
     fb.onclick = function () {
       buzz(6);
       if (C.followed.indexOf(t.name) >= 0) { setFollowed(C.followed.filter(function (q) { return q !== t.name; })); toast("Unfollowed " + t.name); }
-      else { setFollowed(C.followed.concat([t.name])); if (lg.lazy) { addEager(t.lk); loadLeague(t.lk); } toast("Following " + t.name); }
+      else { setFollowed(C.followed.concat([t.name])); if (lg.lazy) { addEager(lk); loadLeague(lk); } toast("Following " + t.name); }
     };
-    bar.appendChild(fb); bar.appendChild(el("span", "tpl", lg.label || t.lk));
-    out.appendChild(bar);
-    var heat = [], blk = teamBlock(t.name, heat); blk.classList.add("tp"); out.appendChild(blk);
+    tw.appendChild(fb); hd.appendChild(tw); out.appendChild(hd);
+    if (!T.done) { out.appendChild(skel(2)); return; }
+    if (T.missing || T.error) { out.appendChild(notice("Couldn’t load " + t.name, "Pull down to try again.")); return; }
+    var gs = T.games || [], ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime), fin = gs.filter(function (g) { return g.s === "final"; }).sort(function (x, y) { return byTime(y, x); });
+    // Status in words.
+    var story = teamStory(t.name, T, lk); if (story) { var sb0 = el("div", "sum tpn"); sb0.appendChild(el("p", null, story)); out.appendChild(sb0); }
+    var gg = tierGauge(T); if (gg) out.appendChild(gg);
+    // Top three from the latest finished game (one cached request).
+    var ld = teamLeaders(t.name, T, lk);
+    if (ld) {
+      var lw = el("div", "tpl3"); lw.appendChild(el("h4", null, "Top performers · " + (ld.game.my > ld.game.op ? "W " : ld.game.my < ld.game.op ? "L " : "T ") + ld.game.my + "–" + ld.game.op + " " + (ld.game.home ? "vs " : "at ") + ld.game.opp));
+      if (ld.list === null) lw.appendChild(el("p", "rb", "Loading…"));
+      else if (!ld.list.length) lw.appendChild(el("p", "rb", "No player lines in that box score."));
+      else ld.list.forEach(function (l, i) { var r = el("div", "tpp"); r.appendChild(el("span", "tpp-n", String(i + 1))); var nm = el("span", "tpp-w"); nm.appendChild(el("b", null, l.name)); nm.appendChild(el("small", null, l.cat.replace(/ Leader$/i, ""))); r.appendChild(nm); r.appendChild(el("span", "tpp-l", l.line)); lw.appendChild(r); });
+      out.appendChild(lw);
+    }
+    var stt = T.standing && standTable(t.name, T.standing, lk); if (stt) out.appendChild(stt);
+    var sch = el("div", "tpsch");
+    sch.appendChild(gameList("Next", ups.slice(0, 3), T, lk));
+    if (ups.length > 3) { var sd = el("details", "stn"), sb = el("div", "stbox"); sd.appendChild(el("summary", null, "Full schedule · " + ups.length + " games")); sd.appendChild(sb); sd.addEventListener("toggle", function () { if (sd.open && !sb.firstChild) sb.appendChild(gameList("All upcoming", ups, T, lk)); }); sch.appendChild(sd); }
+    sch.appendChild(gameList("Last", fin.slice(0, 3), T, lk));
+    if (fin.length > 3) { var rd = el("details", "stn"), rb = el("div", "stbox"); rd.appendChild(el("summary", null, "All results · " + fin.length + " games")); rd.appendChild(rb); rd.addEventListener("toggle", function () { if (rd.open && !rb.firstChild) rb.appendChild(gameList("Results", fin, T, lk)); }); sch.appendChild(rd); }
+    out.appendChild(sch);
   }
+
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
   function openGame(x) { buzz(4); if (S.view && S.view.team) S.sy1 = window.pageYOffset; else S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
@@ -2074,6 +2229,7 @@
     updateRail();
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
     var out = $("out"); IMGN = 0;
+    TFF = !!(D0.activeElement && D0.activeElement.classList && D0.activeElement.classList.contains("tf-q"));
     // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
     var vk = [S.tab, S.ysub, S.view ? S.view.key : "", S.settings ? 1 : 0, S.more ? 1 : 0].join("|");
     // A quiet refresh of a list keeps every card that didn't change (no logo reload, no flicker) and keeps your focus.
@@ -2142,15 +2298,6 @@
     var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], curT = [], more = false;
     // Every team in the core leagues (one cached index, refreshed weekly) so a team is found even when none of its games are loaded.
     teamIndex(false).then(function () { if (FIND === ov && inp.value.trim()) fill(); });
-    function teamRow(t) {
-      var r = el("div", "find-tm click"), lb = el("span", "ab" + (t.lg && PREF.logos ? " lg" : ""));
-      if (t.lg && PREF.logos) lb.appendChild(logoImg(t.lg, t.ab)); else lb.textContent = t.ab || t.name.slice(0, 3).toUpperCase();
-      r.appendChild(lb); var w = el("span", "find-tw"); w.appendChild(el("b", null, t.name)); w.appendChild(el("small", null, t.ll + (C.followed.indexOf(t.name) >= 0 ? " \u00b7 following" : ""))); r.appendChild(w);
-      r.appendChild(el("span", "find-go", "\u203A")); r.tabIndex = 0; r.setAttribute("role", "button");
-      var go = function () { closeFind(); openTeam(t); };
-      r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } };
-      return r;
-    }
     function fill() {
       var q = inp.value.trim().toLowerCase(), toks = q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = []; curT = [];
       if (!toks.length) { hint.hidden = false; return; }
@@ -2159,9 +2306,7 @@
       var rk = { live: 0, up: 1, final: 2 };
       hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - Date.now()) - Math.abs(Date.parse(b.x.g.t) - Date.now()); });
       cur = hits.slice(0, 12).map(function (e) { return e.x; });
-      var tl = (TEAMS || []).concat(more ? TEAMS2 || [] : []);
-      var th = tl.filter(function (t) { return toks.every(function (k) { return t.h.indexOf(k) >= 0; }); });
-      th.sort(function (a, b) { return (C.followed.indexOf(b.name) >= 0 ? 1 : 0) - (C.followed.indexOf(a.name) >= 0 ? 1 : 0) || (b.h.indexOf(q) === 0 ? 1 : 0) - (a.h.indexOf(q) === 0 ? 1 : 0) || a.name.localeCompare(b.name); });
+      var th = teamHits(q, more);
       curT = th.slice(0, 8);
       if (!cur.length && !curT.length) res.appendChild(el("p", "find-h", TEAMS ? "No games or teams match \u201c" + inp.value.trim() + "\u201d." : "Nothing in the loaded games matches \u201c" + inp.value.trim() + "\u201d\u2026"));
       if (cur.length) {
@@ -2181,11 +2326,7 @@
         if (th.length > curT.length) res.appendChild(el("p", "find-h", "+" + (th.length - curT.length) + " more teams \u00b7 keep typing"));
       }
       // The extra leagues' teams (soccer, college, lacrosse\u2026) load only when asked, and stay cached for a week.
-      if (!more && TEAMS) {
-        var mb = el("button", "find-more", TEAMS2 === "loading" ? "Loading every league\u2026" : "Search every league"); mb.type = "button"; mb.disabled = TEAMS2 === "loading";
-        mb.onclick = function () { mb.disabled = true; mb.textContent = "Loading every league\u2026"; teamIndex(true).then(function () { more = true; if (FIND === ov) fill(); }); };
-        res.appendChild(mb);
-      }
+      if (!more && TEAMS) res.appendChild(moreBtn(function () { more = true; if (FIND === ov) fill(); }));
     }
     inp.oninput = fill;
     inp.onkeydown = function (e) { if (e.key === "Enter" && (cur.length || curT.length)) { e.preventDefault(); var c = res.querySelector(".card"); if (c) portal(c, cur[0]); else { closeFind(); openTeam(curT[0]); } } if (e.key === "Escape") { e.preventDefault(); closeFind(); } };
