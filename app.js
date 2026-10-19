@@ -58,7 +58,7 @@
     if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return "Today " + t;
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + t;
   }
-  function byTime(a, b) { return new Date(a.t) - new Date(b.t); }
+  function byTime(a, b) { return Date.parse(a.t) - Date.parse(b.t); }
   // "in 3h 12m" for a start time; long=true also counts days. Empty when out of range.
   function countdown(iso, long) {
     var ms = new Date(iso) - Date.now();
@@ -1242,14 +1242,14 @@
   }
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
-  function openGame(x) { S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
+  function openGame(x) { S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
   function closeGame() {
     if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); syncFromHash(); }
   }
   function clearHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} S.pushed = false; }
   function syncFromHash() {
     var m = /^#game\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
-    if (!m) { if (S.view) { S.view = null; render(); window.scrollTo(0, 0); } return; }
+    if (!m) { if (S.view) { S.view = null; render(); window.scrollTo(0, S.sy || 0); S.sy = 0; } return; }
     if (!S.ready) return;
     var key = m[1] + "_" + m[2];
     if (S.view && S.view.key === key) return;
@@ -1511,6 +1511,22 @@
   $("refresh").onclick = function () { load(true); };
   window.addEventListener("hashchange", syncFromHash);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && S.view) closeGame(); });
+  // Rail hides while scrolling down (more room for scores), returns on scroll up.
+  (function () {
+    var ly = 0, tk = false, rl = $("rail");
+    window.addEventListener("scroll", function () {
+      if (tk) return; tk = true;
+      requestAnimationFrame(function () {
+        tk = false;
+        var y = window.pageYOffset, d = y - ly;
+        if (Math.abs(d) < 8) return;
+        rl.classList.toggle("hide", d > 0 && y > 160);
+        ly = y;
+      });
+    }, { passive: true });
+  })();
+  window.addEventListener("offline", function () { toast("You're offline — showing saved scores"); });
+  window.addEventListener("online", function () { toast("Back online"); if (!S.loading) load(false); });
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && Date.now() - S.last > 60000) load(Date.now() - S.last > 600000);
   });
@@ -1585,5 +1601,5 @@
     };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=44").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=45").catch(function () {}); } catch (e) {} });
 })();
