@@ -497,3 +497,22 @@ html{scroll-behavior:smooth}
 .lpm-b{display:block;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:15px 4px;font:600 16px var(--bd);color:var(--fg);text-align:center;cursor:pointer}
 .lpm-b:active{background:var(--pri-soft)}
 .lpm-c{color:var(--mute)}
+
+/* v63: followed people, leaderboards, get caught up */
+.ppl{margin:0 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card,var(--bg))}
+.ppl h3{margin:0 0 6px;font:700 12px var(--hd);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.ppl .add{display:flex;gap:8px;margin-top:10px}
+.ppl input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px}
+.ppl .add button,.pdel{background:none;color:var(--mute);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font:600 13px inherit;cursor:pointer}
+.plist{display:flex;flex-direction:column}
+.pr{display:flex;align-items:center;gap:10px;padding:8px 2px;border-top:1px solid var(--line)}
+.pr:first-child{border-top:0}
+.pr .pp{min-width:30px;font:700 13px var(--hd);color:var(--mute);text-align:left}
+.pr .pn{flex:1;min-width:0;display:flex;flex-direction:column;font-weight:600}
+.pr .pn small{font-weight:400;font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr .ps{font:700 15px var(--hd);font-variant-numeric:tabular-nums}
+.pr.fol .pn>span{color:var(--pri)}
+.fstar{background:none;border:0;color:var(--mute);font-size:19px;line-height:1;padding:4px 6px;cursor:pointer;margin-left:2px}
+.fstar.on{color:#e0a800}
+.fn .fstar{font-size:15px;padding:0 4px;vertical-align:baseline}
+.evs.fpl{color:var(--pri);font-weight:600}
