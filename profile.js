@@ -165,11 +165,6 @@
         me.appendChild(el("div", "pm-name", o.name)); me.appendChild(el("div", "pm-sub", m.score + " pts · " + m.cards + " cards"));
         var msg = msg2(me);
         lbSync().then(function () { return lbRank(m.score); }).then(function (rk) { msg("Your rank: #" + rk, true); drawList(true); }, function (e) { msg(e === "WRITE" ? "Couldn't upload your score right now." : lbErr(e)); });
-        var dz = btn("Remove my score", "pm-b dng", function () {
-          if (dz.dataset.c !== "1") { dz.dataset.c = "1"; dz.textContent = "Tap again to remove it"; return; }
-          lbToken().then(function (t) { return fetch(DOC + "/scores/" + t.uid, { method: "DELETE", headers: { Authorization: "Bearer " + t.it } }); }).then(function () { var x = lbGet(); if (x) { delete x.last; lbPut(x); } lbCache = null; drawMe(); drawList(true); }, function () { msg("Couldn't remove it right now."); });
-        });
-        me.appendChild(dz);
       } else {
         var a = active(), P = profiles();
         if (!a) { me.appendChild(el("p", "pm-note", "Log in or create a profile and you're on the leaderboard automatically.")); me.appendChild(btn("Go to profile", "pm-b pri", function () { show("home"); })); return; }
@@ -331,8 +326,8 @@
         if (filter !== "all" && c[1] !== filter) return;
         var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button";
         b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
-        b.appendChild(el("span", "tcm-art", got ? c[3] : "?"));
-        b.appendChild(el("span", "tcm-n", got ? c[4] : "???"));
+        b.appendChild(el("span", "tcm-art", c[3]));
+        b.appendChild(el("span", "tcm-n", c[4]));
         b.appendChild(el("i", "tcm-r", RAR(c[2])));
         if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
         b.onclick = function () { detail(c); };
@@ -357,8 +352,8 @@
     ov.onclick = function (e) { if (e.target === ov) closeD(); };
     var wrap = el("div", "tcd-w"), card = el("div", "tc r" + c[2] + (got ? " got" : " lock"));
     var head = el("div", "tc-h"); head.appendChild(el("span", null, "No. " + pad(c.n) + " / " + pad(F.total))); head.appendChild(el("span", null, F.CATS[c[1]])); card.appendChild(head);
-    var art = el("div", "tc-art"); art.appendChild(el("span", "tc-em", got ? c[3] : "?")); card.appendChild(art);
-    card.appendChild(el("h3", "tc-n", got ? c[4] : "???"));
+    var art = el("div", "tc-art"); art.appendChild(el("span", "tc-em", c[3])); card.appendChild(art);
+    card.appendChild(el("h3", "tc-n", c[4]));
     var rb = el("div", "tc-rar"); rb.appendChild(el("i", null, c[2])); rb.appendChild(D.createTextNode(F.RAR[c[2]])); card.appendChild(rb);
     card.appendChild(el("p", "tc-d", got ? c[5] : "Not found yet."));
     if (got) {
