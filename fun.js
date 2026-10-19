@@ -260,7 +260,7 @@
     if (ch) { try { localStorage.setItem("sb-lg", JSON.stringify(LOGO)); } catch (e) {} }
   }
   // Every card except the Signature one turns up from taps: any button, tab or card in the app rolls once.
-  var TAPP = .012, TAPGAP = 1500, lastTap = 0, HW2 = { C: 10, U: 6, R: 4, E: 2, L: 1, M: .5 };
+  var TAPP = .02, TAPGAP = 1500, lastTap = 0, HW2 = { C: 10, U: 6, R: 4, E: 2, L: 1, M: .5 };
   function wchoice(arr, wf) { var tot = 0, ws = arr.map(function (c) { var w = wf(c); tot += w; return w; }), r = Math.random() * tot, i = 0; while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; } return arr[i]; }
   function tapRoll() {
     var n = Date.now(); if (n - lastTap < TAPGAP) return; lastTap = n;
@@ -453,10 +453,11 @@
     }
   }
   function holidayFx(force) {
-    if (RM || D.hidden) return; var n = Date.now(); if (!force && n - hfLast < 25000) return;
-    var k = nearHol(); if (!k) return; hfLast = n;
-    if (k === "j4" || k === "nye") { gFireworks(); setTimeout(gFireworks, 2600); }
-    else HFX[k].forEach(function (c) { hSpawn(c[0], c[1], c[2], 0); });
+    // Once on the first arrival, then rarely: at most every four minutes and only about a third of the time.
+    if (RM || D.hidden) return; var n = Date.now(); if (!force && (n - hfLast < 240000 || (hfN > 0 && Math.random() > .35))) return;
+    var k = nearHol(); if (!k) return; hfLast = n; hfN++;
+    if (k === "j4" || k === "nye") { gFireworks(); if (Math.random() < .5) setTimeout(gFireworks, 2600); }
+    else HFX[k].forEach(function (c) { hSpawn(c[0], c[1], Math.max(1, Math.round(c[2] * .6)), 0); });
   }
   // ---------- arriving somewhere new ----------
   var ENTER = ["rise", "flip", "zoom", "slidel", "slider", "swing", "blur", "drop", "spin", "tilt"];
@@ -468,7 +469,7 @@
     quipNow(false);
     if (RM) return; arrivals++; holidayFx();
     if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
-    var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, 4), anyWin = false;
+    var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, Math.random() < .5 ? 1 : 0), anyWin = false;
     cards.forEach(function (c) {
       var win = c.classList.contains("w") || !!c.querySelector(".pill.final.w"), loss = c.classList.contains("l") || !!c.querySelector(".pill.final.l");
       if (!win && !loss) return;
@@ -485,7 +486,7 @@
     });
     if (anyWin && Math.random() < .02) { gConfetti(70); found("legend"); }
     var r = Math.random();
-    if (r < .04) ball(); else if (r < .07) seasonal(); else if (r < .09) gold(out); else if (r < .102) cameo();
+    if (r < .015) ball(); else if (r < .025) seasonal(); else if (r < .033) gold(out); else if (r < .038) cameo();
     special();
   }
   var SPECIAL_DONE = false;
