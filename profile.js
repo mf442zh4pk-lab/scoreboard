@@ -283,7 +283,9 @@
       var hd = el("div", "pm-who"); hd.appendChild(el("span", "pm-av", p.n.charAt(0).toUpperCase()));
       var w = el("div"); w.appendChild(el("div", "pm-name", p.n)); w.appendChild(el("div", "pm-sub", "Signed in on this device")); hd.appendChild(w); body.appendChild(hd);
       summary(body);
-      body.appendChild(btn("Open Collection Log", "pm-b pri", function () { show("log"); }));
+      var pk1 = F.packs ? F.packs() : { n: 0 };
+      if (pk1.n) body.appendChild(btn("\uD83C\uDF81 Open pack (" + pk1.n + ")", "pm-b pri", function () { close(); F.openPacks(); }));
+      body.appendChild(btn("Open Collection Log", pk1.n ? "pm-b" : "pm-b pri", function () { show("log"); }));
       body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
       body.appendChild(btn("Settings", "pm-b", openSet));
       body.appendChild(btn("Log out", "pm-b", logout));
@@ -292,6 +294,8 @@
     }
     body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log saved online, and to join the leaderboard. Log in on any device to get it all back."));
     summary(body);
+    var pk2 = F.packs ? F.packs() : { n: 0 };
+    if (pk2.n) body.appendChild(btn("\uD83C\uDF81 Open pack (" + pk2.n + ")", "pm-b pri", function () { close(); F.openPacks(); }));
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
     body.appendChild(btn("Settings", "pm-b", openSet));
