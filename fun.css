@@ -93,14 +93,14 @@ html.retro{filter:contrast(1.15) saturate(1.7) hue-rotate(-10deg)}
 html.retro::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
 html.retro body{font-family:ui-monospace,Menlo,Consolas,monospace}
 @keyframes tw{50%{opacity:.35;transform:scale(.85)}}
-#title.owl::after{content:" \1F319";font-size:.55em;display:inline-block;animation:tw 2.4s infinite}
+#title.owl .t1::after,#title.owl:not(:has(.t1)) .t2::after{content:" \1F319";font-size:11px;line-height:1;display:inline-block;vertical-align:middle;margin-left:4px;animation:tw 2.4s infinite;-webkit-text-fill-color:initial;color:initial}
 /* ---- random entrances (the standard "rise" stays the default) ---- */
 @keyframes fxflip{from{opacity:0;transform:perspective(600px) rotateX(-70deg)}to{opacity:1;transform:none}}
 @keyframes fxzoom{from{opacity:0;transform:scale(.78)}to{opacity:1;transform:none}}
 @keyframes fxsl{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
 @keyframes fxsr{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
 @keyframes fxswing{from{opacity:0;transform:rotate(-4deg) translateY(12px)}60%{transform:rotate(1.5deg)}to{opacity:1;transform:none}}
-@keyframes fxblur{from{opacity:0;filter:blur(8px)}to{opacity:1;filter:none}}
+@keyframes fxblur{from{opacity:0;transform:scale(1.03);filter:blur(6px)}60%{filter:none}to{opacity:1;transform:none}}
 @keyframes fxdrop{0%{opacity:0;transform:translateY(-40px)}60%{opacity:1;transform:translateY(6px)}80%{transform:translateY(-3px)}100%{transform:none}}
 @keyframes fxspin{from{opacity:0;transform:rotate(-8deg) scale(.88)}to{opacity:1;transform:none}}
 @keyframes fxtilt{from{opacity:0;transform:perspective(500px) rotateY(40deg) translateX(20px)}to{opacity:1;transform:none}}
@@ -113,6 +113,7 @@ html.retro body{font-family:ui-monospace,Menlo,Consolas,monospace}
 .enter[data-fx=drop] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxdrop}
 .enter[data-fx=spin] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxspin}
 .enter[data-fx=tilt] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxtilt}
+.enter[data-fx] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+9){animation-name:rise}
 @media (prefers-reduced-motion:reduce){.fxh,.fxg{display:none}}
 
 /* ---------- profiles + collection log ---------- */
@@ -442,3 +443,4 @@ img.pk-em{width:28px;height:28px;object-fit:contain}
 .pko .pm-b.pri{background:#9b8cd9;color:#10141f;border-color:#9b8cd9}
 .pko.hol .pm-b.pri{background:#ffb020;border-color:#ffb020}
 @media(prefers-reduced-motion:reduce){.pk-pack,.pk-foil,.pkp-i,.pk-mini,#prof.pk::after{animation:none!important}.pk-c .rv-flip{transition:none}}
+.tcm-x{position:absolute;right:5px;top:4px;font:800 9.5px/1 var(--bd);color:var(--mute);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--line);border-radius:999px;padding:2px 5px;letter-spacing:.02em}
