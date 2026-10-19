@@ -305,11 +305,16 @@
   }
 
   // ---------- account stats ----------
+  function today0() { var t = new Date(); t.setHours(0, 0, 0, 0); return t.getTime(); }
   function vStats(body) {
     var a = active(), P = profiles(), p = a && P[a], col = F.col(), days = col.d || [], D = 864e5;
     var fmt = function (t) { return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
+    days = days.slice().sort(function (a, b) { return F.keyDate(a) - F.keyDate(b); });
     var first = col.d0 ? F.keyDate(col.d0) : (days.length ? F.keyDate(days[0]) : null);
-    var since = p && p.c ? p.c : first, age = since ? Math.max(1, Math.floor((Date.now() - since) / D) + 1) : 0;
+    if (days.length && (!first || F.keyDate(days[0]) < first)) first = F.keyDate(days[0]);
+    var since = p && p.c ? (first ? Math.min(p.c, first) : p.c) : first;   // whichever came first: the profile or the first visit
+    var sd = since ? new Date(since) : null; if (sd) sd.setHours(0, 0, 0, 0);
+    var age = sd ? Math.max(1, Math.round((today0() - sd) / D) + 1) : 0;
     var cur = F.streak(days), last = days.length ? F.keyDate(days[days.length - 1]) : 0, today = new Date(); today.setHours(0, 0, 0, 0);
     if (last && today - last > D) cur = 0;                          // the streak only counts if it reaches yesterday or today
     var longest = Math.max(col.ls || 0, cur), opened = Math.max(col.dn || 0, days.length);
@@ -323,7 +328,7 @@
     var wd = [0, 0, 0, 0, 0, 0, 0]; days.forEach(function (k) { wd[new Date(F.keyDate(k)).getDay()]++; });
     var favD = wd.indexOf(Math.max.apply(null, wd)), DN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     var hd = el("div", "pm-who"); hd.appendChild(el("span", "pm-av", p ? p.n.charAt(0).toUpperCase() : "★"));
-    var w = el("div"); w.appendChild(el("div", "pm-name", p ? p.n : "This device")); w.appendChild(el("div", "pm-sub", since ? (p ? "Profile made " : "First visit ") + fmt(since) : "No visits logged yet")); hd.appendChild(w); body.appendChild(hd);
+    var w = el("div"); w.appendChild(el("div", "pm-name", p ? p.n : "This device")); w.appendChild(el("div", "pm-sub", since ? (p && since === p.c ? "Profile made " : "First visit ") + fmt(since) : "No visits logged yet")); hd.appendChild(w); body.appendChild(hd);
     function grid(title, tiles) {
       body.appendChild(el("h3", "ac-h", title)); var gr = el("div", "ac-grid");
       tiles.forEach(function (t) { if (!t) return; if (t.nodeType) { gr.appendChild(t); return; } if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
@@ -334,7 +339,7 @@
       [opened, opened === 1 ? "day opened" : "days opened"],
       [cur, "day streak" + (cur ? " 🔥" : ""), cur >= 7 ? "hot" : ""],
       [longest, "longest streak"],
-      [opened && age ? Math.round(opened / age * 100) + "%" : null, "of days visited"],
+      [opened && age ? Math.min(100, Math.round(opened / age * 100)) + "%" : null, "of days visited"],
       [days.length ? DN[favD] : null, "favorite day"],
     ]);
     // The card you chose to show off (★ Favorite on any card you own). None yet: a shortcut to pick one.
