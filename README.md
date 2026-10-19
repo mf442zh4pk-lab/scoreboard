@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=81` → `?v=82` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=82` → `?v=83` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -68,7 +68,11 @@ About a minute into first use with no profile signed in (`sb-active`), `app.js` 
 
 ## Find a game or team, the team page, and the portal
 
-`openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text) **and over every team**. Opening Find loads the team index for the core leagues (`ESPN.fetchTeams()`: one standings request per league, cached a week in `sb-tm` with id, name, abbreviation and logo); "Search every league" adds the extra leagues (`sb-tm2`) on demand. Team hits open the team page, `#team/<league>/<id>` (`openTeam`, `openTeamRoute`, `renderTeamPage`): a Follow/Unfollow button plus the same block My teams uses (`teamBlock`: record, standing, trends, next and last games), loaded only when opened (`fetchTeamInfo`, cached in `sb-tcache`). Schedule rows are tappable: `parseSchedule` keeps the opponent's abbreviation, logo and id (`o`) and the team's own (`me`), `schedGame` turns a row into a game object, and `syncFromHash` finds it in `SG` so `#game/…` opens even when the game isn't in any list. Picking a game result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
+`openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text) **and over every team**. Opening Find loads the team index for the core leagues (`ESPN.fetchTeams()`: one standings request per league, cached a week in `sb-tm` with id, name, abbreviation and logo); "Search every league" adds the extra leagues (`sb-tm2`) on demand. `teamRow`, `teamHits` and `moreBtn` are shared with the **Find a team** box at the top of My teams (`teamFinder`). Picking a game result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
+
+**Team page** (`#team/<league>/<id>`: `openTeam`, `openTeamRoute`, `renderTeamPage`). Ways in: a team row in Find or the My teams finder, the team name on a My teams block, **the logo/abbreviation badge on any game card** (`.ab.tbtn`, handled by the capture listener on `#out` so it beats the card tap; the long-press menu lists both teams too), and any other team's row in a standings table. What it shows, in order: header (logo, name, league, record, standing line, Follow/Unfollow), the status in words (`teamStory`: record and place, streak or last five, league tier, last result, next game), the trend gauge (`tierGauge`: four zones with a marker at the team's league-wide rank by record, the last ten as form dots, and a dumpster fire for the bottom tenth), the top three performers from the latest finished game (`teamLeaders`: one box-score request, shared with the game page cache), the standings table, then next 3 / last 3 with the full schedule and all results behind toggles. The league-wide rank comes from `leagueRank` in `espn.js` (`standing.lr = {pos, n}`, every team once across every group, by win% or points per game). Schedule rows are tappable: `parseSchedule` keeps the opponent's abbreviation, logo and id (`o`) and the team's own (`me`), `schedGame` turns a row into a game object, and `syncFromHash` finds it in `SG` so `#game/…` opens even when the game isn't in any list.
+
+**Cost**: a team page is one standings request (memoized five minutes per league in `standingsOf`, so hopping between teams in the same league is free) plus one schedule request, and one box score for the performers. Only followed teams are written to `sb-tcache` (pruned at boot); browsed teams live in memory for the session.
 
 ## Yesterday tab layout
 
