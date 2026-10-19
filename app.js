@@ -6,7 +6,18 @@
   // The build number comes from this script's own ?v= in index.html, so there is exactly one place to bump it.
   var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
   var RM = false; try { RM = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
-  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+  // Preferences (Settings). Defaults here; anything the person changes is saved under sb-pref.
+  var PREF = { tab0: "last", compact: false, h24: false, haptic: true, alerts: true, upwin: "3", splash: true, text: "n", logos: true };
+  try { var pf = JSON.parse(localStorage.getItem("sb-pref") || "{}"); for (var pk in pf) if (pk in PREF) PREF[pk] = pf[pk]; } catch (e) {}
+  function setPref(k, v) { PREF[k] = v; try { localStorage.setItem("sb-pref", JSON.stringify(PREF)); } catch (e) {} applyPref(); }
+  function applyPref() {
+    document.body.classList.toggle("cmp", !!PREF.compact);
+    document.body.classList.toggle("nolg", !PREF.logos);
+    document.documentElement.classList.toggle("txl", PREF.text === "l");
+    try { if (PREF.splash) localStorage.removeItem("sb-splash"); else localStorage.setItem("sb-splash", "0"); } catch (e) {}
+  }
+  applyPref();
+  function buzz(ms) { if (!PREF.haptic) return; try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
   // Tiny event bus + extension points for future features (see README.md): SB.on("render"|"data"|"view", fn).
   var HOOKS = {};
   function on(ev, fn) { (HOOKS[ev] = HOOKS[ev] || []).push(fn); return function () { HOOKS[ev] = (HOOKS[ev] || []).filter(function (f) { return f !== fn; }); }; }
@@ -30,6 +41,7 @@
   LG.forEach(function (l) { S.games[l.key] = []; });
   var DEFAULT_FOLLOWED = C.followed.slice();
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
+  if (PREF.tab0 !== "last") S.tab = PREF.tab0;
   try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news") S.ysub = sy; } catch (e) {}
   try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
   // People you follow (fighters, drivers, golfers), matched by name against each event's entrants.
@@ -77,7 +89,7 @@
   function when(iso) {
     var d = new Date(iso);
     if (isNaN(d)) return "";
-    var t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    var t = d.toLocaleTimeString(undefined, { hour: PREF.h24 ? "2-digit" : "numeric", minute: "2-digit", hour12: !PREF.h24 });
     if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return t;
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + t;
   }
@@ -88,7 +100,7 @@
     if (isNaN(ms)) return "";
     if (ms <= 0) return "starting";
     var d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
-    if (d) return long ? "in " + d + "d " + h + "h" : "";
+    if (d) return long ? "in " + d + "d " + h + "h" : "in " + d + "d";
     return h ? "in " + h + "h " + m + "m" : "in " + Math.max(1, m) + "m";
   }
   // Is this live game close and late? Rules per sport, read from the feed's status text ("2:10 - 4th", "Bot 8th", "78'").
@@ -160,7 +172,7 @@
     return i;
   }
   function badge(t) {
-    if (!t[5]) return el("span", "ab", t[1]);
+    if (!t[5] || !PREF.logos) return el("span", "ab", t[1]);
     var b = el("span", "ab lg"); b.appendChild(logoImg(t[5], t[1])); return b;
   }
   // Small inline logo for table rows and section titles.
@@ -547,6 +559,8 @@
     else v = r < 0.05 ? "edge" : r < 0.15 ? "beat" : r < 0.28 ? "cruise past" : "rout";
     return tn(W) + " " + v + " " + tn(L) + " " + W[2] + "-" + L[2] + (g.o ? (lg.soccer ? " after extra time" : " in overtime") : "");
   }
+  // AP stories open with a dateline ("FOXBOROUGH, Mass. -- —"); drop it from the first paragraph.
+  function delede(p) { return String(p || "").replace(/^[A-Z]{2,}(?:[ ,.\u2019']+[A-Za-z.\u2019]+){0,5}\.?\s*(?:\(AP\))?\s*(?:--|\u2014|\u2013)+\s*(?:\(AP\)\s*)?(?:--|\u2014|\u2013)*\s*/, ""); }
   function trunc(s, n) { if (s.length <= n) return s; var t = s.slice(0, n), i = t.lastIndexOf(" "); return t.slice(0, i > n * 0.6 ? i : n) + "…"; }
   function openX(c, x) {
     c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
@@ -561,7 +575,7 @@
     ESPN.fetchNarrative(x.lk, x.g.id, true).then(function (n) {
       if (!n || !n.paras || !n.paras.length) return;
       if (onHead) onHead(n);
-      var p0 = n.paras[0].replace(/^[A-Z][A-Z.,'\u2019 ]{2,40}\s*(?:--|\u2014|\u2013)+\s*(?:\(AP\)\s*)?(?:--|\u2014|\u2013)*\s*/, "");
+      var p0 = delede(n.paras[0]);
       var lede = trunc(p0, max || 260), more = n.paras.slice(1, 5), cut = lede !== p0;
       var p = el("p", "narr-p", lede); box.appendChild(p);
       if (more.length || cut) {
@@ -1012,11 +1026,11 @@
         var nm = el("span", "pn"); nm.appendChild(el("span", null, n)); nm.appendChild(el("small", null, personLine(n))); r.appendChild(nm);
         var x = el("button", "pdel", "Remove"); x.type = "button"; x.onclick = function () { togglePerson(n); }; r.appendChild(x); box.appendChild(r);
       });
-    } else box.appendChild(el("p", "hcold", "Follow fighters, drivers and golfers. Tap the star next to a name on any UFC, F1, NASCAR or golf page, or add one here."));
+    } else box.classList.add("empty");
     var names = {};
     allGames().forEach(function (x) { (x.g.pp || []).forEach(function (n) { names[n] = 1; }); });
     var f = el("form", "add"), inp = el("input"), dl = el("datalist"), add = el("button", null, "Add");
-    inp.placeholder = "Add a fighter, driver or golfer"; inp.setAttribute("list", "pplnames"); inp.setAttribute("aria-label", "Person name"); inp.autocomplete = "off";
+    inp.placeholder = C.fp.length ? "Add a fighter, driver or golfer" : "Follow a fighter, driver or golfer\u2026"; inp.setAttribute("list", "pplnames"); inp.setAttribute("aria-label", "Person name"); inp.autocomplete = "off";
     dl.id = "pplnames"; add.type = "submit";
     Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); });
     inp.addEventListener("focus", function () { LG.forEach(function (l) { if (l.kind && S.lgState[l.key] !== "done" && S.lgState[l.key] !== "loading") loadLeague(l.key); }); }, { once: true });
@@ -1114,25 +1128,48 @@
     };
     f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
 
-    box.appendChild(el("h3", null, "Theme"));
-    var seg = el("div", "seg"), cur = "auto";
-    try { cur = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
-    [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].forEach(function (o) {
-      var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", o[0] === cur ? "true" : "false");
-      b.onclick = function () { try { localStorage.setItem("sb-theme", o[0]); } catch (e) {} applyTheme(); render(); };
-      seg.appendChild(b);
-    });
-    box.appendChild(seg);
+    // One row per preference: a label, a short hint and a segmented control.
+    function segRow(label, hint, opts, cur, onPick) {
+      var r = el("div", "prow" + (opts.length > 3 ? " wide" : "")), lw = el("div", "pl"); lw.appendChild(el("b", null, label)); if (hint) lw.appendChild(el("small", null, hint)); r.appendChild(lw);
+      var sg = el("div", "seg");
+      opts.forEach(function (o) {
+        var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", String(o[0]) === String(cur) ? "true" : "false");
+        b.onclick = function () { [].forEach.call(sg.children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); onPick(o[0]); };
+        sg.appendChild(b);
+      });
+      r.appendChild(sg); return r;
+    }
+    var pref = function (k, label, hint, opts, rerender) { return segRow(label, hint, opts, PREF[k], function (v) { setPref(k, v); if (rerender) render(); }); };
+    var ONOFF = [[true, "On"], [false, "Off"]];
+    box.appendChild(el("h3", null, "Look"));
+    var cur = "auto"; try { cur = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
+    box.appendChild(segRow("Theme", "", [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]], cur, function (v) { try { localStorage.setItem("sb-theme", v); } catch (e) {} applyTheme(); }));
+    box.appendChild(pref("compact", "Compact cards", "Tighter cards, no records", ONOFF, true));
+    box.appendChild(pref("logos", "Team logos", "Off shows abbreviations", ONOFF, true));
+    box.appendChild(pref("text", "Text size", "", [["n", "Normal"], ["l", "Large"]]));
+    box.appendChild(el("h3", null, "Behavior"));
+    box.appendChild(pref("tab0", "Open on", "Which tab the app starts on", [["last", "Last used"], ["pinned", "Following"], ["yesterday", "Yesterday"], ["teams", "My teams"]]));
+    box.appendChild(pref("upwin", "Upcoming games", "How far ahead the lists go", [["1", "24 hours"], ["3", "3 days"], ["all", "Everything"]], true));
+    box.appendChild(pref("alerts", "Score alerts", "Pop-ups when your teams score or finish", ONOFF));
+    box.appendChild(pref("h24", "24-hour clock", "", ONOFF, true));
+    box.appendChild(pref("haptic", "Haptics", "Little taps on buttons (phones)", ONOFF));
+    box.appendChild(pref("splash", "Splash screen", "The one-second intro when the app opens", ONOFF));
 
     box.appendChild(el("h3", null, "Reset"));
     var rs = el("button", null, "Back to default teams"); rs.type = "button";
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.0 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.1 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
+    var ra = el("button", "danger", "Reset everything"); ra.type = "button"; ra.title = "Clears teams, settings, pins and the Collection Log on this device";
+    ra.onclick = function () {
+      if (ra.getAttribute("data-arm") !== "1") { ra.setAttribute("data-arm", "1"); ra.textContent = "Tap again to wipe this device"; setTimeout(function () { ra.removeAttribute("data-arm"); ra.textContent = "Reset everything"; }, 4000); return; }
+      try { localStorage.clear(); } catch (e) {} location.reload();
+    };
+    box.appendChild(document.createTextNode(" ")); box.appendChild(ra);
     if (window.FUN) { box.appendChild(el("h3", null, "Collection Log")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " cards found. Hint: poke things, visit at odd hours, try a classic cheat code."));
       var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb);
       box.appendChild(el("h3", null, "New card reveal"));
@@ -1183,6 +1220,16 @@
     if (!/^(football|basketball|hockey|baseball)$/.test(p[0])) return "";
     return "https://www.espn.com/" + p[1] + "/game/_/gameId/" + x.g.id;
   }
+  // "Add to calendar": a one-event .ics file for an upcoming game (opens the phone's calendar).
+  function icsFor(x) {
+    var g = x.g, st = new Date(g.t), en = new Date(st.getTime() + 3 * 3600000), f = function (d) { return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, ""); };
+    var title = g.ev ? g.h[0] : g.a[0] + " at " + g.h[0], esc = function (t) { return String(t).replace(/[\\;,]/g, function (m) { return "\\" + m; }); };
+    var body = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Scoreboard//EN", "BEGIN:VEVENT", "UID:sb-" + x.lk + "-" + g.id + "@scoreboard", "DTSTAMP:" + f(new Date()), "DTSTART:" + f(st), "DTEND:" + f(en), "SUMMARY:" + esc(title), "DESCRIPTION:" + esc(x.ll + (g.b ? " \u00b7 " + g.b : "")), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    try {
+      var u = URL.createObjectURL(new Blob([body], { type: "text/calendar" })), a = el("a"); a.href = u; a.download = title.replace(/[^\w ]+/g, "").trim().replace(/ +/g, "-") + ".ics"; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(u); }, 4000); toast("Calendar event ready");
+    } catch (e) { toast("Could not make the calendar event"); }
+  }
   // Long-press menu: copy, pin or share the game.
   var LPM = null;
   function lpClose() { if (!LPM) return; var o = LPM; LPM = null; o.classList.remove("in"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 180); }
@@ -1192,6 +1239,7 @@
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Game actions");
     sh.appendChild(el("div", "lpm-t", g.ev ? g.h[0] : g.a[0] + " at " + g.h[0]));
     var acts = [["Copy score", function () { copyScore(x); }], [isPinned(x) ? "Unpin" : "Pin to top", function () { togglePin(x); }], ["Share", function () { sharePlay(x); }]], eu = espnUrl(x);
+    if (g.s === "up") acts.push(["Add to calendar", function () { icsFor(x); }]);
     if (eu) acts.push(["Open on ESPN", function () { var a = el("a"); a.href = eu; a.target = "_blank"; a.rel = "noopener"; a.click(); }]);
     acts.forEach(function (r) {
       var b = el("button", "lpm-b", r[0]); b.type = "button"; b.onclick = function () { lpClose(); r[1](); }; sh.appendChild(b);
@@ -1460,7 +1508,14 @@
     var nv = v.n && (v.n.type === "Recap") === (g.s === "final") ? v.n : null;
     if (nv) {
       pv.appendChild(el("p", "nh", nv.h));
-      nv.paras.forEach(function (t) { pv.appendChild(el("p", "ap", t)); });
+      var ps = nv.paras.map(function (t, i) { return i ? t : delede(t); }), rest = ps.slice(2);
+      ps.slice(0, 2).forEach(function (t) { pv.appendChild(el("p", "ap", t)); });
+      if (rest.length) {
+        var rw = el("div", "ap-more"); rw.hidden = true; rest.forEach(function (t) { rw.appendChild(el("p", "ap", t)); });
+        var rt = el("button", "narr-t", "Read the full story \u25BE"); rt.type = "button";
+        rt.onclick = function () { rw.hidden = !rw.hidden; rt.textContent = rw.hidden ? "Read the full story \u25BE" : "Show less \u25B4"; };
+        pv.appendChild(rw); pv.appendChild(rt);
+      }
       var sl = el("p", "src", "Story: AP, via ESPN"), sa = nv.link && el("a", null, " Read on ESPN ↗");
       if (sa) { sa.href = nv.link; sa.target = "_blank"; sa.rel = "noopener"; sl.appendChild(sa); }
       pv.appendChild(sl);
@@ -1655,9 +1710,11 @@
     var big = S.tab === "pinned";
     var close = items.filter(isClose).sort(function (a, b) { return Math.abs(a.g.h[2] - a.g.a[2]) - Math.abs(b.g.h[2] - b.g.a[2]); });
     var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; });
-    var up = items.filter(function (x) { return x.g.s === "up"; }).sort(function (a, b) { return byTime(a.g, b.g); });
+    var lim = PREF.upwin === "all" ? Infinity : Date.now() + (PREF.upwin === "1" ? 1 : 3) * DAY, hidden = 0;
+    var up = items.filter(function (x) { if (x.g.s !== "up") return false; if (Date.parse(x.g.t) > lim && !isFollowed(x.g) && !isPinned(x)) { hidden++; return false; } return true; }).sort(function (a, b) { return byTime(a.g, b.g); });
     var fin = items.filter(function (x) { return x.g.s === "final"; }).sort(function (a, b) { return byTime(b.g, a.g); });
-    [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big, true), group("Final", "", fin, big)].forEach(function (s) { if (s) out.appendChild(s); });
+    [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big, true), group("Final", "", fin, big, true)].forEach(function (s) { if (s) out.appendChild(s); });
+    if (hidden) { var hb = el("button", "sr-more dim2", hidden + " more game" + (hidden > 1 ? "s" : "") + " later this week \u00b7 show"); hb.type = "button"; hb.onclick = function () { setPref("upwin", "all"); render(); }; out.appendChild(hb); }
     emit("render", out);
   }
 
@@ -1773,14 +1830,13 @@
       S.last = Date.parse(r.updated) || Date.now();
       var firstLoad = !S.fresh;
       S.fresh = true; S.ready = true;
-      saveCache();
       PINS = PINS.filter(function (k) {
         var x = allGames().filter(function (q) { return pinKey(q) === k; })[0];
         if (!x && only.indexOf(k.split("_")[0]) < 0) return true;
         return x && !(x.g.s === "final" && Date.now() - new Date(x.g.t) > 12 * 3600000);
       });
       savePins();
-      if (!firstLoad) allGames().forEach(function (x) {
+      if (!firstLoad && PREF.alerts) allGames().forEach(function (x) {
         var g = x.g, p = prev[g.id];
         if (!p || !isFollowed(g)) return;
         var line = g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2];
@@ -1790,6 +1846,7 @@
       });
       loadLeaders(); emit("data", null);
       var changed = JSON.stringify([S.games, S.yesterday]) !== before;
+      if (changed || firstLoad) saveCache();
 
       if (S.view) {
         var v = S.view, nx = allGames().filter(function (q) { return q.lk === v.x.lk && q.g.id === v.x.g.id; })[0];
