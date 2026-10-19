@@ -416,6 +416,7 @@
     var a = active(), p = a && profiles()[a];
     b.textContent = p ? p.n.charAt(0).toUpperCase() : "👤"; b.className = p ? "on" : "";
     b.setAttribute("aria-label", p ? "Profile: " + p.n : "Profile and Collection Log");
+    var w = D.getElementById("who"); if (w) { w.hidden = !p; if (p) { w.textContent = p.n; w.className = g("sb-lb") ? "on" : ""; } }
   }
   D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
   D.addEventListener("visibilitychange", function () { if (D.hidden && lbGet() && active()) savePush().catch(function () {}); });
