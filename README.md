@@ -13,13 +13,13 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 | `style.css` | Theme tokens (top), layout, and the motion system (bottom, "v1"). |
 | `fun.js` / `fun.css` | Collection Log cards, holiday calendar and animations, quips. Lazy-loaded on idle. |
 | `profile.js` | Profiles, Collection Log UI, leaderboard (Firebase REST). Lazy-loaded on first open. Usernames are claimed online first (Firebase Auth, case-insensitive), so a name belongs to one person everywhere. |
-| `sw.js` | Offline app shell + logo cache. Never caches ESPN data. |
+| `sw.js` | Offline app shell + logo cache. Never caches ESPN data. The page opens from the saved copy (instant), the worker checks the server behind it and, when the build changed, tells the app to show "New version ready · tap to reload". On install it saves the page and every `?v=` file (lazy ones too) so the first open after an update is instant as well. |
 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=77` → `?v=78` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
-3. Pages serves it within a minute. The service worker picks up the new version on the next open.
+2. Bump `?v=78` → `?v=79` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
 
@@ -33,7 +33,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 --spring     cubic-bezier(.34,1.4,.44,1)
 ```
 
-Buttons, tabs, chips and sheets already get press feedback and transitions from the shared rules. Collapsible sections tween open and closed (`app.js`, "Collapsible sections"). Opening or leaving a game uses the View Transitions API where available. Everything respects `prefers-reduced-motion`. The fun layer's animations are independent and sit on top.
+Buttons, tabs, chips and sheets already get press feedback and transitions from the shared rules. Collapsible sections tween open and closed (`app.js`, "Collapsible sections"). Opening or leaving a game uses the View Transitions API where available. Everything respects `prefers-reduced-motion`, and the Animations switch in Settings (`PREF.motion`, `html.rm`) forces the same thing: every animation and transition lands instantly, the fun layer included. The fun layer's animations are independent and sit on top.
 
 ## Extension points (`window.SB`)
 
@@ -49,7 +49,7 @@ SB.toast(msg)
 SB.allGames(), SB.isFollowed(g), SB.el(tag, cls, text)
 ```
 
-Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; async arrivals call `renderSoon()` so many in one frame become one render. Cards carry their game on `card._x`; one set of listeners on `#out` handles press-and-hold, prefetch and tooltips for all of them.
+Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; async arrivals call `renderSoon()` so many in one frame become one render. A quiet refresh of a list (same tab, scores arriving) keeps every card whose signature (`sigOf`) did not change, so logos never reload and focus stays put (`reuseCards`); a card whose score moved is rebuilt and gets the pop. Cards carry their game on `card._x`; one set of listeners on `#out` handles press-and-hold, prefetch (a finger that settles for 60ms starts the box score) and tooltips for all of them. The game page keeps the play-log scroll position and the "read the full story" state across the 20-second live re-renders.
 
 ## Adding things
 
@@ -60,7 +60,7 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 
 ## Settings (`PREF` in `app.js`)
 
-Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `notify` (final-score notifications), `hideL` (leagues hidden from All), `h24`, `haptic`, `splash`.
+Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `notify` (final-score notifications), `hideL` (leagues hidden from All), `h24`, `haptic`, `splash`, `motion` (Animations on/off).
 
 ## Find a game and the portal
 
@@ -109,3 +109,7 @@ Settings → "New card reveal" (Full show / Quick toast / Off, `sb-rv`) and "Car
 ## Data keys (localStorage)
 
 `sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`, `sb-hf` (last holiday burst), `sb-rv` / `sb-pk` (pop-up settings).
+
+## Loading (`espn.js`)
+
+`fetchScores` asks for one day per request: ESPN's team-sport scoreboards return nothing for a `dates=A-B` range (only the event sports honor ranges), so don't try to merge them. The saved-scores copy (`sb-cache`) is written when the browser is idle (`saveCache` → `flushCache`, also on `pagehide`), never while painting a refresh.
