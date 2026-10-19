@@ -41,7 +41,9 @@ body.ld #refresh .dot{animation:dpulse .9s ease-in-out infinite}
 .rail.hide{transform:translateY(-105%)}
 .rail-main{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tab.big{display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:14px;padding:8px 6px;font-size:13px;line-height:1.15;background:var(--pri-soft);border-color:transparent;color:var(--pri)}
-.tab.big .ico{font-size:17px;color:var(--ter)}
+.tab.big .ico{font-size:17px;color:var(--ter);position:relative}
+.tab.big.lv .ico::after{content:"";position:absolute;top:-1px;right:-9px;width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 2px var(--pri-soft);animation:p 1.4s infinite}
+.tab.big.lv[aria-selected="true"] .ico::after{box-shadow:0 0 0 2px var(--pri)}
 .tab.big[aria-selected="true"]{background:linear-gradient(135deg,var(--pri),var(--ter));color:var(--card)}
 .tab.big[aria-selected="true"] .ico{color:var(--card)}
 .rail-lg{display:flex;flex-wrap:wrap;gap:6px;align-items:center;scrollbar-width:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
@@ -162,6 +164,7 @@ th.l,td.l{text-align:left}
 #gear{background:var(--card);border:1px solid var(--line);border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;line-height:1;padding:0}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--pri);color:var(--card);padding:10px 16px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:90vw}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.act{pointer-events:auto;cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--card) 45%,transparent);text-underline-offset:3px}
 #ptr{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-30px);display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px 7px 10px;font-size:13px;font-weight:600;color:var(--mute);box-shadow:0 4px 14px rgba(30,40,70,.15);opacity:0;pointer-events:none;z-index:20;transition:opacity .15s}
 #ptr .ring{width:16px;height:16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--ter);display:inline-block}
 #ptr.armed{color:var(--pri)}
@@ -391,7 +394,7 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .ago{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .story .row{padding:3px 0}
 .sc,.dvs,.tb,.tgr{font-variant-numeric:tabular-nums}
-.card,.story,.sub,button,summary,.chip{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.card,.story,.sub,.qs,button,summary,.chip{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .ov summary:active,.trn summary:active,.usec summary:active{opacity:.7}
 .recaps+.ovs{margin-top:14px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
@@ -755,3 +758,6 @@ td.chg{animation:cellf 1.6s ease-out}
 /* both: slate frame inside, lavender ring outside */
 .qs.prime.close{border:2px solid var(--warn);outline:2px solid var(--ter);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){.qs.close::after{animation:none}}
+
+/* Animations off (Settings): every move lands instantly, including the fun layer and view transitions. */
+html.rm *,html.rm *::before,html.rm *::after{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;transition-delay:0s!important;scroll-behavior:auto!important}
