@@ -594,7 +594,32 @@
     C.followed.forEach(loadTeam);
   }
 
-  // ---------- Week: the last seven days of results for your teams, day by day, then the next seven ----------
+  // Leaders for the week's finished games, fetched once per game and kept for the session.
+  var WEEKL = {};
+  function weekPerf(past) {
+    var loading = false, best = {}, order = [];
+    past.forEach(function (p) {
+      var gid = p.g.id, e = WEEKL[gid];
+      if (e === undefined) {
+        loading = true; WEEKL[gid] = null;
+        ESPN.findTeam(p.n).then(function (f) { if (!f) throw 0; return ESPN.fetchGame(f.lk, gid).then(function (d) { return { lk: f.lk, d: d }; }); }).then(function (r) {
+          var rows = r.d.periods ? r.d.periods.rows : null, ab = rows ? rows[p.g.home ? 1 : 0][0] : "";
+          WEEKL[gid] = { lk: r.lk, ab: ab, L: (r.d.leaders || []).filter(function (l) { return !ab || l.team === ab; }) };
+          if (S.tab === "yesterday" && S.ysub === "week" && !S.view && !S.settings) renderSoon();
+        }, function () { WEEKL[gid] = { lk: "", ab: "", L: [] }; });
+        return;
+      }
+      if (e === null) { loading = true; return; }
+      e.L.forEach(function (l) {
+        var cat = (l.cat || "").replace(/ Leader$/i, ""), v = parseFloat((l.line || "").replace(/^[^\d.]*/, "")) || 0;
+        if (!cat) return;
+        if (!best[cat]) order.push(cat);
+        if (!best[cat] || v > best[cat].v) best[cat] = { v: v, cat: cat, name: l.name, line: l.line, ab: e.ab, opp: p.g.opp, home: p.g.home, t: p.t, lk: e.lk, gid: gid };
+      });
+    });
+    return { loading: loading, rows: order.map(function (c) { return best[c]; }).slice(0, 12) };
+  }
+  // ---------- Week: the last seven days of results for your teams, day by day, then the best individual lines ----------
   function renderWeek(out) {
     var now = Date.now(), from = now - 7 * DAY, to = now + 7 * DAY, past = [], next = [];
     C.followed.forEach(function (n) {
@@ -605,7 +630,7 @@
       });
     });
     out.appendChild(el("p", "lg", "This week"));
-    if (!past.length && !next.length) { out.appendChild(notice("Nothing yet", "Results and fixtures for your teams fill in once their schedules load (My teams).")); return; }
+    if (!past.length) { out.appendChild(notice("Nothing yet", "Results for your teams fill in once their schedules load (My teams). The month ahead is under Tomorrow.")); C.followed.forEach(loadTeam); return; }
     var W = 0, L = 0; past.forEach(function (p) { if (p.g.my > p.g.op) W++; else if (p.g.my < p.g.op) L++; });
     var box = el("div", "ovs");
     if (past.length) {
@@ -621,16 +646,21 @@
       });
       box.appendChild(ovSection("Last 7 days", W + "-" + L + (past.length - W - L ? "-" + (past.length - W - L) : ""), body));
     }
-    if (next.length) {
-      next.sort(function (a, b) { return a.t - b.t; });
-      var ag = el("div", "ag"), ld = "";
-      next.forEach(function (it) {
-        var d = new Date(it.t), dk = d.toDateString();
-        if (dk !== ld) { ld = dk; ag.appendChild(el("div", "agd", dk === new Date().toDateString() ? "Today" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }))); }
-        var r = el("div", "agr"); r.appendChild(el("span", "agt", d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 })));
-        r.appendChild(el("b", null, it.n)); r.appendChild(el("span", "ago", (it.g.home ? "vs " : "at ") + it.g.opp)); ag.appendChild(r);
+    // Top individual performances of the week: each finished game's leaders (one cached box score per game), best per category.
+    if (past.length) {
+      var perf = weekPerf(past), pw = el("div", "ag");
+      if (perf.loading && !perf.rows.length) pw.appendChild(el("p", "rb", "Loading box scores\u2026"));
+      else if (!perf.rows.length) pw.appendChild(el("p", "rb", "No leader lines for these games yet."));
+      perf.rows.forEach(function (r) {
+        var row = el("div", "agr pf"); row.tabIndex = 0; row.setAttribute("role", "button");
+        row.appendChild(el("span", "agt", r.cat));
+        row.appendChild(el("b", null, r.name));
+        row.appendChild(el("span", "ago", r.line + " \u00b7 " + r.ab + (r.home ? " vs " : " at ") + r.opp + " \u00b7 " + new Date(r.t).toLocaleDateString(undefined, { weekday: "short" })));
+        var go = function () { openGame({ lk: r.lk, g: { id: r.gid } }); };
+        row.onclick = go; row.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+        pw.appendChild(row);
       });
-      box.appendChild(ovSection("Next 7 days", next.length + " game" + (next.length === 1 ? "" : "s"), ag));
+      box.appendChild(ovSection("Top performances", perf.rows.length ? "best lines, your teams" : (perf.loading ? "loading" : ""), pw));
     }
     out.appendChild(box);
     C.followed.forEach(loadTeam);
@@ -1324,7 +1354,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.5 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.6 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
