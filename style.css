@@ -1,19 +1,11 @@
-/* Theme tokens: edit colors here. Light is default; dark follows the phone (or [data-theme]). */
+/* Theme tokens: edit colors here. The app is dark only. */
 :root{
-  --bg:#eef1f6; --card:#ffffff; --fg:#1d2433; --mute:#667085; --line:#d9dfea;
-  --pri:#4a5d7e; --pri-soft:#e3e9f3; --ter:#9b8cd9; --ter-soft:#ece8fa;
-  --live:#d6453d; --win:#2f8f5b; --warn:#b7791f;
+  --bg:#121722; --card:#1b2231; --fg:#e8ecf4; --mute:#97a1b5; --line:#2b3447;
+  --pri:#8da2c6; --pri-soft:#26304a; --ter:#b6a8f0; --ter-soft:#2d2a48;
+  --live:#ff6b62; --win:#5fcf93; --warn:#e0a84a;
   --hd:'Big Shoulders Display','Arial Narrow',sans-serif; --bd:'Hanken Grotesk',system-ui,sans-serif;
-  color-scheme:light;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#121722; --card:#1b2231; --fg:#e8ecf4; --mute:#97a1b5; --line:#2b3447;
-  --pri:#8da2c6; --pri-soft:#26304a; --ter:#b6a8f0; --ter-soft:#2d2a48;
-  --live:#ff6b62; --win:#5fcf93; --warn:#e0a84a; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#121722; --card:#1b2231; --fg:#e8ecf4; --mute:#97a1b5; --line:#2b3447;
-  --pri:#8da2c6; --pri-soft:#26304a; --ter:#b6a8f0; --ter-soft:#2d2a48;
-  --live:#ff6b62; --win:#5fcf93; --warn:#e0a84a; color-scheme:dark}
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--bd);
