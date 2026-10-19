@@ -1013,7 +1013,15 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     if (window.FUN) { box.appendChild(el("h3", null, "Collection Log")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " cards found. Hint: poke things, visit at odd hours, try a classic cheat code."));
-      var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb); }
+      var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb);
+      box.appendChild(el("h3", null, "New card reveal"));
+      var rv = el("div", "seg"), rc = "f"; try { rc = localStorage.getItem("sb-rv") || "f"; } catch (e) {}
+      [["f", "Full show"], ["q", "Quick toast"]].forEach(function (o) {
+        var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", o[0] === rc ? "true" : "false");
+        b.onclick = function () { try { if (o[0] === "f") localStorage.removeItem("sb-rv"); else localStorage.setItem("sb-rv", "q"); } catch (e) {} [].forEach.call(rv.children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); };
+        rv.appendChild(b);
+      });
+      box.appendChild(rv); }
     out.appendChild(box);
   }
 
@@ -1621,5 +1629,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=49").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=50").catch(function () {}); } catch (e) {} });
 })();
