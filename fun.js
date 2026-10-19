@@ -409,6 +409,55 @@
   var WINK = Object.keys(WIN), LOSEK = Object.keys(LOSE);
   function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = rnd(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
+  // ---------- holiday animations (only inside each holiday's window) ----------
+  var HFX = {
+    ny: [["zoom", ["🎊", "🎉", "🥂", "✨"], 9]], sb: [["roll", ["🏈"], 3]], val: [["rise", ["💗", "💘", "💕", "🌹"], 14]], pi: [["pop", ["π", "🥧", "3.14", "π"], 8]],
+    stp: [["fall", ["☘️", "🍀"], 16]], fool: [["tumble", ["🤡", "🃏", "🎭", "🪅"], 10]], easter: [["hop", ["🐰", "🥚", "🐣"], 3]], mom: [["drift", ["🌸", "🌷", "💐"], 12]],
+    mem: [["fly", ["🇺🇸"], 4]], dad: [["trail", ["⚾", "🧢"], 4]], jun: [["float", ["🎉", "🍉", "✨"], 10]], j4: [["burst", [], 0]],
+    labor: [["zoom", ["🍔", "🌭", "🥤"], 8]], hween: [["float", ["👻", "🎃"], 9], ["fly", ["🦇"], 5]], thx: [["fall", ["🍂", "🍁", "🦃"], 16]], xmas: [["fall", ["❄️", "❄️", "❄️", "🎄", "🎁"], 24]],
+    nye: [["burst", [], 0]], leap: [["hop", ["🐸"], 4]], f13: [["fly", ["🐈‍⬛", "🪞"], 4]]
+  };
+  var HQ = {
+    ny: ["New year, same refs.", "Resolution: check scores less. Starting tomorrow.", "Fresh calendar. Same rivalries."],
+    sb: ["The snack table is the real MVP today.", "Somebody's already asking about the halftime show.", "Commercials count as a quarter."],
+    val: ["Roses are red, the scoreboard is blue.", "Be mine, be my fantasy team.", "Love is a tied game in overtime."],
+    pi: ["3.14159... and still no overtime.", "Today's final: π to nothing.", "A perfect circle, like a good fast break."],
+    stp: ["May your bounces be lucky.", "Green is the only color that matters today.", "Pot of gold at the end of the double overtime."],
+    fool: ["Check the score twice. Today it might be a prank.", "That fake punt was a joke. Probably.", "No, the refs did not just do that. Or did they?"],
+    easter: ["Hide the eggs, keep the lead.", "Hoppy with the final score.", "He is risen. So is the point spread."],
+    mom: ["Mom called the game before the announcers did.", "Tell her she was right about the second half.", "She taught you everything about sportsmanship."],
+    mem: ["Grill first, check scores second.", "Remembering with a day of baseball.", "Stars and stripes, stats and snacks."],
+    dad: ["Dad has already explained the game three times.", "Play catch. It counts as cardio.", "The recliner is occupied. Do not disturb."],
+    jun: ["Cookout season, scores on the side.", "A day for celebration, family and good music.", "Scores, shade and something cold to drink."],
+    j4: ["Fireworks and a doubleheader.", "Hot dogs have scored a record number of points.", "Land of the free, home of the walk-off."],
+    labor: ["A day off for a day of scores.", "Last cookout of summer, first Sunday of football.", "Work is canceled. Standings are not."],
+    hween: ["Spooky season, scary bullpen.", "This scoreboard is haunted. Probably.", "Trick or treat: the home team won."],
+    thx: ["Football, family, more football.", "The turkey will be done by the third quarter.", "Thankful for overtime."],
+    xmas: ["Peace on earth, good will, and a Christmas Day tipoff.", "All I want for Christmas is a clean sweep.", "The only thing under the tree is a ticket stub."],
+    nye: ["Ten, nine, eight... lead protected.", "Last game of the year. Make it count.", "Auld lang syne and a final buzzer."],
+    leap: ["An extra day for extra innings.", "Today only comes around once in a while."], f13: ["Unlucky for someone's playoff odds.", "Black cats and bad bounces."]
+  };
+  var DAYQ = [["It's Sunday. The couch has been assigned.", "Sunday is for football and regret."], ["Monday. The only game on is one with consequences.", "Monday Night means one more game before bed."], ["Tuesday: the quiet part of the schedule.", "Tuesday. Nothing happens, except sometimes everything."], ["Midweek. Hang in there.", "Wednesday. A great night for a good game."], ["Thursday. Football is warming up.", "Almost the weekend. Almost."], ["Friday. Big night for scores.", "It's Friday. The scoreboard has plans."], ["Saturday. Everything is on.", "Saturday: the full slate."]];
+  var hfLast = 0, hfN = 0;
+  function nearHol() {                            // the active holiday whose date is closest to today
+    var now = new Date(), best = null, bd = 1e12;
+    Object.keys(HFX).forEach(function (k) { var w = hWin(k, now); if (!w || !w.on) return; var dd = Math.abs(w.d - now); if (dd < bd) { bd = dd; best = k; } });
+    return best;
+  }
+  function hSpawn(m, em, n, t0) {
+    var g = layer(), w = innerWidth, h = innerHeight;
+    for (var i = 0; i < n; i++) {
+      var p = mk("hf hf-" + m, em[rnd(em.length)]), dur = m === "trail" ? R(.8, 1.3) : m === "pop" || m === "zoom" ? R(1.6, 2.6) : m === "roll" || m === "hop" || m === "fly" ? R(5, 8) : R(4.5, 8.5);
+      p.style.cssText = "--x:" + R(2, 94).toFixed(1) + "%;--y:" + R(8, m === "pop" || m === "zoom" ? 80 : 55).toFixed(1) + "%;--dx:" + Math.round(R(-60, 60)) + "px;--r:" + Math.round(R(180, 540)) + "deg;--s:" + R(.8, 1.5).toFixed(2) + ";--t:" + dur.toFixed(2) + "s;--dl:" + (t0 + R(0, m === "roll" || m === "hop" || m === "fly" ? 3 : 2.2)).toFixed(2) + "s";
+      g.appendChild(p); gone(p, (dur + t0 + 3.5) * 1000);
+    }
+  }
+  function holidayFx(force) {
+    if (RM || D.hidden) return; var n = Date.now(); if (!force && n - hfLast < 25000) return;
+    var k = nearHol(); if (!k) return; hfLast = n;
+    if (k === "j4" || k === "nye") { gFireworks(); setTimeout(gFireworks, 2600); }
+    else HFX[k].forEach(function (c) { hSpawn(c[0], c[1], c[2], 0); });
+  }
   // ---------- arriving somewhere new ----------
   var ENTER = ["rise", "flip", "zoom", "slidel", "slider", "swing", "blur", "drop", "spin", "tilt"];
   function enterFx() { return RM ? "rise" : wpick("enter", ENTER, function (k) { return "e_" + k; }); }
@@ -416,7 +465,8 @@
   function after(out) {
     var st = out.querySelectorAll(".fire3,.fire5,.cold3,.cold5,.heat");
     for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
-    if (RM) return; arrivals++;
+    quipNow(false);
+    if (RM) return; arrivals++; holidayFx();
     if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, 4), anyWin = false;
     cards.forEach(function (c) {
@@ -508,13 +558,29 @@
     if (ki === KON.length) { ki = 0; var on = D.documentElement.classList.toggle("retro"); found("konami"); say(on ? "🕹️ Retro mode ON" : "Retro mode off"); }
   });
   // reaching the very bottom swaps the footer for a quip
-  var QUIPS = ["That's all of it. Go touch grass.", "Nothing down here but a ball and a dream.", "You scrolled all the way down. Respect.", "Bottom of the page. Top of the standings.", "Refs have reviewed the scroll. Call stands.", "Still here? Overtime.", "Halftime show is canceled. Scroll back up.", "Fun fact: this page has no cheerleaders.", "Sir, this is a scoreboard.", "Hydrate. Stretch. Then check scores again."];
+  var QUIPS = ["That's all of it. Go touch grass.", "Nothing down here but a ball and a dream.", "You scrolled all the way down. Respect.", "Bottom of the page. Top of the standings.", "Refs have reviewed the scroll. Call stands.", "Still here? Overtime.", "Halftime show is canceled. Scroll back up.", "Fun fact: this page has no cheerleaders.", "Sir, this is a scoreboard.", "Hydrate. Stretch. Then check scores again.",
+    "Your team's fine. Probably.", "Stats don't lie. Announcers do.", "Every great comeback starts at the bottom of the page.", "No scores were harmed in the making of this page.", "Fans have been notified. They're yelling already.", "Instant replay says: you're at the bottom.", "The bullpen has been called. Nobody's coming.", "Next play: scroll up.", "Final score: you 1, page 0.", "That's a wrap. Subscribe to nothing.",
+    "Slow news day? Check the other league.", "This scoreboard runs on caffeine and pure optimism.", "Please remain seated until the scores come to a complete stop.", "There is no trophy for scrolling. Yet.", "Ten out of ten refs recommend a snack.", "If your team lost, the refs did it.", "If your team won, you called it.", "Pace of play: leisurely.", "A fast break would be nice about now.", "Pulling the goalie for one more scroll.",
+    "We have reached the red zone of this page.", "Technically, that's a full-court press.", "Down to the wire, up to the footer.", "In the 2nd half, we scroll.", "Warning: scoreboard may cause chronic refreshing.", "Check the standings. Then check them again.", "Great scroll. Very athletic.", "Nothing but net.", "Top shelf. Where grandma keeps the scores.", "Swing and a miss. The page ended.",
+    "Can't spell scoreboard without 'board'.", "Trust the process. Or the playoffs.", "That's a clean sheet, if you're into soccer.", "No snow days at the scoreboard.", "Dynasties come and go. This footer is forever.", "Fourth and long.", "Sudden death: scroll back up.", "The rumor mill is running. Nothing confirmed.", "Hot take: this page is already too long.", "A ref blew the whistle. Nobody knows why.",
+    "Quarter's over. Time for a snack.", "Everyone's an expert in the fourth quarter.", "Gone fishin', back in the second period.", "Home team advantage: you.", "Beat the buzzer. Close the app.", "Referee says: delay of scroll.", "The crowd goes mild.", "Another day, another dynasty somewhere.", "Eyes up. The standings moved.", "I'd tell you a football joke, but it'd be too much of a stretch.",
+    "Why did the scoreboard blush? It saw the final.", "Hit the showers, champ.", "Underdogs are just favorites with better timing.", "Overtime rules: nobody agrees on them.", "Instant classic loading...", "Play of the day: you, reading this.", "This page brought to you by the number 11.", "Sports: where 'almost' is an entire personality.", "Reminder: it's only a game. (It's not.)", "Be the reason the scoreboard smiles."];
+  var qEl = null;
+  function quipNow(bottom) {                      // the fun line under the footer; fresh on every arrival, and again at the very bottom
+    var f = $("foot"); if (!f) return;
+    if (!qEl || !qEl.parentNode) { qEl = D.getElementById("quip"); if (!qEl) { qEl = D.createElement("p"); qEl.id = "quip"; qEl.className = "foot q"; f.parentNode.insertBefore(qEl, f.nextSibling); } }
+    var d = new Date(), pool = QUIPS, k = nearHol(), r = Math.random(), h = d.getHours();
+    if (k && HQ[k] && r < .55) pool = HQ[k];
+    else if (r < .2) pool = DAYQ[d.getDay()];
+    else if (h < 5 && r < .6) pool = ["Go to sleep. The games will still be there.", "Late night scores hit different.", "Nothing good happens after midnight. Except West Coast games.", "It's very late. You're a dedicated fan."];
+    qEl.classList.remove("in"); qEl.textContent = pick("quip", pool); void qEl.offsetWidth; qEl.classList.add("in");
+  }
   var atBottom = false, tick = 0;
   addEventListener("scroll", function () {
     if (tick) return; tick = requestAnimationFrame(function () {
       tick = 0; var nb = innerHeight + scrollY >= D.documentElement.scrollHeight - 6;
       if (nb && !atBottom && D.documentElement.scrollHeight > innerHeight * 1.4) {
-        var f = $("foot"); if (f) { f.dataset.o = f.dataset.o || f.textContent; f.textContent = pick("quip", QUIPS); }
+        quipNow(true);
         found("bottom"); if (!RM && Math.random() < .35) ball();
       }
       atBottom = nb;
