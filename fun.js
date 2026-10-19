@@ -446,7 +446,6 @@
     leap: ["An extra day for extra innings.", "Today only comes around once in a while."], f13: ["Unlucky for someone's playoff odds.", "Black cats and bad bounces."]
   };
   var DAYQ = [["It's Sunday. The couch has been assigned.", "Sunday is for football and regret."], ["Monday. The only game on is one with consequences.", "Monday Night means one more game before bed."], ["Tuesday: the quiet part of the schedule.", "Tuesday. Nothing happens, except sometimes everything."], ["Midweek. Hang in there.", "Wednesday. A great night for a good game."], ["Thursday. Football is warming up.", "Almost the weekend. Almost."], ["Friday. Big night for scores.", "It's Friday. The scoreboard has plans."], ["Saturday. Everything is on.", "Saturday: the full slate."]];
-  var hfLast = 0, hfN = 0;
   function nearHol() {                            // the active holiday whose date is closest to today
     var now = new Date(), best = null, bd = 1e12;
     Object.keys(HFX).forEach(function (k) { var w = hWin(k, now); if (!w || !w.on) return; var dd = Math.abs(w.d - now); if (dd < bd) { bd = dd; best = k; } });
@@ -461,11 +460,13 @@
     }
   }
   function holidayFx(force) {
-    // Once on the first arrival, then rarely: at most every four minutes and only about a third of the time.
-    if (RM || D.hidden) return; var n = Date.now(); if (!force && (n - hfLast < 240000 || (hfN > 0 && Math.random() > .35))) return;
-    var k = nearHol(); if (!k) return; hfLast = n; hfN++;
-    if (k === "j4" || k === "nye") { gFireworks(); if (Math.random() < .5) setTimeout(gFireworks, 2600); }
-    else HFX[k].forEach(function (c) { hSpawn(c[0], c[1], Math.max(1, Math.round(c[2] * .6)), 0); });
+    // Once a day, and small: the first arrival of the day gets a short burst, then nothing until tomorrow.
+    if (RM || D.hidden) return; var k = nearHol(); if (!k) return;
+    var key = new Date().toDateString() + "|" + k;
+    if (!force) { try { if (localStorage.getItem("sb-hf") === key) return; } catch (e) {} }
+    try { localStorage.setItem("sb-hf", key); } catch (e) {}
+    if (k === "j4" || k === "nye") gFireworks();
+    else HFX[k].forEach(function (c) { hSpawn(c[0], c[1], Math.max(1, Math.round(c[2] * .4)), 0); });
   }
   // ---------- arriving somewhere new ----------
   var ENTER = ["rise", "flip", "zoom", "slidel", "slider", "swing", "blur", "drop", "spin", "tilt"];
@@ -671,13 +672,7 @@
     var pool = hk ? CAT.filter(function (c) { return c.h === hk; }) : CAT.filter(function (c) { return !c.h && !AUTO[c[0]] && c[2] !== "S"; });
     if (!pool.length) pool = CAT.filter(function (c) { return !AUTO[c[0]] && c[2] !== "S"; });
     var wf = hk ? function (c) { return HW2[c[2]] || 1; } : function (c) { return RW[c[2]] || 1; }, out = [];
-    var fresh = pool.filter(function (c) { return !col.i[c[0]]; });
-    for (var i = 0; i < 10; i++) {
-      var c = wchoice(pool, wf);
-      if (col.i[c[0]] && fresh.length && Math.random() < .5) c = wchoice(fresh, wf);   // packs lean toward cards you don't have yet
-      out.push(c);
-    }
-    if (!out.some(function (c) { return tier(c) >= 2; })) { var hi = pool.filter(function (c) { return tier(c) >= 2; }); if (hi.length) out[9] = wchoice(hi, wf); }
+    for (var i = 0; i < 10; i++) out.push(wchoice(pool, wf));   // flat rates: every card in the pool has the same odds whether you own it or not
     return out;
   }
   function grant(c) {
