@@ -490,3 +490,11 @@ img.pk-em{width:28px;height:28px;object-fit:contain}
 .tc.story .tc-d{flex:1;min-height:0;overflow:auto;text-align:left;font-size:12.5px;line-height:1.45;padding:0 2px;scrollbar-width:thin;-webkit-mask-image:linear-gradient(#000 calc(100% - 14px),transparent);mask-image:linear-gradient(#000 calc(100% - 14px),transparent);padding-bottom:14px}
 .tc.story .tc-em{font-size:72px}
 .tc.lock .tc-d{color:var(--mute)}
+/* favorite card tile (stats) and the toggle on a card */
+.ac-fav{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;text-align:left;cursor:pointer;font:inherit;color:inherit;padding:10px 12px}
+.ac-fav .ac-art{flex:none;width:56px;height:56px;border-radius:12px;display:grid;place-items:center;font-size:34px;background:var(--pri-soft);overflow:hidden}
+.ac-fav .ac-art img{width:100%;height:100%;object-fit:contain}
+.ac-fw{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ac-fav.none>b{font-size:30px;color:var(--mute);width:56px;text-align:center}
+.ac-fav.rE,.ac-fav.rL,.ac-fav.rM,.ac-fav.rS{border-color:color-mix(in srgb,#e0a800 55%,var(--line))}
+.tcd-fav.on{color:#e0a800;border-color:color-mix(in srgb,#e0a800 60%,var(--line))}
