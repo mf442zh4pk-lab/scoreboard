@@ -1628,11 +1628,9 @@
     var pa = localStorage.getItem("sb-active"), pp = pa && JSON.parse(localStorage.getItem("sb-profiles") || "{}")[pa];
     if (pp) { $("prof").textContent = pp.n.charAt(0).toUpperCase(); $("prof").className = "on"; }
   } catch (e) {}
-  if (/^#xfer=/.test(location.hash)) openProf();
-  window.addEventListener("hashchange", function () { if (/^#xfer=/.test(location.hash)) openProf(); });
   window.addEventListener("load", function () {
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=54").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=55").catch(function () {}); } catch (e) {} });
 })();
