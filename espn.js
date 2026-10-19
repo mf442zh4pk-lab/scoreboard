@@ -696,20 +696,31 @@
     e.p.catch(function () { if (stC[lg.key] === e) delete stC[lg.key]; });
     return e.p;
   }
-  function fetchTeamInfo(lk, tid, fresh) {
-    var lg = labelOf(lk);
-    var st = standingsOf(lg, fresh).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
+  // One team's schedule ({ games, me }), kept two minutes: Find shows a team's games from it, and the team page opened
+  // right after reuses it instead of asking again.
+  var scC = {};
+  function scheduleOf(lk, tid, fresh) {
+    var lg = labelOf(lk), k = lk + "_" + tid, e = scC[k];
+    if (e && !fresh && Date.now() - e.at < 120000) return e.p;
     var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule", me = null;
     // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
-    var sc = getJson(url).then(function (j) { var t = j.team || {}; me = [t.displayName || "", t.abbreviation || "", logoOf(t) || (t.logo || ""), String(t.id || tid)]; return parseSchedule(j); }, function () { return []; }).then(function (gs) {
+    var p = getJson(url).then(function (j) { var t = j.team || {}; me = [t.displayName || "", t.abbreviation || "", logoOf(t) || (t.logo || ""), String(t.id || tid)]; return parseSchedule(j); }).then(function (gs) {
       if (!gs.length || gs.some(function (g) { return g.st === 2; })) return gs;
       return getJson(url + "?seasontype=2").then(parseSchedule, function () { return []; }).then(function (reg) {
         var seen = {};
         return reg.concat(gs).filter(function (g) { if (seen[g.id]) return false; seen[g.id] = 1; return true; });
       });
-    });
-    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1], me: me }; });
+    }).then(function (gs) { return { games: gs, me: me }; });
+    e = scC[k] = { at: Date.now(), p: p };
+    p.catch(function () { if (scC[k] === e) delete scC[k]; });
+    return p;
+  }
+  function fetchTeamInfo(lk, tid, fresh) {
+    var lg = labelOf(lk);
+    var st = standingsOf(lg, fresh).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
+    var sc = scheduleOf(lk, tid, fresh).then(null, function () { return { games: [], me: null }; });
+    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1].games, me: r[1].me }; });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, search: search, peekSearch: peekSearch, dayKey: dayKey, DAY: DAY };
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, scheduleOf: scheduleOf, search: search, peekSearch: peekSearch, dayKey: dayKey, DAY: DAY };
 })();
