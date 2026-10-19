@@ -409,7 +409,7 @@
     function chip(k, label) { var b = btn(label, "pm-chip" + (filter === k ? " on" : ""), function () { filter = k; draw(); }); chips.appendChild(b); }
     var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
     var fl = el("div", "pm-chips pm-fl"), cnt = el("p", "pm-note pm-cnt"), qt = 0;
-    qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; lq = ""; drawFl(); drawGrid(); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
+    qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
     qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawFl(); drawGrid(); }, 70); };
     function active2() { return !!(lq.trim() || lst !== "all" || Object.keys(lr).length); }
     function drawFl() {
@@ -462,7 +462,7 @@
       });
     }
     function RAR(k) { return RL[k]; }
-    var stk = el("div", "pm-stk"); stk.appendChild(qi); stk.appendChild(fl); stk.appendChild(chips); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
+    var stk = el("div", "pm-stk"); stk.appendChild(window.SB && SB.clearable ? SB.clearable(qi) : qi); stk.appendChild(fl); stk.appendChild(chips); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
     var lg = el("div", "pm-key");
     ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
