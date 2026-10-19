@@ -124,7 +124,7 @@
   var saveT = 0;
   function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
-  function say(msg) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = "show"; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; }, 3800); }
+  function say(msg, go) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = go ? "show go" : "show"; t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
   var newQ = [], newT = 0;
   function disc(id) {
     var c = IDX[id]; if (!c) return;
@@ -133,7 +133,8 @@
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
-      say(q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log");
+      var cid = q.length === 1 ? q[0][0] : null;
+      say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); });
       if (q.some(function (c) { return c[2] === "M" || c[2] === "L"; })) gConfetti(60, ["💎", "✨", "⭐", "🎫"]);
     }, 450);
     var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50");
