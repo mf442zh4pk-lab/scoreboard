@@ -3,6 +3,19 @@
   "use strict";
   var C = window.CONFIG, LG = C.leagues, DAY = ESPN.DAY;
   var D0 = document, $ = function (id) { return document.getElementById(id); };
+  // The build number comes from this script's own ?v= in index.html, so there is exactly one place to bump it.
+  var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
+  var RM = false; try { RM = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+  // Tiny event bus + extension points for future features (see README.md): SB.on("render"|"data"|"view", fn).
+  var HOOKS = {};
+  function on(ev, fn) { (HOOKS[ev] = HOOKS[ev] || []).push(fn); return function () { HOOKS[ev] = (HOOKS[ev] || []).filter(function (f) { return f !== fn; }); }; }
+  function emit(ev, a, b) { (HOOKS[ev] || []).forEach(function (f) { try { f(a, b); } catch (e) {} }); }
+  // Async arrivals (team pages, box scores, lazy leagues) ask for a render; several in one frame become one render.
+  var RQ = 0;
+  function renderSoon() { if (RQ) return; RQ = requestAnimationFrame(function () { RQ = 0; render(); }); }
+  // Page-level swaps (opening or leaving a game) crossfade when the browser can do it for free.
+  function swap(fn) { if (!RM && document.startViewTransition) { try { document.startViewTransition(fn); return; } catch (e) {} } fn(); }
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
@@ -30,8 +43,11 @@
     var t = "auto";
     try { t = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
     if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+    var dark = t === "dark" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches), m = document.querySelector("meta[name=theme-color]");
+    if (m) m.content = dark ? "#121722" : "#eef1f6";
   }
   applyTheme();
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {}
   function toast(msg) {
     var t = $("toast"); t.textContent = msg; t.className = "show"; t.onclick = null;
     clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, 6000);
@@ -62,7 +78,7 @@
     var d = new Date(iso);
     if (isNaN(d)) return "";
     var t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return "Today " + t;
+    if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return t;
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + t;
   }
   function byTime(a, b) { return Date.parse(a.t) - Date.parse(b.t); }
@@ -130,8 +146,7 @@
       return {
         name: name, played: true, result: res, gid: g.id, lk: x.lk, abbr: mine[1], my: mine[2], op: opp[2], ot: !!g.o, opp: opp[0], home: home,
         line: hi[0][0] + " " + hi[0][2] + ", " + hi[1][0] + " " + hi[1][2],
-        body: (res === "W" ? "Won " : res === "L" ? "Lost " : "Tied ") + Math.max(mine[2], opp[2]) + "-" + Math.min(mine[2], opp[2]) +
-          (home ? " at home against " : " on the road at ") + opp[0] + "." + nextUp(all, name),
+        body: (home ? "At home" : "On the road") + (g.o ? ", in overtime." : ".") + nextUp(all, name),
       };
     });
     return { date: label, teams: teams };
@@ -163,12 +178,25 @@
     }
     return "";
   }
+  // The small M mark that means "you follow this" (cloned from the header logo; the gradients stay defined there).
+  function markIcon() {
+    var s = $("mark").cloneNode(true), d = s.querySelector("defs"); if (d) d.parentNode.removeChild(d);
+    s.removeAttribute("id"); s.removeAttribute("role"); s.removeAttribute("aria-label"); s.setAttribute("aria-hidden", "true"); s.setAttribute("class", "mki");
+    return s;
+  }
+  function folTag(txt) { var t = el("span", "tag fol"); t.appendChild(markIcon()); t.appendChild(document.createTextNode(txt)); t.setAttribute("aria-label", "Following · " + txt); return t; }
+  function statusPill(g, txt, cls) {
+    var p = el("span", "pill " + g.s + (cls || ""), txt);
+    if (g.s === "live") p.insertBefore(el("i", "pulse"), p.firstChild);
+    return p;
+  }
+  var LASTSC = {};   // last score shown per game, so a live score that moves gets a little pop
   // Card for an event sport (UFC card, race weekend): title, the main fight or the podium, and a short note.
   function evCard(x) {
     var g = x.g, c = el("div", "card"), top = el("div", "top"), P = g.x || {};
-    top.appendChild(el("span", "pill " + g.s, g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t)));
+    top.appendChild(statusPill(g, g.s === "live" ? (g.c || "Live") : g.s === "final" ? "Final" : when(g.t)));
     var fi = isFollowed(g); if (fi) c.className += " followed";
-    top.appendChild(fi ? el("span", "tag fol", "Following · " + x.ll) : el("span", "tag", x.ll));
+    top.appendChild(fi ? folTag(x.ll) : el("span", "tag", x.ll));
     c.appendChild(top);
     c.appendChild(el("div", "evt", g.h[0]));
     var row = function (name, rec, right, lose) {
@@ -211,7 +239,7 @@
     if (x.g.ev) { var ec = evCard(x); lpCopy(ec, x); return ec; }
     var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : "") + (isFollowed(g) ? strCls(streakOf(C.followed.indexOf(g.h[0]) >= 0 ? g.h[0] : g.a[0])) : ""));
     var top = el("div", "top");
-    var ptxt = g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
+    var ptxt = g.s === "live" ? (g.c || "Live") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
     if (g.s === "final" && g.h[2] != null && g.a[2] != null) {
       var fh = C.followed.indexOf(g.h[0]) >= 0, fa = C.followed.indexOf(g.a[0]) >= 0;
       if (fh !== fa) {
@@ -219,17 +247,19 @@
         ptxt = "Final · " + wl; pcls = wl === "W" ? " w" : wl === "L" ? " l" : "";
       }
     }
-    var pill = el("span", "pill " + g.s + pcls, ptxt);
+    var pill = statusPill(g, ptxt, pcls);
     if (g.s === "up") {
       var cdv = countdown(g.t);
       if (cdv) { var cs = el("span", "cd", " · " + cdv); cs.setAttribute("data-cd", g.t); pill.appendChild(cs); }
       if (x.lk === "afl") { try { pill.appendChild(el("span", "cd", " (" + new Date(g.t).toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane", hour: "numeric", minute: "2-digit" }) + " Brisbane)")); } catch (e) {} }
     }
     top.appendChild(pill);
-    top.appendChild(isFollowed(g) ? el("span", "tag fol", "Following · " + x.ll) : el("span", "tag", x.ll + (g.n ? " · " + g.n : "")));
+    top.appendChild(isFollowed(g) ? folTag(x.ll) : el("span", "tag", x.ll + (g.n ? " · " + g.n : "")));
     c.appendChild(top);
     var hs = g.h[2], as = g.a[2], has = g.s !== "up" && hs != null && as != null;
-    [[g.a, as, hs], [g.h, hs, as]].forEach(function (r) {
+    var ps = LASTSC[g.id], live = g.s === "live", bA = live && ps && ps[0] !== as, bH = live && ps && ps[1] !== hs;
+    if (has) LASTSC[g.id] = [as, hs];
+    [[g.a, as, hs, bA], [g.h, hs, as, bH]].forEach(function (r) {
       var row = el("div", "row" + (has && r[1] < r[2] && g.s === "final" ? " lose" : ""));
       var tm = el("div", "tm");
       tm.appendChild(badge(r[0]));
@@ -237,24 +267,36 @@
       if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
       row.appendChild(tm);
-      if (has) row.appendChild(el("span", "sc", String(r[1])));
+      if (has) row.appendChild(el("span", "sc" + (r[3] ? " bump" : ""), String(r[1])));
       c.appendChild(row);
     });
     lpCopy(c, x);
     return c;
   }
-  // Press and hold any game card for copy, pin and share.
-  function lpCopy(c, x) {
-    var t = 0, sx = 0, sy = 0, fired = false;
-    function start(e) { var p = e.touches ? e.touches[0] : e; sx = p.clientX; sy = p.clientY; fired = false; clearTimeout(t); t = setTimeout(function () { fired = true; c.classList.add("lp"); setTimeout(function () { c.classList.remove("lp"); }, 480); try { if (navigator.vibrate) navigator.vibrate(18); } catch (e2) {} lpMenu(x); }, 520); }
-    function move(e) { var p = e.touches ? e.touches[0] : e; if (Math.abs(p.clientX - sx) > 9 || Math.abs(p.clientY - sy) > 9) clearTimeout(t); }
-    function end() { clearTimeout(t); }
-    c.addEventListener("touchstart", start, { passive: true }); c.addEventListener("touchmove", move, { passive: true });
-    c.addEventListener("touchend", end); c.addEventListener("touchcancel", end);
-    c.addEventListener("mousedown", start); c.addEventListener("mousemove", move); c.addEventListener("mouseup", end); c.addEventListener("mouseleave", end);
-    c.addEventListener("click", function (e) { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
-    c.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-  }
+  // Cards only carry a marker class and their game; one set of listeners on #out (below) handles press-and-hold,
+  // prefetch and the context menu for all of them, so a page of 60 cards adds no listeners at all.
+  function lpCopy(c, x) { c._x = x; c.classList.add("lpx"); }
+  (function () {
+    var out = $("out"), t = 0, pt = 0, sx = 0, sy = 0, fired = false, cur = null;
+    function cardOf(e) { var n = e.target && e.target.closest && e.target.closest(".lpx,.pfx"); return n && n._x ? n : null; }
+    function cancel() { clearTimeout(t); clearTimeout(pt); cur = null; }
+    out.addEventListener("pointerdown", function (e) {
+      var c = cardOf(e); if (!c || !c.classList.contains("lpx") || e.button > 0) return;
+      cur = c; sx = e.clientX; sy = e.clientY; fired = false; clearTimeout(t);
+      t = setTimeout(function () { fired = true; cur = null; c.classList.add("lp"); setTimeout(function () { c.classList.remove("lp"); }, 480); buzz(18); lpMenu(c._x); setTimeout(function () { fired = false; }, 700); }, 520);
+    });
+    out.addEventListener("pointermove", function (e) { if (cur && (Math.abs(e.clientX - sx) > 9 || Math.abs(e.clientY - sy) > 9)) cancel(); }, { passive: true });
+    out.addEventListener("pointerup", cancel); out.addEventListener("pointercancel", cancel); out.addEventListener("pointerleave", cancel);
+    window.addEventListener("scroll", cancel, { passive: true });
+    out.addEventListener("click", function (e) { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    out.addEventListener("contextmenu", function (e) { if (cardOf(e)) e.preventDefault(); });
+    // Start fetching a game's box score as soon as a finger or mouse settles on its card, so the tap opens instantly.
+    out.addEventListener("pointerover", function (e) {
+      var c = cardOf(e); if (!c || !c.classList.contains("pfx")) return;
+      clearTimeout(pt); pt = setTimeout(function () { ESPN.fetchGame(c._x.lk, c._x.g.id).catch(function () {}); }, 90);
+    });
+    out.addEventListener("pointerout", function () { clearTimeout(pt); });
+  })();
   var UCOL = {}, SCY = {};
   try { UCOL = JSON.parse(localStorage.getItem("sb-ucol") || "{}") || {}; } catch (e) {}
   function group(title, cls, items, big, split) {
@@ -272,7 +314,7 @@
           if (!seenL[l.key]) return;
           var its = items.filter(function (x) { return x.lk === l.key; }), wrap = el("div", "usec" + (UCOL[l.key] ? " shut" : ""));
           var sb = el("button", "sub-h"); sb.type = "button"; sb.setAttribute("aria-expanded", UCOL[l.key] ? "false" : "true");
-          sb.appendChild(el("span", "lgh-t", l.label)); sb.appendChild(el("span", "lgh-n", String(its.length))); sb.appendChild(el("span", "lgh-c", "\u25BE"));
+          sb.appendChild(el("span", "lgh-t", l.label)); sb.appendChild(el("span", "lgh-c", "\u25BE"));
           sb.onclick = function () {
             var shut = wrap.classList.toggle("shut"); sb.setAttribute("aria-expanded", shut ? "false" : "true");
             if (shut) UCOL[l.key] = 1; else delete UCOL[l.key];
@@ -300,15 +342,12 @@
     });
     return gr;
   }
-  // Start fetching a game's box score as soon as a finger or mouse settles on its card, so the tap opens instantly.
-  function prefetchOn(c, x) {
-    var t = 0;
-    if (x.g.ev) return;
-    var go = function () { ESPN.fetchGame(x.lk, x.g.id).catch(function () {}); };
-    var arm = function () { clearTimeout(t); t = setTimeout(go, 60); }, stop = function () { clearTimeout(t); };
-    c.addEventListener("mouseenter", arm); c.addEventListener("mouseleave", stop);
-    c.addEventListener("touchstart", arm, { passive: true });
-    c.addEventListener("touchmove", stop, { passive: true }); c.addEventListener("touchend", stop);
+  function prefetchOn(c, x) { if (!x.g.ev) { c._x = x; c.classList.add("pfx"); } }
+  // Loading placeholders: a few shimmering card shapes instead of a sentence.
+  function skel(n, big) {
+    var g = el("div", "grid skel" + (big ? " big" : ""));
+    for (var i = 0; i < n; i++) { var c = el("div", "card sk"); c.appendChild(el("div", "sk-l w40")); c.appendChild(el("div", "sk-l")); c.appendChild(el("div", "sk-l")); g.appendChild(c); }
+    return g;
   }
   function notice(title, text) {
     var e = el("div", "empty");
@@ -399,7 +438,7 @@
   }
   function renderYesterday(out) {
     var sn = el("div", "subnav"); sn.setAttribute("role", "tablist");
-    [["teams", "My teams"], ["recap", "Daily recap"], ["news", "News"]].forEach(function (p) {
+    [["teams", "Teams"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
       var b = el("button", "sub", p[1]); b.type = "button"; b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", S.ysub === p[0] ? "true" : "false");
       b.onclick = function () {
@@ -449,7 +488,7 @@
         });
         a.appendChild(ul);
       }
-      a.appendChild(el("div", "rl", "Box score and recap ›"));
+      a.appendChild(el("div", "rl", "Box score ›"));
       gr.appendChild(a);
     });
     out.appendChild(gr);
@@ -546,7 +585,7 @@
     var g = x.g, c = el("article", "story" + (lead ? " top1" : "") + (isFollowed(g) ? " followed" : ""));
     var top = el("div", "top");
     top.appendChild(el("span", "pill final", g.o ? "Final · OT" : "Final"));
-    top.appendChild(isFollowed(g) ? el("span", "tag fol", "Following · " + x.ll) : el("span", "tag", x.ll + (g.n ? " · " + g.n : "")));
+    top.appendChild(isFollowed(g) ? folTag(x.ll) : el("span", "tag", x.ll + (g.n ? " · " + g.n : "")));
     c.appendChild(top);
     var h = el("h3", "st-h", headline(x)); c.appendChild(h);
     if (!g.ev) {
@@ -617,7 +656,7 @@
       if (!list.length) return;
       var box = el("div", "lgbox" + (YCOL[l.key] ? " shut" : "")), more = S.ymore[l.key], LIM = 10;
       var hb = el("button", "lgh"); hb.type = "button"; hb.setAttribute("aria-expanded", YCOL[l.key] ? "false" : "true");
-      hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(el("span", "lgh-n", String(list.length))); hb.appendChild(el("span", "lgh-c", "\u25BE"));
+      hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(el("span", "lgh-c", "\u25BE"));
       hb.onclick = function () {
         var shut = box.classList.toggle("shut"); hb.setAttribute("aria-expanded", shut ? "false" : "true");
         if (shut) YCOL[l.key] = 1; else delete YCOL[l.key];
@@ -646,7 +685,7 @@
           t.appendChild(el("b", null, tn(W) + " " + W[2])); t.appendChild(document.createTextNode(", " + tn(L) + " " + L[2])); r.appendChild(t);
         }
         var tg = el("span", "sr-g");
-        if (isFollowed(g)) tg.appendChild(el("span", "mk fol", "\u2605"));
+        if (isFollowed(g)) { var mf = el("span", "mk fol"); mf.appendChild(markIcon()); tg.appendChild(mf); }
         if (g.o) tg.appendChild(el("span", "mk", "OT"));
         else if (x.tight) tg.appendChild(el("span", "mk", "Close"));
         tg.appendChild(el("span", "sr-go", "\u203A")); r.appendChild(tg); openX(r, x); body.appendChild(r);
@@ -674,7 +713,7 @@
       left++;
       var box = el("div", "lgbox" + (NCOL[l.key] ? " shut" : "")); box.hidden = true;
       var hb = el("button", "lgh"); hb.type = "button"; hb.setAttribute("aria-expanded", NCOL[l.key] ? "false" : "true");
-      var cnt = el("span", "lgh-n", ""); hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(cnt); hb.appendChild(el("span", "lgh-c", "\u25BE"));
+      hb.appendChild(el("span", "lgh-t", l.label)); hb.appendChild(el("span", "lgh-c", "\u25BE"));
       hb.onclick = function () {
         var shut = box.classList.toggle("shut"); hb.setAttribute("aria-expanded", shut ? "false" : "true");
         if (shut) NCOL[l.key] = 1; else delete NCOL[l.key];
@@ -684,7 +723,6 @@
       var body = el("div", "lgb news"); box.appendChild(body); sec.appendChild(box);
       ESPN.fetchNews(l.key).then(function (ns) {
         if (ns.length) {
-          cnt.textContent = String(ns.length);
           ns.forEach(function (n) {
             var ai = el("a", "ni"); ai.href = n.link; ai.target = "_blank"; ai.rel = "noopener";
             ai.appendChild(el("span", "ni-h", n.h));
@@ -722,7 +760,7 @@
       S.leaders[t.gid] = null;
       ESPN.fetchGame(t.lk, t.gid).then(function (d) {
         S.leaders[t.gid] = d.leaders || [];
-        if (S.tab === "yesterday" && !S.view && !S.settings) render();
+        if (S.tab === "yesterday" && !S.view && !S.settings) renderSoon();
       }, function () { delete S.leaders[t.gid]; });
     });
   }
@@ -740,12 +778,12 @@
       S.teams[name] = Object.assign({ done: true }, i);
       if (!i.missing) { TC[name] = i; try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {} }
     }, function () { if (!S.teams[name] || !S.teams[name].stale) S.teams[name] = { done: true, error: true }; else S.teams[name].stale = false; })
-      .then(function () { if (S.tab === "teams" && !S.view && !S.settings) render(); });
+      .then(function () { if (S.tab === "teams" && !S.view && !S.settings) renderSoon(); });
   }
   function gameList(label, gs) {
     var w = el("div", "tgl"), h4 = el("h4", null, label); w.appendChild(h4);
     if (label === "Next" && gs[0] && gs[0].s === "up") { var cdn = countdown(gs[0].t, true); if (cdn) { var cs2 = el("span", "cd", " · " + cdn); cs2.setAttribute("data-cd", gs[0].t); cs2.setAttribute("data-long", "1"); h4.appendChild(cs2); } }
-    if (!gs.length) { w.appendChild(el("p", "rb", label === "Next" ? "No upcoming games found." : "No results yet.")); return w; }
+    if (!gs.length) { w.appendChild(el("p", "rb", label === "Next" ? "Nothing scheduled." : "No results yet.")); return w; }
     gs.forEach(function (g) {
       var r = el("div", "tg");
       r.appendChild(el("span", "tgd", g.s === "final" ? new Date(g.t).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : when(g.t)));
@@ -801,7 +839,7 @@
     d.open = !!S.stOpen[name];
     d.appendChild(el("summary", null, "Standings · " + st.group));
     var box = el("div", "stbox"), t = el("table"), hd = el("tr");
-    ["#", "Team", "Record", st.exLabel, "Strk"].forEach(function (c, i) { hd.appendChild(el("th", i === 1 ? "l" : null, c)); });
+    ["#", "Team", "Record", st.exLabel, "Strk"].forEach(function (c, i) { hd.appendChild(th(c, i === 1 ? "l" : null, "stand")); });
     t.appendChild(hd);
     var mine = null;
     st.rows.forEach(function (r) {
@@ -1008,7 +1046,7 @@
       if (off) a.className = "recap off";
       if (T.standing) a.appendChild(el("div", "rl", (off ? "Season recap · " : "") + ordinal(T.standing.rank) + " in " + T.standing.group + (!off && T.standing.streak ? " · streak " + T.standing.streak : "")));
       if (!T.done) a.appendChild(el("p", "rb", "Loading…"));
-      else if (T.missing || T.error) a.appendChild(el("p", "rb", "Could not load this team right now."));
+      else if (T.missing || T.error) a.appendChild(el("p", "rb", "Couldn\u2019t load this team."));
       else {
         var gs = T.games || [];
         var stt = T.standing && standTable(name, T.standing);
@@ -1090,6 +1128,11 @@
     var rs = el("button", null, "Back to default teams"); rs.type = "button";
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
+    box.appendChild(el("h3", null, "App"));
+    box.appendChild(el("p", "hcold", "Version 1.0 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    var rl = el("button", null, "Reload app"); rl.type = "button";
+    rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
+    box.appendChild(rl);
     if (window.FUN) { box.appendChild(el("h3", null, "Collection Log")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " cards found. Hint: poke things, visit at odd hours, try a classic cheat code."));
       var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb);
       box.appendChild(el("h3", null, "New card reveal"));
@@ -1132,6 +1175,14 @@
     savePins(); toast(i >= 0 ? "Unpinned" : "Pinned to the top of every list");
     if (!S.settings) render();
   }
+  // ESPN's own page for a game, for the long-press menu (only for the sports whose URL pattern is known).
+  function espnUrl(x) {
+    var lg = leagueOf(x.lk) || {}, p = (lg.path || "").split("/");
+    if (lg.kind || !p[1]) return "";
+    if (lg.soccer) return "https://www.espn.com/soccer/match/_/gameId/" + x.g.id;
+    if (!/^(football|basketball|hockey|baseball)$/.test(p[0])) return "";
+    return "https://www.espn.com/" + p[1] + "/game/_/gameId/" + x.g.id;
+  }
   // Long-press menu: copy, pin or share the game.
   var LPM = null;
   function lpClose() { if (!LPM) return; var o = LPM; LPM = null; o.classList.remove("in"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 180); }
@@ -1139,8 +1190,10 @@
     lpClose();
     var g = x.g, ov = el("div", "lpm"), sh = el("div", "lpm-s");
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Game actions");
-    sh.appendChild(el("div", "lpm-t", g.a[0] + " at " + g.h[0]));
-    [["Copy score", function () { copyScore(x); }], [isPinned(x) ? "Unpin" : "Pin to top", function () { togglePin(x); }], ["Share", function () { sharePlay(x); }]].forEach(function (r) {
+    sh.appendChild(el("div", "lpm-t", g.ev ? g.h[0] : g.a[0] + " at " + g.h[0]));
+    var acts = [["Copy score", function () { copyScore(x); }], [isPinned(x) ? "Unpin" : "Pin to top", function () { togglePin(x); }], ["Share", function () { sharePlay(x); }]], eu = espnUrl(x);
+    if (eu) acts.push(["Open on ESPN", function () { var a = el("a"); a.href = eu; a.target = "_blank"; a.rel = "noopener"; a.click(); }]);
+    acts.forEach(function (r) {
       var b = el("button", "lpm-b", r[0]); b.type = "button"; b.onclick = function () { lpClose(); r[1](); }; sh.appendChild(b);
     });
     var cn = el("button", "lpm-b lpm-c", "Cancel"); cn.type = "button"; cn.onclick = lpClose; sh.appendChild(cn);
@@ -1154,10 +1207,60 @@
     catch (e) { toast("Could not copy the link"); }
   }
 
+  // ---------- stat tooltips: what each column means (hover on a desktop, tap on a phone) ----------
+  var TIPS = {
+    MIN: "Minutes played", PTS: "Points", REB: "Rebounds", AST: "Assists", STL: "Steals", BLK: "Blocks", TO: "Turnovers", PF: "Personal fouls", FG: "Field goals made\u2013attempted", "3PT": "Three-pointers made\u2013attempted", FT: "Free throws made\u2013attempted", OREB: "Offensive rebounds", DREB: "Defensive rebounds", "+/-": "Plus\u2013minus: how the score moved while this player was in", "FG%": "Field goal percentage", "3P%": "Three-point percentage", "FT%": "Free throw percentage",
+    "C/ATT": "Completions / attempts", YDS: "Yards", AVG: "Average per attempt", TD: "Touchdowns", INT: "Interceptions", QBR: "ESPN Total QBR (0\u2013100)", RTG: "Passer rating", CAR: "Carries", LONG: "Longest play", REC: "Receptions", TGTS: "Targets", FUM: "Fumbles", LOST: "Fumbles lost", TOT: "Total tackles", SOLO: "Solo tackles", SACKS: "Sacks", TFL: "Tackles for loss", PD: "Passes defended", "QB HTS": "Quarterback hits", XP: "Extra points made\u2013attempted", NO: "Number of punts", TB: "Touchbacks", "IN 20": "Punts downed inside the 20", ATT: "Attempts",
+    G: "Goals", A: "Assists", S: "Shots", SOG: "Shots on goal", PIM: "Penalty minutes", HT: "Hits", HITS: "Hits", BS: "Blocked shots", "FO%": "Faceoff win percentage", PPG: "Power-play goals", PPA: "Power-play assists", SHG: "Short-handed goals", TOI: "Time on ice", GA: "Goals against", SA: "Shots against", SV: "Saves", "SV%": "Save percentage", ESSV: "Even-strength saves", PPSV: "Power-play saves", SHSV: "Short-handed saves", TK: "Takeaways", GV: "Giveaways", GF: "Goals for",
+    AB: "At-bats", R: "Runs", H: "Hits", RBI: "Runs batted in", HR: "Home runs", BB: "Walks", K: "Strikeouts", SO: "Strikeouts", "#P": "Pitches seen", OBP: "On-base percentage", SLG: "Slugging percentage", OPS: "On-base plus slugging", "H-AB": "Hits / at-bats", IP: "Innings pitched", ER: "Earned runs", ERA: "Earned run average", "PC-ST": "Pitches / strikes", PC: "Pitch count", ST: "Strikes", "2B": "Doubles", "3B": "Triples", SB: "Stolen bases", LOB: "Runners left on base", WHIP: "Walks + hits per inning pitched", BF: "Batters faced", CS: "Caught stealing", RS: "Runs scored", RA: "Runs allowed",
+    SH: "Shots", FC: "Fouls committed", FD: "Fouls drawn", OF: "Offsides", YC: "Yellow cards", RC: "Red cards", GP: "Games played", W: "Wins", L: "Losses", OTL: "Overtime losses", PCT: "Win percentage", GB: "Games back", DIFF: "Point differential", STRK: "Current streak (W wins, L losses)", RECORD: "Wins\u2013losses", PTS2: "Points", "PD": "Point differential", OT: "Overtime", ET: "Extra time", "1H": "First half", "2H": "Second half",
+    "per:T": "Total", "stand:T": "Ties", "stand:PTS": "Standings points", "stand:GA": "Goals against", "hockey:A": "Assists", "baseball:K": "Strikeouts",
+  };
+  var ORD = ["", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth"];
+  function tipFor(col, ctx) {
+    var c = String(col || "").trim(), m; if (!c || c.length > 7) return "";
+    var k = c.toUpperCase();
+    if (ctx && TIPS[ctx + ":" + k]) return TIPS[ctx + ":" + k];
+    if (ctx === "per") {
+      if ((m = /^Q(\d)$/.exec(k))) return (ORD[+m[1]] || m[1] + "th") + " quarter";
+      if ((m = /^P(\d)$/.exec(k))) return (ORD[+m[1]] || m[1] + "th") + " period";
+      if ((m = /^S(\d)$/.exec(k))) return "Set " + m[1];
+      if ((m = /^OT(\d*)$/.exec(k))) return m[1] ? "Overtime " + m[1] : "Overtime";
+      if (/^\d+$/.test(k)) return (ORD[+k] || k + "th") + " inning";
+    }
+    return TIPS[k] || "";
+  }
+  var TIPB = null, TIPT = 0;
+  function tipShow(th) {
+    var r = th.getBoundingClientRect();
+    if (!TIPB) { TIPB = el("div", "tipb"); TIPB.setAttribute("role", "tooltip"); document.body.appendChild(TIPB); }
+    TIPB.textContent = ""; TIPB.appendChild(el("b", null, th.textContent)); TIPB.appendChild(document.createTextNode(th.getAttribute("data-tip")));
+    TIPB.style.left = Math.max(136, Math.min(window.innerWidth - 136, r.left + r.width / 2)) + "px";
+    TIPB.style.bottom = (window.innerHeight - r.top + 6) + "px";
+    TIPB.classList.add("in"); clearTimeout(TIPT); TIPT = setTimeout(tipHide, 3200);
+  }
+  function tipHide() { if (TIPB) TIPB.classList.remove("in"); clearTimeout(TIPT); }
+  (function () {
+    var out = $("out"), hov = 0, thOf = function (e) { return e.target && e.target.closest && e.target.closest("th[data-tip]"); };
+    out.addEventListener("click", function (e) { var th = thOf(e); if (th) { tipShow(th); e.stopPropagation(); } });
+    out.addEventListener("pointerover", function (e) { if (e.pointerType === "touch") return; var th = thOf(e); if (th) { clearTimeout(hov); hov = setTimeout(function () { tipShow(th); }, 160); } });
+    out.addEventListener("pointerout", function (e) { if (e.pointerType === "touch") return; if (thOf(e)) { clearTimeout(hov); tipHide(); } });
+    out.addEventListener("focusin", function (e) { var th = thOf(e); if (th) tipShow(th); });
+    out.addEventListener("focusout", tipHide);
+    out.addEventListener("scroll", tipHide, true);
+    window.addEventListener("scroll", tipHide, { passive: true });
+    document.addEventListener("click", function (e) { if (!thOf(e)) tipHide(); }, true);
+  })();
+  function th(txt, cls, ctx) {
+    var h = el("th", cls || null, txt), tp = tipFor(txt, ctx);
+    if (tp) { h.setAttribute("data-tip", tp); h.tabIndex = 0; }
+    return h;
+  }
+
   // ---------- detail view ----------
-  function tbl(t) {
+  function tbl(t, ctx) {
     var tw = el("div", "tw"), tb = el("table"), hd = el("thead"), hr = el("tr");
-    t.cols.forEach(function (c, i) { hr.appendChild(el("th", i === 0 ? "l" : null, c)); });
+    t.cols.forEach(function (c, i) { hr.appendChild(th(c, i === 0 ? "l" : null, ctx)); });
     hd.appendChild(hr); tb.appendChild(hd);
     var bd = el("tbody");
     t.rows.forEach(function (r) {
@@ -1189,7 +1292,7 @@
     pl.setAttribute("points", pts.map(function (p, i) { return (i / (pts.length - 1) * 100).toFixed(1) + "," + (100 - p); }).join(" "));
     sv.appendChild(pl); w.appendChild(sv);
     var last = pts[pts.length - 1];
-    w.appendChild(el("p", null, g.h[1] + " " + last + "% · " + g.a[1] + " " + (100 - last) + "%  (line up = " + g.h[1] + " favored)"));
+    w.appendChild(el("p", null, g.h[1] + " " + last + "% · " + g.a[1] + " " + (100 - last) + "%"));
     return w;
   }
   function pretty(s) {
@@ -1232,7 +1335,7 @@
   function starBtn(name) {
     var on = fpHas(name), b = el("button", "fstar" + (on ? " on" : ""), on ? "★" : "☆");
     b.type = "button"; b.setAttribute("aria-label", (on ? "Unfollow " : "Follow ") + name); b.title = on ? "Following" : "Follow";
-    b.onclick = function (e) { e.stopPropagation(); if (navigator.vibrate) try { navigator.vibrate(8); } catch (z) {} togglePerson(name); };
+    b.onclick = function (e) { e.stopPropagation(); buzz(8); togglePerson(name); };
     return b;
   }
   // One row of a leaderboard or running order: position, name (with a follow star), right-hand figure, small print.
@@ -1331,16 +1434,25 @@
       });
     }
   }
+  var DIO = null;
+  function miniLine(g) {
+    if (g.ev) return g.h[0];
+    if (g.s === "up") return g.a[1] + " at " + g.h[1] + " \u00b7 " + when(g.t);
+    return g.a[1] + " " + g.a[2] + " \u00b7 " + g.h[1] + " " + g.h[2] + " \u00b7 " + (g.s === "live" ? (g.c || "Live") : "Final");
+  }
   function renderDetail(out) {
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
-    var back = el("button", "back", "← All scores"); back.type = "button"; back.onclick = closeGame;
+    var back = el("button", "back", "\u2039 Scores"); back.type = "button"; back.onclick = closeGame;
     var nav = el("div", "navbar"); nav.appendChild(back);
-
+    var ms = el("span", "mini-sc", miniLine(g)); nav.appendChild(ms);
     out.appendChild(nav);
     var hd = el("div", "dhead"); hd.appendChild(card(v.x)); out.appendChild(hd);
+    // Once the big card scrolls away, the sticky bar shows the compact score instead.
+    if (DIO) DIO.disconnect();
+    if (window.IntersectionObserver) { DIO = new IntersectionObserver(function (en) { nav.classList.toggle("on", !en[0].isIntersecting); }, { threshold: 0, rootMargin: "-56px 0px 0px 0px" }); DIO.observe(hd); }
     if (g.ev) { renderEvent(out, g); return; }
-    if (d === undefined) { out.appendChild(el("p", "rmsg", "Loading box score…")); return; }
-    if (d === null) { out.appendChild(el("p", "rmsg", "Could not load the box score right now. Try again in a moment.")); return; }
+    if (d === undefined) { out.appendChild(skel(3)); return; }
+    if (d === null) { out.appendChild(el("p", "rmsg", "Box score unavailable right now.")); return; }
 
     var up = g.s === "up", list = [], prim = [], secd = [];
     var pv = el("div", "sum");
@@ -1364,11 +1476,11 @@
     // Followed teams' finished games get a one-tap YouTube search for the full-game highlights (no extra requests).
     if (rc && isFollowed(g)) {
       var yq = g.a[0] + " vs " + g.h[0] + " full game highlights " + new Date(g.t).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-      var yw = el("div", "nar"), ya = el("a", null, "▶ Full game highlights on YouTube ↗");
+      var yw = el("div", "nar"), ya = el("a", null, "\u25B6 Highlights on YouTube \u2197");
       ya.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(yq); ya.target = "_blank"; ya.rel = "noopener";
       yw.appendChild(ya); pv.appendChild(yw);
     }
-    var preview = sec(rc || nv && g.s === "final" ? "Game recap" : "Matchup preview", pv, up || !!rc || !!nv, false);
+    var preview = sec(rc || nv && g.s === "final" ? "Recap" : "Preview", pv, up || !!rc || !!nv, false);
     if (up || rc) list.push(preview);
 
     if (d.wp && d.wp.length > 4) prim.push(sec("Win probability", wpChart(d.wp, g), true, false));
@@ -1378,10 +1490,10 @@
         for (var i = 1; i < r.length; i++) if (typeof r[i] === "number") tot += r[i];
         return r.concat([tot]);
       });
-      prim.push(sec(lg && lg.soccer ? "Score by half" : "Score by period", tbl({ cols: [""].concat(d.periods.labels.map(function (_, i) { return perLabel(v.x.lk, i); }), ["T"]), rows: rows }), true, false));
+      prim.push(sec(lg && lg.soccer ? "By half" : "By period", tbl({ cols: [""].concat(d.periods.labels.map(function (_, i) { return perLabel(v.x.lk, i); }), ["T"]), rows: rows }, "per"), true, false));
     }
     d.tables.filter(function (t) { return t.kind === "team"; }).forEach(function (t) {
-      prim.push(sec(up ? "Season team stats" : t.title, tbl(t), true, false));
+      prim.push(sec(up ? "Team stats" : t.title, tbl(t), true, false));
     });
 
     // Players: followed team first (first three tables open), then the other team.
@@ -1407,10 +1519,10 @@
         r.appendChild(el("span", "px", p.x));
         sc.appendChild(r);
       });
-      secd.push(sec("Recent plays", sc, true, false));
+      secd.push(sec("Plays", sc, true, false));
     }
     // Two tiers: the main numbers first, minor categories and the play log tucked into the second one.
-    [tier("Primary stats", prim, true), tier("Secondary stats", secd, g.s === "live")].forEach(function (t) { if (t) list.push(t); });
+    [tier("Stats", prim, true), tier("More stats", secd, g.s === "live")].forEach(function (t) { if (t) list.push(t); });
     if (!up && !rc) list.push(preview);
 
     if (g.s === "live" && d.catch) {
@@ -1419,7 +1531,7 @@
       list.unshift(sec("Get caught up", cw, true, false));
     }
     var bar = el("div", "allbar");
-    var b1 = el("button", null, "Expand all"), b2 = el("button", null, "Collapse all");
+    var b1 = el("button", null, "Expand"), b2 = el("button", null, "Collapse");
     b1.type = b2.type = "button";
     var setAll = function (o) { list.forEach(function (s) { s.open = o; [].forEach.call(s.querySelectorAll("details"), function (c) { c.open = o; }); }); };
     b1.onclick = function () { setAll(true); };
@@ -1430,14 +1542,14 @@
   }
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
-  function openGame(x) { S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
+  function openGame(x) { buzz(4); S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
   function closeGame() {
     if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); syncFromHash(); }
   }
   function clearHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} S.pushed = false; }
   function syncFromHash() {
     var m = /^#game\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
-    if (!m) { if (S.view) { S.view = null; render(); window.scrollTo(0, S.sy || 0); S.sy = 0; } return; }
+    if (!m) { if (S.view) { swap(function () { S.view = null; render(); window.scrollTo(0, S.sy || 0); S.sy = 0; emit("view", null); }); } return; }
     if (!S.ready) return;
     var key = m[1] + "_" + m[2];
     if (S.view && S.view.key === key) return;
@@ -1445,64 +1557,79 @@
     if (!x) { S.view = null; render(); return; }
     S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]), n: undefined };
     if (window.FUN && FUN.team) FUN.team(x.lk, x.g);
-    render(); window.scrollTo(0, 0); loadDetail(); loadNarr();
+    swap(function () { render(); window.scrollTo(0, 0); }); loadDetail(); loadNarr(); emit("view", x);
   }
   // The written recap/preview (AP via ESPN) loads alongside the box score and is added when it arrives.
   function loadNarr() {
     var v = S.view;
     if (!v || v.x.g.ev) return;
     ESPN.fetchNarrative(v.x.lk, v.x.g.id, v.x.g.s === "final").then(function (n) {
-      if (S.view && S.view.key === v.key && n) { S.view.n = n; render(); }
+      if (S.view && S.view.key === v.key && n) { S.view.n = n; renderSoon(); }
     });
   }
   function loadDetail() {
     var v = S.view;
     if (!v || v.x.g.ev) return;
     ESPN.fetchGame(v.x.lk, v.x.g.id).then(function (d) {
-      if (S.view && S.view.key === v.key && JSON.stringify(d) !== JSON.stringify(S.view.d)) { S.view.d = d; render(); }
+      if (S.view && S.view.key === v.key && JSON.stringify(d) !== JSON.stringify(S.view.d)) { S.view.d = d; renderSoon(); }
     }, function () {
-      if (S.view && S.view.key === v.key && S.view.d === undefined) { S.view.d = null; render(); }
+      if (S.view && S.view.key === v.key && S.view.d === undefined) { S.view.d = null; renderSoon(); }
     });
+  }
+
+  // ---------- the rail: built once, updated in place so the highlight slides between tabs ----------
+  var RAIL = null;
+  function railBtn(key, label, cls, icon) {
+    var b = el("button", cls); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("data-k", key);
+    if (icon) { var ic = el("span", "ico", icon); ic.setAttribute("aria-hidden", "true"); b.appendChild(ic); }
+    b.appendChild(el("span", "lbl", label));
+    b.onclick = function () { goTab(b.getAttribute("data-k")); };
+    return b;
+  }
+  function goTab(key) {
+    buzz(6);
+    if (key === S.tab && !S.settings && !S.view) { if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // tap the active tab to jump to the top
+    if (!S.view && !S.settings) SCY[S.tab] = window.scrollY;
+    S.tab = key; S.view = null; S.settings = false; S.more = false; clearHash();
+    if (key === "yesterday") loadLeaders();
+    var lz = leagueOf(key); if (lz && lz.lazy) loadLeague(key);
+    try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
+    render();
+    var y0 = SCY[key] || 0; if (y0) requestAnimationFrame(function () { window.scrollTo({ top: y0, behavior: "instant" }); });   // each tab remembers where you were
+  }
+  function buildRail() {
+    var rail = $("rail"), main = el("div", "rail-main"), lgs = el("div", "rail-lg");
+    main.appendChild(el("span", "rail-ind"));
+    main.appendChild(railBtn("pinned", "Following", "tab big", "\u2605"));
+    main.appendChild(railBtn("yesterday", "Yesterday", "tab big", "\u21BA"));
+    main.appendChild(railBtn("teams", "My teams", "tab big", "\u2691"));
+    lgs.appendChild(railBtn("all", "All", "tab"));
+    LG.forEach(function (l) { if (MAIN.indexOf(l.key) >= 0) lgs.appendChild(railBtn(l.key, l.label, "tab")); });
+    var ex = railBtn("", "", "tab"); ex.hidden = true; lgs.appendChild(ex);
+    var mb = el("button", "tab more-btn", "More"); mb.type = "button";
+    mb.onclick = function () { S.more = !S.more; render(); };
+    lgs.appendChild(mb);
+    rail.appendChild(main); rail.appendChild(lgs);
+    RAIL = { ind: main.firstChild, ex: ex, mb: mb, btns: [].slice.call(rail.querySelectorAll("[data-k]")) };
+  }
+  function updateRail() {
+    if (!RAIL) buildRail();
+    var cur = S.settings || S.view ? "" : S.tab, lz = cur && MAIN.indexOf(cur) < 0 && leagueOf(cur);
+    if (lz) { RAIL.ex.hidden = false; RAIL.ex.setAttribute("data-k", lz.key); RAIL.ex.querySelector(".lbl").textContent = lz.label; } else RAIL.ex.hidden = true;
+    RAIL.btns.forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-k") === cur ? "true" : "false"); });
+    var bi = ["pinned", "yesterday", "teams"].indexOf(cur);
+    RAIL.ind.style.transform = "translateX(calc(" + Math.max(0, bi) + " * (100% + 8px)))"; RAIL.ind.classList.toggle("off", bi < 0);
+    RAIL.mb.textContent = S.more ? "Close" : "More"; RAIL.mb.setAttribute("aria-expanded", S.more ? "true" : "false");
+    document.body.classList.toggle("gv", !!S.view);
   }
 
   // ---------- main render ----------
   function render() {
-    var rail = $("rail"); rail.textContent = "";
+    updateRail();
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
-    // Two groups: your personal views as big tiles, then the league filters as small chips.
-    function tab(key, label, count, cls, icon) {
-      var b = el("button", cls); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", key === S.tab && !S.settings ? "true" : "false");
-      if (icon) { var ic = el("span", "ico", icon); ic.setAttribute("aria-hidden", "true"); b.appendChild(ic); }
-      b.appendChild(el("span", "lbl", label));
-      if (count != null) b.appendChild(el("span", "n", String(count)));
-      b.onclick = function () {
-        try { if (navigator.vibrate) navigator.vibrate(6); } catch (e2) {}
-        if (key === S.tab && !S.settings && !S.view) { if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // tap the active tab to jump to the top
-        if (!S.view && !S.settings) SCY[S.tab] = window.scrollY;
-        S.tab = key; S.view = null; S.settings = false; S.more = false; clearHash();
-        if (key === "yesterday") loadLeaders();
-        var lz = leagueOf(key); if (lz && lz.lazy) loadLeague(key);
-        try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
-        render();
-        var y0 = SCY[key] || 0; if (y0) requestAnimationFrame(function () { window.scrollTo({ top: y0, behavior: "instant" }); });   // each tab remembers where you were
-      };
-      return b;
-    }
-    var main = el("div", "rail-main"), lgs = el("div", "rail-lg");
-    main.appendChild(tab("pinned", "Following", null, "tab big", "★"));
-    main.appendChild(tab("yesterday", "Yesterday", null, "tab big", "↺"));
-    main.appendChild(tab("teams", "My teams", null, "tab big", "⚑"));
-    lgs.appendChild(el("span", "rail-lbl", "Leagues"));
-    lgs.appendChild(tab("all", "All", all.length, "tab"));
-    LG.forEach(function (l) { if (MAIN.indexOf(l.key) >= 0 || l.key === S.tab) lgs.appendChild(tab(l.key, l.label, S.games[l.key].length || (l.lazy && S.lgState[l.key] === "loading" ? null : 0), "tab")); });
-    var mb = el("button", "tab more-btn", S.more ? "Close ▴" : "More leagues ▾"); mb.type = "button"; mb.setAttribute("aria-expanded", S.more ? "true" : "false");
-    mb.onclick = function () { S.more = !S.more; render(); };
-    lgs.appendChild(mb);
-    rail.appendChild(main); rail.appendChild(lgs);
-
     var out = $("out"); out.textContent = "";
     // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
-    var vk = [S.tab, S.ysub, S.view && (S.view.g ? S.view.g.id : S.view.id), S.settings ? 1 : 0].join("|");
+    var vk = [S.tab, S.ysub, S.view ? S.view.key : "", S.settings ? 1 : 0, S.more ? 1 : 0].join("|");
     if (vk !== RK) {
       RK = vk; out.classList.add("enter"); clearTimeout(RT);
       out.setAttribute("data-fx", window.FUN ? FUN.enterFx() : "rise");
@@ -1510,20 +1637,20 @@
     }
     else if (!RT) out.classList.remove("enter");
 
-    if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Pull down to refresh if nothing appears.")); return; }
-    if (S.settings) { renderSettings(out); return; }
-    if (S.view) { renderDetail(out); return; }
+    if (!S.ready) { out.appendChild(skel(4, true)); emit("render", out); return; }
+    if (S.settings) { renderSettings(out); emit("render", out); return; }
+    if (S.view) { renderDetail(out); emit("render", out); return; }
     if (S.more) out.appendChild(morePanel());
-    if (S.tab === "yesterday") { renderYesterday(out); return; }
-    if (S.tab === "teams") { renderTeams(out); return; }
+    if (S.tab === "yesterday") { renderYesterday(out); emit("render", out); return; }
+    if (S.tab === "teams") { renderTeams(out); emit("render", out); return; }
 
     var items = S.tab === "pinned" ? fol : S.tab === "all" ? all : all.filter(function (x) { return x.lk === S.tab; });
     var pins = all.filter(isPinned);
     items = items.filter(function (x) { return !isPinned(x); });
     var cl = leagueOf(S.tab), cst = cl && S.lgState[cl.key];
     if (!items.length && !pins.length) {
-      out.appendChild(cst === "loading" ? notice("Loading " + cl.label, "Fetching the latest games…") : cst === "failed" ? notice("Could not load " + cl.label, "Pull down to try again.") : notice("Nothing on right now", "No games for this view in the latest update."));
-      return;
+      out.appendChild(cst === "loading" ? skel(3) : cst === "failed" ? notice("Couldn\u2019t load " + cl.label, "Pull down to retry.") : notice("Nothing here right now", S.tab === "pinned" ? "Games for the teams and people you follow show up here." : "No games in this view."));
+      emit("render", out); return;
     }
     var big = S.tab === "pinned";
     var close = items.filter(isClose).sort(function (a, b) { return Math.abs(a.g.h[2] - a.g.a[2]) - Math.abs(b.g.h[2] - b.g.a[2]); });
@@ -1531,6 +1658,7 @@
     var up = items.filter(function (x) { return x.g.s === "up"; }).sort(function (a, b) { return byTime(a.g, b.g); });
     var fin = items.filter(function (x) { return x.g.s === "final"; }).sort(function (a, b) { return byTime(b.g, a.g); });
     [group("Pinned", "pin", pins, big), group("Close games", "close", close, big), group("Live now", "live", live, big), group("Coming up", "", up, big, true), group("Final", "", fin, big)].forEach(function (s) { if (s) out.appendChild(s); });
+    emit("render", out);
   }
 
   // Picker for the extra leagues, grouped by sport.
@@ -1582,9 +1710,10 @@
     var m = Math.max(0, Math.round((Date.now() - S.last) / 60000));
     s.textContent = m < 1 ? "now" : m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d";
     d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = "Updated " + (m < 1 ? "just now" : s.textContent + " ago");
-    var bad = S.failed.map(function (k) { return leagueOf(k).label; });
-    $("foot").textContent = (bad.length ? "Could not load: " + bad.join(", ") + ". " : "") +
-      "Scores refresh by themselves every minute while a game is live. Pull down, or tap the status light, any time for the latest.";
+    var bad = S.failed.map(function (k) { return leagueOf(k).label; }), nl = 0;
+    allGames().forEach(function (x) { if (x.g.s === "live") nl++; });
+    document.title = (nl ? "\u25CF " + nl + " live \u00b7 " : "") + C.title;
+    $("foot").textContent = (bad.length ? "Couldn\u2019t load " + bad.join(", ") + ". " : "") + "Live games refresh every minute. Pull down for the latest.";
   }
 
   // ---------- loading ----------
@@ -1601,8 +1730,8 @@
     var offs = [];
     for (var i = -1; i <= C.daysAhead; i++) offs.push(i);
     var fin = function (ok, r) {
-      if (ok) { keepY(key, r.byLeague[key]); S.games[key] = trim(r.byLeague[key]); S.lgState[key] = "done"; saveCache(); } else S.lgState[key] = "failed";
-      if (!S.view && !S.settings) render();
+      if (ok) { keepY(key, r.byLeague[key]); S.games[key] = trim(r.byLeague[key]); S.lgState[key] = "done"; saveCache(); emit("data", key); } else S.lgState[key] = "failed";
+      if (!S.view && !S.settings) renderSoon();
     };
     ESPN.fetchScores(offs, [key]).then(function (r) { fin(r.failed.indexOf(key) < 0, r); }, function () { fin(false); });
     if (!S.view && !S.settings) render();
@@ -1659,7 +1788,7 @@
         else if (g.s === "live" && p.s === "up") toast("Game started: " + g.a[0] + " at " + g.h[0]);
         else if (g.s === "live" && (p.h[2] !== g.h[2] || p.a[2] !== g.a[2])) toast("Score: " + line);
       });
-      loadLeaders();
+      loadLeaders(); emit("data", null);
       var changed = JSON.stringify([S.games, S.yesterday]) !== before;
 
       if (S.view) {
@@ -1708,10 +1837,40 @@
   window.addEventListener("hashchange", syncFromHash);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && LPM) { lpClose(); return; }
-    if (e.key === "Escape" && S.view) { closeGame(); return; }
+    if (e.key === "Escape" && TIPB && TIPB.classList.contains("in")) { tipHide(); return; }
+    if (e.key === "Escape" && S.more) { S.more = false; render(); return; }
+    if ((e.key === "Escape" || e.key === "ArrowLeft") && S.view && !e.metaKey && !e.altKey) { closeGame(); return; }
     var t = e.target, tg = t && t.tagName; if (e.metaKey || e.ctrlKey || e.altKey || tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT" || (t && t.isContentEditable) || document.body.classList.contains("pm-open")) return;
     if (e.key === "r" && !S.loading) load(true); else if (e.key === "p") openProf(); else if (e.key === "t") window.scrollTo({ top: 0, behavior: "smooth" });
+    else if (e.key === "1") goTab("pinned"); else if (e.key === "2") goTab("yesterday"); else if (e.key === "3") goTab("teams");
+    else if (e.key === "/") { e.preventDefault(); if (!S.more) { S.more = true; S.view = null; S.settings = false; clearHash(); render(); } }
   });
+  // Swipe in from the left edge of a game page to go back (home-screen apps have no browser gesture).
+  (function () {
+    var x0 = null, y0 = 0;
+    window.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = S.view && t.clientX < 28 ? t.clientX : null; y0 = t.clientY; }, { passive: true });
+    window.addEventListener("touchend", function (e) { if (x0 == null) return; var t = e.changedTouches[0]; if (t.clientX - x0 > 70 && Math.abs(t.clientY - y0) < 50) closeGame(); x0 = null; }, { passive: true });
+  })();
+  // Collapsible sections open and close with a short height tween instead of snapping (native toggle under reduced motion).
+  (function () {
+    var out = $("out"), E = "cubic-bezier(.2,.7,.2,1)";
+    out.addEventListener("click", function (e) {
+      var sm = e.target.closest && e.target.closest("summary"); if (!sm || RM) return;
+      var d = sm.parentNode, body = sm.nextElementSibling; if (!d || d.tagName !== "DETAILS" || !body || d._an) return;
+      if (e.target !== sm && e.target.closest("button,a,input")) return;
+      e.preventDefault();
+      var done = function () { body.style.overflow = ""; d._an = 0; };
+      if (d.open) {
+        var h0 = body.offsetHeight; d._an = 1; body.style.overflow = "hidden";
+        var a = body.animate([{ height: h0 + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: 190, easing: E });
+        a.onfinish = a.oncancel = function () { d.open = false; done(); };
+      } else {
+        d.open = true; var h1 = body.offsetHeight; if (!h1) return; d._an = 1; body.style.overflow = "hidden";
+        var b = body.animate([{ height: "0px", opacity: 0 }, { height: h1 + "px", opacity: 1 }], { duration: 230, easing: E });
+        b.onfinish = b.oncancel = done;
+      }
+    });
+  })();
   // Rail hides while scrolling down (more room for scores), returns on scroll up.
   (function () {
     var ly = 0, tk = false, rl = $("rail");
@@ -1749,6 +1908,8 @@
   }, 10000);
   setInterval(stampTick, 30000);
   window.SB_SET = function () { S.settings = true; S.view = null; clearHash(); render(); };
+  // Public surface for add-ons and future features (read-only state, hooks, and a few actions). See README.md.
+  window.SB = { v: FV.replace(/^v=/, ""), on: on, state: S, config: C, render: renderSoon, open: openGame, tab: goTab, toast: toast, allGames: allGames, isFollowed: isFollowed, el: el };
   // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
   (function () {
     var ptr = $("ptr"), ring = ptr.querySelector(".ring"), lbl = ptr.querySelector(".pl"), y0 = null, pull = 0, armed = false, TH = 80;
@@ -1793,7 +1954,6 @@
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
   // The fun layer (random celebrations, easter eggs) loads after everything else, when the browser is idle.
-  var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
   var funQ = [], funLoading = false;
   function addScript(src, cb) { var s = document.createElement("script"); s.src = src + "?" + FV; s.async = true; s.onload = cb; document.head.appendChild(s); }
   function ensureFun(cb) {
@@ -1820,5 +1980,5 @@
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=63").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?" + FV).catch(function () {}); } catch (e) {} });
 })();
