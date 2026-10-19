@@ -2361,7 +2361,7 @@
     if (!x && SG[key]) x = { g: SG[key], lk: m[1], ll: (leagueOf(m[1]) || {}).label || "" };   // a game tapped on a team's schedule
     if (!x) { S.view = null; render(); return; }
     S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]), n: undefined };
-    if (window.FUN && FUN.team) FUN.team(x.lk, x.g);
+    if (window.FUN && FUN.team) FUN.team(x.lk, x.g); else S.gvq = (S.gvq || 0) + 1;   // opened before the fun layer loaded: counted when it does
     swap(function () { render(); window.scrollTo(0, 0); }); loadDetail(); loadNarr(); emit("view", x);
   }
   // The written recap/preview (AP via ESPN) loads alongside the box score and is added when it arrives.
@@ -2922,7 +2922,10 @@
     if (window.FUN) { cb(); return; }
     funQ.push(cb); if (funLoading) return; funLoading = true;
     var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "fun.css?" + FV; document.head.appendChild(l);
-    addScript("fun.js", function () { var q = funQ; funQ = []; q.forEach(function (f) { f(); }); });
+    addScript("fun.js", function () {
+      if (S.gvq && window.FUN) { var fc = FUN.col(); fc.gv = (fc.gv || 0) + S.gvq; S.gvq = 0; FUN.saveCol(); }
+      var q = funQ; funQ = []; q.forEach(function (f) { f(); });
+    });
   }
   function openProf(v) {
     ensureFun(function () {
