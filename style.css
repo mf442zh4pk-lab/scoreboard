@@ -728,9 +728,8 @@ td.chg{animation:cellf 1.6s ease-out}
 .agr.pf:hover b{color:var(--ter)}
 /* v71: quick scoreboard */
 .qsw{display:flex;flex-direction:column;gap:4px;margin-top:8px}
-.qs{display:grid;grid-template-columns:1fr auto 1fr 64px;align-items:center;gap:8px;padding:8px 10px;border:1px solid transparent;border-radius:10px;cursor:pointer;font-size:14px;position:relative;background:var(--card)}
-.qs+.qs::before{content:"";position:absolute;left:10px;right:10px;top:-3px;height:1px;background:var(--line)}
-.qs.prime+.qs::before,.qs.close+.qs::before,.qs+.qs.prime::before,.qs+.qs.close::before{display:none}
+.qs{display:grid;grid-template-columns:1fr auto 1fr 64px;align-items:center;gap:6px 8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:14px;position:relative;background:var(--card)}
+.qsw{gap:6px}
 .qs.fol{background:linear-gradient(90deg,color-mix(in srgb,var(--ter) 10%,transparent),transparent) var(--card)}
 .qst{display:flex;justify-content:space-between;align-items:baseline;gap:6px;min-width:0;color:var(--mute)}
 .qst i{font-style:normal;font-weight:700;letter-spacing:.03em}
@@ -740,13 +739,19 @@ td.chg{animation:cellf 1.6s ease-out}
 .qsf{text-align:right;font-size:11px;font-weight:700;color:var(--mute);display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;white-space:nowrap}
 .qsf em{font-style:normal;font-size:9px;letter-spacing:.06em;color:var(--ter)}
 .qs:hover .qst.w{color:var(--ter)}
-/* primetime: a slow-moving slate-to-lavender gradient edge with a soft glow */
-.qs.prime{border-color:transparent;background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(110deg,var(--pri),var(--ter) 40%,var(--pri) 70%,var(--ter)) border-box;background-size:100% 100%,300% 100%;box-shadow:0 4px 16px -8px color-mix(in srgb,var(--ter) 70%,transparent);animation:qspt 6s linear infinite}
-.qs.prime .qsf em{color:var(--pri);font-weight:800}
-@keyframes qspt{to{background-position:0 0,300% 0}}
-/* close game: a lavender ring that breathes once, then a thin halo stays */
-.qs.close{border-color:color-mix(in srgb,var(--ter) 70%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--ter) 14%,transparent)}
-.qs.close::after{content:"";position:absolute;inset:-1px;border-radius:inherit;border:1.5px solid var(--ter);opacity:0;animation:qscl 1.6s var(--ease) .2s 2;pointer-events:none}
-@keyframes qscl{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.04)}}
-.qs.prime.cl{border-color:transparent;box-shadow:0 0 0 3px color-mix(in srgb,var(--ter) 14%,transparent),0 4px 16px -8px color-mix(in srgb,var(--ter) 70%,transparent)}
-@media (prefers-reduced-motion:reduce){.qs.prime{animation:none}.qs.close::after{animation:none}}
+/* tags under the score line (primetime time, close margin) */
+.qs .qstag{grid-column:1 / -1;display:flex;gap:6px;margin-top:-2px}
+.qstag i{font:800 9.5px/1 var(--bd);letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:4px 8px;font-style:normal}
+.qstag i.tpm{background:var(--pri);color:#fff}
+.qstag i.tcl{background:color-mix(in srgb,var(--ter) 18%,transparent);color:var(--ter);border:1px solid color-mix(in srgb,var(--ter) 55%,transparent)}
+/* primetime: a solid slate frame, night-tinted fill, slate corner notch */
+.qs.prime{border:2px solid var(--pri);background:linear-gradient(90deg,color-mix(in srgb,var(--pri) 12%,var(--card)),var(--card) 60%);box-shadow:0 6px 18px -10px color-mix(in srgb,var(--pri) 80%,transparent)}
+.qs.prime::before{content:"";position:absolute;left:-2px;top:-2px;width:0;height:0;border-style:solid;border-width:14px 14px 0 0;border-color:var(--pri) transparent transparent transparent;border-top-left-radius:9px}
+.qs.prime .qsf em{color:var(--pri)}
+/* close game: a floating lavender ring set off from the card, breathing twice, then a halo */
+.qs.close{border:1px solid color-mix(in srgb,var(--ter) 45%,var(--line));outline:2px solid var(--ter);outline-offset:3px;margin:3px 0}
+.qs.close::after{content:"";position:absolute;inset:-6px;border-radius:14px;border:2px solid var(--ter);opacity:0;animation:qscl 1.6s var(--ease) .2s 2;pointer-events:none}
+@keyframes qscl{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
+/* both: slate frame inside, lavender ring outside */
+.qs.prime.close{border:2px solid var(--pri);outline:2px solid var(--ter);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.qs.close::after{animation:none}}
