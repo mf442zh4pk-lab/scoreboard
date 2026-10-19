@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=70` → `?v=71` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=71` → `?v=72` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. The service worker picks up the new version on the next open.
 
 ## Motion system
@@ -65,6 +65,10 @@ Defaults live in the `PREF` object; whatever the person changes is saved under `
 ## Find a game and the portal
 
 `openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text). Picking a result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
+
+## Yesterday tab layout
+
+Three sub-tabs. **Yesterday**: your teams' results, the quick Scoreboard (`quickScores`: every big-four final from yesterday plus college football games with a ranked team, ordered by `qsHeat`: your teams, upsets, overtime, one-score finishes, ranked matchups), then the overview (scores, form guide, next 7 days). **Week**: last 7 days, top performances, then the next 30 days. **Recap**: the day's stories (soccer only when it's a final, World Cup, title decider or a followed side: `bigSoccer`), then the news feed.
 
 ## Week (Yesterday → Week)
 
