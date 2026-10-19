@@ -18,8 +18,8 @@
   // ---------- collection log ----------
   // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
   var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams" };
-  var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic" };
-  var RW = { C: 11, U: 5, R: 2.4, E: 1, L: .35, M: .07 };
+  var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic", S: "Signature" };
+  var RW = { C: 11, U: 5, R: 2.4, E: 1, L: .35, M: .07, S: 0 };
   var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
   var CAT = [
     ["w_confetti","w","C","🎊","Confetti Cannon","The classic. Someone's team came through.",HW],
@@ -138,6 +138,7 @@
     });
   });
   TK["nba|losangelesclippers"] = "t_nba_clippers"; TK["nhl|utahhockeyclub"] = "t_nhl_mammoth"; TK["mlb|oaklandathletics"] = "t_mlb_athletics";
+  CAT.push(["mack", "m", "S", "🦬", "Mack", "Glad to have you.", "Create an account."]);
   var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; });
   var TOTAL = CAT.length, col = { i: {}, s: {}, d: [] };
   try { var rc = JSON.parse(localStorage.getItem("sb-col") || "null"); if (rc && rc.i) col = rc; } catch (e) {}
@@ -170,9 +171,11 @@
   }
 
   // ---------- new-card reveal (scales with rarity) ----------
-  var CH = [0, 0, 250, 850, 1350, 1900], RVW = ["", "", "RARE", "EPIC", "LEGENDARY", "MYTHIC"], RVC = { R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d" }, rvO = null;
+  var CH = [0, 0, 250, 850, 1350, 1900, 2500], RVW = ["", "", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "SIGNATURE"], RVC = { R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d", S: "#c4b9f2" }, rvO = null;
   function E(t, c, x) { var e = D.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+  var MK = '<svg class="mkl" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="kg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b7095"/><stop offset="1" stop-color="#2d3a55"/></linearGradient><linearGradient id="kh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c4b9f2"/><stop offset="1" stop-color="#9b8cd9"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#kg)"/><path d="M126 214C64 214 40 164 46 92c28 48 62 58 136 58v64z" fill="url(#kh)"/><path d="M386 214c62 0 86-50 80-122-28 48-62 58-136 58v64z" fill="url(#kh)"/><path d="M122 410V198h60l74 110 74-110h60v212h-56V292l-56 80h-44l-56-80v118z" fill="#eef1f6"/></svg>';
   function artEl(c, cls, px, got) {             // team cards show their real logo once found
+    if (c[0] === "mack") { var mk = E("span", cls + " mkw"); mk.innerHTML = MK; return mk; }
     var e = col.i[c[0]], p = got && e && e[2];
     if (p) {
       var im = E("img", cls + " lg"); im.alt = c[4]; im.loading = "lazy"; im.decoding = "async";
@@ -193,7 +196,7 @@
     });
     if (ch) { try { localStorage.setItem("sb-roll", JSON.stringify(rolled.slice(-300))); } catch (e) {} }
   }
-  function tier(c) { return "CURELM".indexOf(c[2]); }
+  function tier(c) { return "CURELMS".indexOf(c[2]); }
   function vib(p) { try { if (!RM && navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   function revealClose() {
     if (!rvO) return; var o = rvO; rvO = null; clearTimeout(o._a); clearTimeout(o._c);
@@ -206,12 +209,12 @@
     var o = E("div", "rv r" + c[2] + " t" + t), done = false, ok = false, col2 = RVC[c[2]];
     rvO = o; o.setAttribute("role", "dialog"); o.setAttribute("aria-label", "New card: " + c[4]);
     o.appendChild(E("div", "rv-bg"));
-    if (t === 5) { var st = E("div", "rv-st"), sh = []; for (var i = 0; i < 36; i++) sh.push(rnd(100) + "vw " + rnd(100) + "vh 0 " + rnd(2) + "px #fff"); st.style.boxShadow = sh.join(","); o.appendChild(st); }
+    if (t >= 5) { var st = E("div", "rv-st"), sh = []; for (var i = 0; i < 36; i++) sh.push(rnd(100) + "vw " + rnd(100) + "vh 0 " + rnd(2) + "px #fff"); st.style.boxShadow = sh.join(","); o.appendChild(st); }
     o.appendChild(E("div", "rv-fl"));
     var ttl = E("div", "rv-t"); ttl.appendChild(E("div", "rv-s", replay ? "CARD" : "NEW CARD"));
     var w = E("div", "rv-w"); RVW[t].split("").forEach(function (ch, k) { var l = E("i", null, ch); l.style.setProperty("--i", k); w.appendChild(l); }); ttl.appendChild(w); o.appendChild(ttl);
     var cw = E("div", "rv-cw"), chg = E("div", "rv-ch"), flip = E("div", "rv-flip");
-    chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
+    chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6, 8][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
     flip.appendChild(E("div", "rv-bk", "?"));
     var card = E("div", "tc r" + c[2] + " got"), hd = E("div", "tc-h"); hd.appendChild(E("span", null, "No. " + ("00" + c.n).slice(-3) + " / " + ("00" + TOTAL).slice(-3))); hd.appendChild(E("span", null, CATS[c[1]])); card.appendChild(hd);
     var art = E("div", "tc-art"); art.appendChild(artEl(c, "tc-em", 200, true)); card.appendChild(art);
@@ -231,11 +234,11 @@
       if (!RM) {
         var cx = innerWidth / 2, cy = innerHeight * .42;
         if (t >= 3) { o.classList.add("shk"); setTimeout(function () { o.classList.remove("shk"); }, 520); }
-        gBurst(cx, cy, col2, [0, 0, 14, 26, 38, 44][t]);
+        gBurst(cx, cy, col2, [0, 0, 14, 26, 38, 44, 56][t]);
         if (t === 2) { gConfetti(16, ["✨", "💠"]); vib(30); }
         else if (t === 3) { gConfetti(44, ["✨", "🔮", "💜"]); vib([30, 40, 70]); }
         else if (t === 4) { gConfetti(90, ["✨", "⭐", "🪙", "🏆", "👑"]); setTimeout(function () { gBurst(cx, cy, "#fff3b0", 30); }, 220); vib([40, 30, 40, 30, 140]); }
-        else { gFireworks(); gConfetti(140, ["💎", "✨", "🌈", "⭐", "🎫", "🔥"]); setTimeout(function () { gBurst(cx, cy, "#ffffff", 40); }, 260); vib([60, 40, 60, 40, 60, 40, 240]); }
+        else { gFireworks(); gConfetti(140, t === 6 ? ["🦬", "✨", "💎", "⭐", "🔷"] : ["💎", "✨", "🌈", "⭐", "🎫", "🔥"]); setTimeout(function () { gBurst(cx, cy, "#ffffff", 40); }, 260); vib([60, 40, 60, 40, 60, 40, 240]); }
       }
       setTimeout(function () { ok = true; o.classList.add("ok"); }, RM ? 0 : 650);
       if (t === 2) o._a = setTimeout(revealClose, 5200); else if (t === 3) o._a = setTimeout(revealClose, 9000);
