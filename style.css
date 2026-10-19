@@ -32,7 +32,8 @@ h1{font:800 34px/1 var(--hd);letter-spacing:.02em;text-transform:uppercase;margi
 #refresh:disabled{opacity:.6;cursor:default}
 .about{color:var(--mute);font-size:13px;margin:0 0 10px}
 
-.rail{position:sticky;top:0;background:var(--bg);z-index:5;padding:6px 0 10px}
+.rail{position:sticky;top:0;background:var(--bg);z-index:5;padding:6px 0 10px;transition:transform .22s ease}
+.rail.hide{transform:translateY(-105%)}
 .rail-main{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tab.big{display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:14px;padding:8px 6px;font-size:13px;line-height:1.15;background:var(--pri-soft);border-color:transparent;color:var(--pri)}
 .tab.big .ico{font-size:17px;color:var(--ter)}
