@@ -17,7 +17,7 @@
 
   // ---------- collection log ----------
   // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
-  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams", mn: "NFL Moments", mb: "NBA Moments", mm: "MLB Moments", mh: "NHL Moments" };
+  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams", h: "Holidays", mn: "NFL Moments", mb: "NBA Moments", mm: "MLB Moments", mh: "NHL Moments" };
   var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic", S: "Signature" };
   var RW = { C: 11, U: 3.5, R: 1.2, E: .35, L: .08, M: .012, S: 0 };
   var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
@@ -152,7 +152,57 @@
     });
   });
   CAT.unshift(["mack", "m", "S", "🦬", "Mack", "Glad to have you.", "Create an account."]);
-  var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; });
+  var HD = {
+    ny: "Resolution Rush|🥂|C|Day one. The gym is full and so is the schedule.\nBlack-Eyed Peas|🫘|U|Eat them for luck. Add a hot dog for the home team.\nAuld Lang Syne|🎶|R|Everyone forgets the second verse.\nSnowy Shootout|❄️|E|2008 Winter Classic. Sidney Crosby wins it in a blizzard in Buffalo.\nThe Big House Classic|🏟️|E|2014 Winter Classic. 105,491 fans pack Michigan Stadium.",
+    sb: "Guac Bowl|🥑|C|The most important game of the day happens at the snack table.\nWing Count|🍗|U|Somebody always orders twice what they need.\nHalftime Wardrobe|🎤|R|Forty-five costume changes in twelve minutes.\nThe Super Bowl Shuffle|🐻|R|1985. The Bears record a song before they win the title.\nElway's Helicopter|🚁|E|Super Bowl XXXII. John Elway spins through the air for a first down.\nMontana's Drive|🥶|E|Super Bowl XXIII. Ninety-two yards in the final three minutes.",
+    val: "Heart-Shaped Scoreboard|❤️|C|Every final score comes with a little love.\nRose at the Plate|🌹|U|A romantic strikeout.\nSweetheart Deal|🤝|R|A trade everybody loves.\nKobe's Last All-Star Game|🌟|E|2016. Kobe says goodbye to the All-Star stage.",
+    pi: "Slice of Pi|🥧|C|3.14 slices, one very full table.\n3.14 Yards|📐|U|A very specific gain.",
+    stp: "Lucky Clover|☘️|C|Four leaves, one good bounce.\nPot of Gold|💰|U|The end of the rainbow is an overtime winner.\nGreen Ice|🧊|R|Even the ice is dressed for the day.\nThe Richard Riot|🔥|E|1955. Montreal erupts over Maurice Richard's suspension.",
+    fool: "Prank Call|📞|C|Is your refrigerator running? Is your team?\nFake Punt|🎭|U|Nobody saw it coming, including the punter.\nWhoopee Cushion Timeout|💨|R|The sideline's worst timing.\nSidd Finch|🔥|R|1985. The 168 mph pitcher who never existed.",
+    easter: "Golden Egg|🥚|C|Found it behind the scoreboard.\nChocolate Bunny Mascot|🐰|U|Ears first, always.\nEgg Roll Delivery|🪺|R|Slow roll to the finish line.\nThe Easter Epic|🐣|E|1987. Four overtimes and one very late Easter morning.",
+    mom: "Mom's Lucky Jersey|👚|C|It only works when she's watching.\nPink Bats|🩷|U|Pink bats come out for Mother's Day.\nHug From the Stands|🫂|R|Better than any trophy.\nBraden's Perfect Day|💐|E|2010. A perfect game on Mother's Day, with his grandmother in the stands.",
+    mem: "Grill Master|🍔|C|One hand on the tongs, one on the remote.\nStars and Stripes|🧢|U|Special caps for the day.\nDoubleheader Sunday|🌭|R|Two games, one long day off.",
+    dad: "Dad Joke Timeout|😅|C|Groans from the whole section.\nBackyard Catch|🧤|U|The first game anyone ever plays.\nBlue Wristbands|💙|U|Baseball wears blue for Father's Day.\nRecliner Throne|🛋️|R|Don't ask him to move during the fourth quarter.",
+    jun: "Cookout Season|🍉|C|Cold drinks, warm weather, scores on every phone.\nJubilee|🎉|U|A day to celebrate freedom.\nThe First Game|⚾|L|1846. The first recorded baseball game, in Hoboken.\nFifty-Two Years|🏆|L|2016. Cleveland finally ends the wait.",
+    j4: "Hot Dog Rocket|🌭|C|Launched with mustard.\nSparkler Sprint|🎇|U|Write your name in light.\nBald Eagle Flyby|🦅|R|Stars, stripes and a very serious bird.\nRighetti's No-Hitter|🧤|E|1983. A Fourth of July no-hitter at Yankee Stadium.",
+    labor: "Last Cookout of Summer|🍔|C|The final burger of the season.\nWhite Pants Warning|👖|U|Last chance. Fashion rules apply.\nKickoff Weekend|🏈|R|The new football season starts any minute.",
+    hween: "Ghost Runner|👻|C|Extra innings, extra spooky.\nPumpkin Pitch|🎃|U|Smashing, but in a good way.\nCostume Mascot|🧛|R|Nobody can tell who's inside.\nMr. November|🌃|E|2001. Derek Jeter hits a walk-off homer after midnight.",
+    thx: "Turkey Trot|🦃|C|Run first, eat later.\nDrumstick Tackle|🍗|U|Every family has one.\nFootball on the TV|📺|R|The only tradition everyone agrees on.\nFirst Thanksgiving Game|🦁|R|1934. Detroit hosts the first football game on Thanksgiving.\nLeon Lett's Slide|❄️|E|1993. A snowy block, a long slide and a very strange ending.\nThe Coin Toss|🪙|E|1998. A mix-up at midfield stuns Detroit.",
+    xmas: "Elf on the Bench|🧝|C|Watching the whole game.\nUgly Sweater Jersey|🧶|U|The loudest outfit in the building.\nSnow Globe Arena|🔮|R|Shake it and the game restarts.\nKobe vs. Shaq|🎁|E|2004. Christmas Day, Lakers and Heat, a reunion for the ages.\nThe Longest Game|🎄|L|1971. Dolphins and Chiefs play into a second overtime.",
+    nye: "Countdown Clock|⏰|C|Ten seconds left and everyone's counting.\nConfetti Floor|🎊|U|Swept up by morning.\nChampagne Pop|🍾|R|Aimed at the ceiling, hopefully.\nThe Fog Bowl|🌫️|E|1988. Nobody can see the field. The playoff game goes on.\nThe Greatest Game|🏒|E|1975. Montreal and the Red Army play to a 3–3 tie."
+  };
+  function fx(m, d) { return function (y) { return [new Date(y, m, d)]; }; }
+  function nthDow(y, m, dow, n) { var d = new Date(y, m, 1); return new Date(y, m, 1 + (dow - d.getDay() + 7) % 7 + 7 * (n - 1)); }
+  function lastDow(y, m, dow) { var d = new Date(y, m + 1, 0); return new Date(y, m, d.getDate() - (d.getDay() - dow + 7) % 7); }
+  function easterD(y) { var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), t = h + l - 7 * m + 114; return new Date(y, Math.floor(t / 31) - 1, t % 31 + 1); }
+  var HOLS = {
+    ny: ["New Year's Day", fx(0, 1)], sb: ["Super Bowl Sunday", function (y) { return [nthDow(y, 1, 0, 2)]; }], val: ["Valentine's Day", fx(1, 14)], pi: ["Pi Day", fx(2, 14)],
+    stp: ["St. Patrick's Day", fx(2, 17)], fool: ["April Fools' Day", fx(3, 1)], easter: ["Easter", function (y) { return [easterD(y)]; }], mom: ["Mother's Day", function (y) { return [nthDow(y, 4, 0, 2)]; }],
+    mem: ["Memorial Day", function (y) { return [lastDow(y, 4, 1)]; }], dad: ["Father's Day", function (y) { return [nthDow(y, 5, 0, 3)]; }], jun: ["Juneteenth", fx(5, 19)], j4: ["Independence Day", fx(6, 4)],
+    labor: ["Labor Day", function (y) { return [nthDow(y, 8, 1, 1)]; }], hween: ["Halloween", fx(9, 31)], thx: ["Thanksgiving", function (y) { return [nthDow(y, 10, 4, 4)]; }], xmas: ["Christmas", fx(11, 25)], nye: ["New Year's Eve", fx(11, 31)],
+    leap: ["Leap Day", function (y) { var d = new Date(y, 1, 29); return d.getMonth() === 1 ? [d] : []; }],
+    f13: ["Friday the 13th", function (y) { var o = []; for (var m = 0; m < 12; m++) { var d = new Date(y, m, 13); if (d.getDay() === 5) o.push(d); } return o; }]
+  }, HLO = 15, HHI = 15, HDAY = 86400000, MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function hWin(k, now) {                        // the window (start, end, holiday date) this holiday is in right now, else the next one
+    var y0 = now.getFullYear(), best = null, cur = null;
+    for (var y = y0 - 1; y <= y0 + 5; y++) HOLS[k][1](y).forEach(function (d) {
+      var s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - HLO), e = new Date(d.getFullYear(), d.getMonth(), d.getDate() + HHI + 1);
+      if (now >= s && now < e) cur = { s: s, e: new Date(e - 1), d: d, on: true };
+      else if (s > now && (!best || s < best.s)) best = { s: s, e: new Date(e - 1), d: d, on: false };
+    });
+    return cur || best;
+  }
+  function md(d) { return MON[d.getMonth()] + " " + d.getDate(); }
+  function hActive(k) { var w = hWin(k, new Date()); return w && w.on; }
+  var HMAP = { d_ny: "ny", d_j4: "j4", d_xmas: "xmas", d_val: "val", d_pi: "pi", d_hween: "hween", bat: "hween", d_f13: "f13", d_leap: "leap" }, HCARDS = {}, AUTO = { mack: 1, m10: 1, m25: 1, m50: 1, m100: 1, all: 1 };
+  Object.keys(HD).forEach(function (k) {
+    HD[k].split("\n").forEach(function (ln) { var p = ln.split("|"); CAT.push(["h_" + k + "_" + slug(p[0]), "h", p[2], p[1], p[0], p[3], ""]); CAT[CAT.length - 1].h = k; });
+  });
+  var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; if (HMAP[c[0]]) c.h = HMAP[c[0]]; });
+  var GEN = "Keep tapping around the app. Any button can turn one up, and the rarer the card, the longer the wait.";
+  function hint(c) { var w = hWin(c.h, new Date()); return "Holiday card (" + HOLS[c.h][0] + "). Any tap can turn it up " + (w.on ? "right now, through " + md(w.e) + "." : "from " + md(w.s) + " to " + md(w.e) + "."); }
+  CAT.forEach(function (c) { if (c.h) HCARDS[c[0]] = 1; if (!AUTO[c[0]]) c[6] = c.h ? hint(c) : GEN; });
+  setInterval(function () { CAT.forEach(function (c) { if (c.h && !col.i[c[0]]) c[6] = hint(c); }); }, 3600000);
   var TOTAL = CAT.length, col = { i: {}, s: {}, d: [] };
   try { var rc = JSON.parse(localStorage.getItem("sb-col") || "null"); if (rc && rc.i) col = rc; } catch (e) {}
   try {                                          // migrate the old secrets store
@@ -164,9 +214,10 @@
   function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
   function say(msg, go, cls) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = (go ? "show go" : "show") + (cls ? " " + cls : ""); t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
-  var newQ = [], newT = 0;
+  var newQ = [], newT = 0, TAPPING = false;
   function disc(id, extra) {
     var c = IDX[id]; if (!c) return;
+    if (!TAPPING && !AUTO[id]) return;
     var e = col.i[id]; if (e) { e[1]++; save(); return; }
     col.i[id] = [Date.now(), 1]; if (extra) col.i[id][2] = extra; save(); newQ.push(c);
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
@@ -197,29 +248,35 @@
     }
     return E("span", cls, c[3]);
   }
-  var TP = { C: .3, U: .18, R: .07, E: .03, L: .012, M: .004 };
-  function teamDrop(lk, g) {                     // opening a game rolls once for each team in it, by rarity
-    if (!g || !TCAT[lk]) return;
-    var rolled, ch = false; try { rolled = JSON.parse(localStorage.getItem("sb-roll") || "[]"); } catch (e) { rolled = []; }
+  var LOGO = {}; try { LOGO = JSON.parse(localStorage.getItem("sb-lg") || "{}") || {}; } catch (e) {}
+  function teamDrop(lk, g) {                     // opening a game only remembers each team's logo for when its card turns up
+    if (!g || !TCAT[lk]) return; var ch = false;
     [g.h, g.a].forEach(function (s) {
-      if (!s) return; var id = TK[lk + "|" + slug(s[0])]; if (!id || col.i[id]) return;
-      var key = lk + g.id + id; if (rolled.indexOf(key) >= 0) return;
-      rolled.push(key); ch = true;
-      if (Math.random() < TP[IDX[id][2]]) { var m = /img=([^&]+)/.exec(s[5] || ""); disc(id, m ? decodeURIComponent(m[1]) : ""); }
+      if (!s) return; var id = TK[lk + "|" + slug(s[0])]; if (!id) return;
+      var m = /img=([^&]+)/.exec(s[5] || ""); if (!m) return; var p = decodeURIComponent(m[1]);
+      if (LOGO[id] !== p) { LOGO[id] = p; ch = true; }
+      var e = col.i[id]; if (e && !e[2]) { e[2] = p; save(); }
     });
-    var mk = lk + g.id + "mo";
-    if (MLG[lk] && rolled.indexOf(mk) < 0) {
-      rolled.push(mk); ch = true;
-      if (Math.random() < .05) {
-        var nm = [g.h, g.a].map(function (s) { return s ? slug(s[0]) : ""; }), pool = [], tw = 0;
-        MLG[lk].forEach(function (id) { if (col.i[id]) return; var w = MKW[id].some(function (k) { return nm.some(function (n) { return n.indexOf(k) >= 0; }); }) ? 6 : 1; pool.push([id, w]); tw += w; });
-        if (pool.length) {
-          var r = Math.random() * tw, k2 = 0; while (k2 < pool.length - 1 && r >= pool[k2][1]) { r -= pool[k2][1]; k2++; }
-          var mid = pool[k2][0]; if (Math.random() < { R: .5, E: .3, L: .12, M: .04 }[IDX[mid][2]]) disc(mid);
-        }
-      }
-    }
-    if (ch) { try { localStorage.setItem("sb-roll", JSON.stringify(rolled.slice(-300))); } catch (e) {} }
+    if (ch) { try { localStorage.setItem("sb-lg", JSON.stringify(LOGO)); } catch (e) {} }
+  }
+  // Every card except the Signature one turns up from taps: any button, tab or card in the app rolls once.
+  var TAPP = .012, TAPGAP = 1500, lastTap = 0, HW2 = { C: 10, U: 6, R: 4, E: 2, L: 1, M: .5 };
+  function wchoice(arr, wf) { var tot = 0, ws = arr.map(function (c) { var w = wf(c); tot += w; return w; }), r = Math.random() * tot, i = 0; while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; } return arr[i]; }
+  function tapRoll() {
+    var n = Date.now(); if (n - lastTap < TAPGAP) return; lastTap = n;
+    if (D.body.classList.contains("rv-on") || Math.random() >= TAPP) return;
+    var left = CAT.filter(function (c) { return !col.i[c[0]] && !AUTO[c[0]]; }); if (!left.length) return;
+    var hol = left.filter(function (c) { return c.h && hActive(c.h); }), gen = left.filter(function (c) { return !c.h; }), c;
+    if (hol.length && (!gen.length || Math.random() < .6)) c = wchoice(hol, function (x) { return HW2[x[2]] || 1; });
+    else if (gen.length) c = wchoice(gen, function (x) { return RW[x[2]] || 1; });
+    else return;
+    TAPPING = true; try { disc(c[0], LOGO[c[0]] || ""); } finally { TAPPING = false; }
+  }
+  D.addEventListener("click", function (e) { var t = e.target; if (t && t.closest && t.closest("button,a,summary,[role=tab],[role=button],.card,.recap")) tapRoll(); }, true);
+  function upcoming() {
+    var now = new Date(), on = [], nx = null;
+    Object.keys(HOLS).forEach(function (k) { var w = hWin(k, now); if (!w) return; w.k = k; w.name = HOLS[k][0]; if (w.on) on.push(w); else if (!nx || w.s < nx.s) nx = w; });
+    return { on: on.map(function (w) { return { name: w.name, end: md(w.e) }; }), next: nx ? { name: nx.name, start: md(nx.s), end: md(nx.e) } : null };
   }
   function tier(c) { return "CURELMS".indexOf(c[2]); }
   function vib(p) { try { if (!RM && navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
@@ -497,7 +554,7 @@
   }, { passive: true });
   dates();
 
-  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
