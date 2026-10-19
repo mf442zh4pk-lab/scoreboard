@@ -295,7 +295,7 @@
     var owned = 0, dupes = 0, byR = {}, top = null, firstC = null, lastC = null, holo = 0;
     F.CAT.forEach(function (c) {
       var e = col.i[c[0]]; if (!e) return; owned++; dupes += Math.max(0, e[1] - 1); byR[c[2]] = (byR[c[2]] || 0) + 1;
-      if (!top || "CURELMS".indexOf(c[2]) > "CURELMS".indexOf(top[2])) top = c;
+      if (c[2] !== "S" && (!top || "CURELM".indexOf(c[2]) > "CURELM".indexOf(top[2]))) top = c;   // the signature card is a gift for signing up, not a pull
       if (!firstC || e[0] < firstC[0]) firstC = [e[0], c]; if (!lastC || e[0] > lastC[0]) lastC = [e[0], c];
       if (c.h) holo++;
     });
