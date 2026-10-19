@@ -645,6 +645,10 @@ body.find-on{overflow:hidden}
 .addbar{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:22;display:flex;gap:8px;align-items:center;max-width:calc(100vw - 32px);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);font-size:14px;animation:rise .3s var(--ease) both}
 .addbar button{border:1px solid var(--line);background:none;color:var(--mute);border-radius:8px;padding:6px 12px;font:600 13px var(--bd);cursor:pointer}
 .addbar button.ok{background:var(--pri);color:var(--card);border-color:var(--pri)}
+.addbar.acct{flex-direction:column;align-items:stretch;gap:10px;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));width:auto;max-width:420px;margin:0 auto;transform:none;padding:14px 14px 12px;text-align:left;animation:acctIn .32s var(--ease) both}
+@keyframes acctIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.acct-t{display:flex;flex-direction:column;gap:3px;line-height:1.4}.acct-t b{font:700 16px var(--hd);letter-spacing:.03em;color:var(--pri)}.acct-t span{color:var(--mute);font-size:13px}
+.acct-b{display:flex;gap:8px}.acct-b button{flex:1;padding:9px 12px;font-size:14px}
 .lchips{display:flex;flex-wrap:wrap;gap:6px}
 .set .lchip{background:var(--pri-soft);color:var(--pri);border:1px solid transparent;border-radius:999px;padding:5px 12px;font-size:13px}
 .set .lchip.off{background:none;color:var(--mute);border-color:var(--line);text-decoration:line-through;opacity:.7}
