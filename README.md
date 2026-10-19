@@ -12,13 +12,13 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 | `app.js` | State, rendering, routing, the rail, cards, detail pages, settings, long-press menu, stat tooltips, keyboard shortcuts. |
 | `style.css` | Theme tokens (top), layout, and the motion system (bottom, "v1"). |
 | `fun.js` / `fun.css` | Collection Log cards, holiday calendar and animations, quips. Lazy-loaded on idle. |
-| `profile.js` | Profiles, Collection Log UI, leaderboard (Firebase REST). Lazy-loaded on first open. |
+| `profile.js` | Profiles, Collection Log UI, leaderboard (Firebase REST). Lazy-loaded on first open. Usernames are claimed online first (Firebase Auth, case-insensitive), so a name belongs to one person everywhere. |
 | `sw.js` | Offline app shell + logo cache. Never caches ESPN data. |
 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=63` → `?v=64` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=67` → `?v=68` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. The service worker picks up the new version on the next open.
 
 ## Motion system
@@ -72,11 +72,11 @@ Settings → "Copy share link" makes `?add=<base64 {t:[teams], p:[people]}>`. On
 
 ## Card packs
 
-Hidden meters in `sb-col` (`cr` regular credits, `hc` holiday credits, `pk` packs owed, `hk` holiday packs owed as holiday keys, `ld` last daily top-up, `ue` usage earned today). `COST` is 100: the daily top-up is one pack, and ordinary use (1 per tap, 3 per arrival, capped at 100 a day) earns about one more. The holiday meter fills at the same time whenever a holiday window is on and pays out a pack from that holiday's cards. `drawPack` leans toward cards not yet owned and guarantees at least one Rare+. Cards are granted the moment a pack opens, so skipping never loses anything. Entry points: the pop-up when a pack is earned, the "Open pack" button in the profile, and the gold dot on the profile button.
+Hidden meters in `sb-col` (`cr` regular credits, `hc` holiday credits, `pk` packs owed, `hk` holiday packs owed as holiday keys, `ld` last daily top-up, `ue` usage earned today). `COST` is 100: the daily top-up is one pack, and ordinary use (1 per tap, 3 per arrival, capped at 100 a day) earns about one more. The holiday meter fills at the same time whenever a holiday window is on and pays out a pack from that holiday's cards. `drawPack` is flat: every card in the pool has the same rarity odds whether you own it or not, and duplicates show as a ×n count in the Collection Log. Cards are granted the moment a pack opens, so skipping never loses anything. Entry points: the pop-up when a pack is earned, the "Open pack" button in the profile, and the gold dot on the profile button.
 
 ## Fun layer frequency
 
-`fun.js`: `TAPP` is the per-tap card chance; `holidayFx` runs once on the first arrival and then at most every four minutes (about a third of arrivals); win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
+`fun.js`: `TAPP` is the per-tap card chance; `holidayFx` runs once a day (first arrival, `sb-hf` remembers the day) with a small burst; win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
 
 ## Splash
 
@@ -84,4 +84,4 @@ Inline in `index.html` (markup, CSS and a few lines of script) so it paints befo
 
 ## Data keys (localStorage)
 
-`sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`.
+`sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`, `sb-hf` (last holiday burst).
