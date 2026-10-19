@@ -58,8 +58,8 @@
     });
   }
   function saveActive() { var a = active(); if (!a) return; var P = profiles(); P[a].d = snapshot(); putProfiles(P); }
-  function logout() { saveActive(); applyBlob(null); s("sb-active", null); location.reload(); }
-  function removeProfile() { var a = active(), P = profiles(); if (a) { delete P[a]; putProfiles(P); s("sb-active", null); } }
+  function logout() { saveActive(); applyBlob(null); s("sb-active", null); s("sb-lb", null); location.reload(); }
+  function removeProfile() { var a = active(), P = profiles(); if (a) { delete P[a]; putProfiles(P); s("sb-active", null); s("sb-lb", null); } }
 
   // ---------- transfer ----------
   function utf8b64(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
@@ -79,6 +79,117 @@
     var ok = function () { done(true); };
     try { navigator.clipboard.writeText(txt).then(ok, function () { fb(); }); } catch (e) { fb(); }
     function fb() { var t = el("textarea"); t.value = txt; t.style.cssText = "position:fixed;opacity:0"; D.body.appendChild(t); t.select(); var r = false; try { r = D.execCommand("copy"); } catch (e) {} D.body.removeChild(t); done(r); }
+  }
+
+
+  // ---------- online leaderboard (Firebase REST: no SDK, loaded only here) ----------
+  var FB = { key: "AIzaSyAJPV2xfmuK95zJwxaXbfVz9IWbUfdDCFI", pid: "scoreboard-b6d7e" };
+  var DOC = "https://firestore.googleapis.com/v1/projects/" + FB.pid + "/databases/(default)/documents";
+  var WT = { C: 1, U: 3, R: 8, E: 20, L: 50, M: 150 };
+  function myScore() { var c = F.col().i, sc = 0, n = 0; F.CAT.forEach(function (x) { if (c[x[0]]) { sc += WT[x[2]]; n++; } }); return { score: sc, cards: n }; }
+  function lbGet() { return parse(g("sb-lb")); }
+  function lbPut(o) { s("sb-lb", o ? JSON.stringify(o) : null); }
+  function jpost(url, body, headers) {
+    return fetch(url, { method: "POST", headers: headers || { "Content-Type": "application/json" }, body: typeof body === "string" ? body : JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw (j.error && j.error.message) || "ERR"; return j; }); });
+  }
+  function lbAuth(mode, name, pw) {
+    return jpost("https://identitytoolkit.googleapis.com/v1/accounts:" + (mode === "create" ? "signUp" : "signInWithPassword") + "?key=" + FB.key, { email: name.toLowerCase() + "@scoreboard.app", password: pw, returnSecureToken: true })
+      .then(function (j) { var o = { uid: j.localId, rt: j.refreshToken, it: j.idToken, exp: Date.now() + (+j.expiresIn - 60) * 1000, name: name }; lbPut(o); return o; });
+  }
+  function lbToken() {
+    var o = lbGet(); if (!o) return Promise.reject("NOAUTH");
+    if (Date.now() < o.exp) return Promise.resolve(o);
+    return jpost("https://securetoken.googleapis.com/v1/token?key=" + FB.key, "grant_type=refresh_token&refresh_token=" + encodeURIComponent(o.rt), { "Content-Type": "application/x-www-form-urlencoded" })
+      .then(function (j) { o.it = j.id_token; o.rt = j.refresh_token; o.exp = Date.now() + (+j.expires_in - 60) * 1000; lbPut(o); return o; });
+  }
+  function lbSync(force) {                       // uploads only when the score changed
+    var o0 = lbGet(); if (!o0) return Promise.resolve(); var m = myScore();
+    if (!force && o0.last === m.score) return Promise.resolve();
+    return lbToken().then(function (o) {
+      var f = { name: { stringValue: o.name }, score: { integerValue: String(m.score) }, cards: { integerValue: String(m.cards) }, ts: { integerValue: String(Date.now()) } };
+      return fetch(DOC + "/scores/" + o.uid, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + o.it }, body: JSON.stringify({ fields: f }) })
+        .then(function (r) { if (!r.ok) throw "WRITE"; var o2 = lbGet() || o; o2.last = m.score; lbPut(o2); });
+    });
+  }
+  var lbCache = null;
+  var lbMode = "login";
+  function lbTop(force) {
+    if (!force && lbCache && Date.now() - lbCache.at < 180000) return Promise.resolve(lbCache.rows);
+    return jpost(DOC + ":runQuery", { structuredQuery: { from: [{ collectionId: "scores" }], orderBy: [{ field: { fieldPath: "score" }, direction: "DESCENDING" }], limit: 50 } })
+      .then(function (j) {
+        var rows = j.filter(function (x) { return x.document; }).map(function (x) { var f = x.document.fields || {}; return { uid: x.document.name.split("/").pop(), name: (f.name || {}).stringValue || "?", score: +((f.score || {}).integerValue || 0), cards: +((f.cards || {}).integerValue || 0) }; });
+        lbCache = { at: Date.now(), rows: rows }; return rows;
+      });
+  }
+  function lbRank(score) {
+    return jpost(DOC + ":runAggregationQuery", { structuredAggregationQuery: { structuredQuery: { from: [{ collectionId: "scores" }], where: { fieldFilter: { field: { fieldPath: "score" }, op: "GREATER_THAN", value: { integerValue: String(score) } } } }, aggregations: [{ alias: "n", count: {} }] } })
+      .then(function (j) { return 1 + +(((j[0] || {}).result || {}).aggregateFields || {}).n.integerValue; });
+  }
+  function lbErr(e) {
+    e = String(e);
+    if (/EMAIL_EXISTS/.test(e)) return "That username is taken. If it's yours, use Log in.";
+    if (/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL/.test(e)) return "Wrong username or password.";
+    if (/WEAK_PASSWORD/.test(e)) return "Password needs at least 6 characters.";
+    if (/TOO_MANY/.test(e)) return "Too many tries. Wait a few minutes.";
+    return "Leaderboard unavailable right now. Try again later.";
+  }
+  function vLb(body) {
+    body.appendChild(el("p", "pm-lead", "Your score is your cards added up by rarity: Common 1, Uncommon 3, Rare 8, Epic 20, Legendary 50, Mythic 150. Your username and score are public."));
+    var me = el("div", "lb-me"), list = el("div", "lb-list");
+    body.appendChild(me); body.appendChild(list);
+    function drawList(force) {
+      list.innerHTML = ""; list.appendChild(el("p", "pm-note", "Loading…"));
+      var o = lbGet();
+      lbTop(force).then(function (rows) {
+        list.innerHTML = "";
+        if (!rows.length) { list.appendChild(el("p", "pm-note", "No scores yet. Be the first.")); return; }
+        rows.forEach(function (r, i) {
+          var row = el("div", "lb-row" + (o && o.uid === r.uid ? " me" : "") + (i < 3 ? " top" + (i + 1) : ""));
+          row.appendChild(el("span", "lb-rk", i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)));
+          row.appendChild(el("span", "lb-nm", r.name)); row.appendChild(el("span", "lb-cd", r.cards + " cards")); row.appendChild(el("span", "lb-sc", String(r.score)));
+          list.appendChild(row);
+        });
+        var rf = btn("Refresh", "pm-b ghost", function () { rf.disabled = true; drawList(true); }); list.appendChild(rf);
+      }, function () { list.innerHTML = ""; list.appendChild(el("p", "pm-msg", "Leaderboard unavailable right now. The rest of the app is unaffected.")); });
+    }
+    function drawMe() {
+      me.innerHTML = ""; var o = lbGet(), m = myScore();
+      if (o) {
+        me.appendChild(el("div", "pm-name", o.name)); me.appendChild(el("div", "pm-sub", m.score + " pts · " + m.cards + " cards"));
+        var msg = msg2(me);
+        lbSync().then(function () { return lbRank(m.score); }).then(function (rk) { msg("Your rank: #" + rk, true); drawList(true); }, function (e) { msg(e === "WRITE" ? "Couldn't upload your score right now." : lbErr(e)); });
+        me.appendChild(btn("Log out of leaderboard", "pm-b ghost", function () { lbPut(null); drawMe(); }));
+        var dz = btn("Remove my score", "pm-b dng", function () {
+          if (dz.dataset.c !== "1") { dz.dataset.c = "1"; dz.textContent = "Tap again to remove it"; return; }
+          lbToken().then(function (t) { return fetch(DOC + "/scores/" + t.uid, { method: "DELETE", headers: { Authorization: "Bearer " + t.it } }); }).then(function () { var x = lbGet(); if (x) { delete x.last; lbPut(x); } lbCache = null; drawMe(); drawList(true); }, function () { msg("Couldn't remove it right now."); });
+        });
+        me.appendChild(dz);
+      } else {
+        var mode = lbMode, form = el("div", "pm-form"), tabs = el("div", "pm-seg"), bl = btn("Log in", "on"), bc = btn("Join", "");
+        tabs.appendChild(bl); tabs.appendChild(bc); me.appendChild(tabs); me.appendChild(form);
+        var a = active(), pre = a && /^[A-Za-z0-9_.\-]{3,16}$/.test(profiles()[a].n) ? profiles()[a].n : "";
+        (function draw() {
+          form.innerHTML = ""; bl.className = mode === "login" ? "on" : ""; bc.className = mode === "create" ? "on" : "";
+          var u = field("Username", "text", "username", pre), pw = field("Password (6+ characters)", "password", mode === "login" ? "current-password" : "new-password");
+          form.appendChild(u[0]); form.appendChild(pw[0]); var m2 = msg2(form), go = btn(mode === "login" ? "Log in" : "Join leaderboard", "pm-b pri");
+          go.onclick = function () {
+            var nm = u[1].value.trim();
+            if (!/^[A-Za-z0-9_.\-]{3,16}$/.test(nm)) { m2("Username: 3 to 16 letters, numbers, _ . -"); return; }
+            if (pw[1].value.length < 6) { m2("Password needs at least 6 characters."); return; }
+            go.disabled = true; m2("One sec…", true);
+            lbAuth(mode, nm, pw[1].value).then(function () { return lbSync(true); }).then(function () { lbCache = null; drawMe(); }, function (e) { go.disabled = false; m2(e === "WRITE" ? "Joined, but couldn't upload your score yet." : lbErr(e)); if (e === "WRITE") drawMe(); });
+          };
+          pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
+          form.appendChild(go);
+          form.appendChild(el("p", "pm-note", "This is a separate online account, only used for the leaderboard."));
+        })();
+        bl.onclick = function () { lbMode = "login"; drawMe(); }; bc.onclick = function () { lbMode = "create"; drawMe(); };
+        // keep chosen mode across redraw
+      }
+    }
+    function msg2(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
+    drawMe(); if (!lbGet()) drawList(false);
   }
 
   // ---------- UI shell ----------
@@ -102,11 +213,11 @@
     var sheet = el("div", "pm-sheet"); root.appendChild(sheet); sheet.scrollTop = 0;
     var top = el("div", "pm-top");
     if (view !== "home") top.appendChild(btn("‹ Back", "pm-back", function () { show("home"); }));
-    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", xfer: "Transfer", import: "Import profile" }[view] || ""));
+    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard", xfer: "Transfer", import: "Import profile" }[view] || ""));
     var x = btn("✕", "pm-x", close); x.setAttribute("aria-label", "Close"); top.appendChild(x);
     sheet.appendChild(top);
     var body = el("div", "pm-body"); sheet.appendChild(body);
-    ({ home: vHome, log: vLog, xfer: vXfer, import: vImport })[view](body, arg);
+    ({ home: vHome, log: vLog, lb: vLb, xfer: vXfer, import: vImport })[view](body, arg);
   }
   function msg(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
   function field(label, type, ac, val) {
@@ -128,6 +239,7 @@
       var w = el("div"); w.appendChild(el("div", "pm-name", p.n)); w.appendChild(el("div", "pm-sub", "Signed in on this device")); hd.appendChild(w); body.appendChild(hd);
       summary(body);
       body.appendChild(btn("Open Collection Log", "pm-b pri", function () { show("log"); }));
+      body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
       body.appendChild(btn("Transfer to another device", "pm-b", function () { show("xfer"); }));
       body.appendChild(btn("Log out", "pm-b", logout));
       var dz = el("details", "pm-dz"); dz.appendChild(el("summary", null, "More"));
@@ -141,6 +253,7 @@
     body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together. It's stored on this device; use Transfer to move it to another one."));
     summary(body);
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
+    body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
     var tabs = el("div", "pm-seg"), mode = "login", form = el("div", "pm-form");
     var bl = btn("Log in", "on"), bc = btn("Create profile", "");
     tabs.appendChild(bl); tabs.appendChild(bc); body.appendChild(tabs); body.appendChild(form);
@@ -287,7 +400,7 @@
       if (m && !v) { open("import", { code: decodeURIComponent(m[1]) }); history.replaceState(null, "", location.pathname + location.search); }
       else open(v, a);
     },
-    refresh: refreshBtn
+    refresh: refreshBtn, sync: function () { return lbSync().catch(function () {}); }
   };
   refreshBtn();
 })();
