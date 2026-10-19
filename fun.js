@@ -130,6 +130,7 @@
     var c = IDX[id]; if (!c) return;
     var e = col.i[id]; if (e) { e[1]++; save(); return; }
     col.i[id] = [Date.now(), 1]; save(); newQ.push(c);
+    try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
       say(q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log");
