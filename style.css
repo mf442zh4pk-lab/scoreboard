@@ -635,8 +635,6 @@ body.cmp .ab.lg img{width:22px;height:22px}
 .find-tm:hover{border-color:var(--pri)}
 .find-tw{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}.find-tw b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.find-tw small{color:var(--mute);font-size:12px}
 .find-go{color:var(--mute);font-size:22px;line-height:1;padding-right:2px}
-.find-more{display:block;width:100%;margin:14px 0 2px;padding:10px 14px;border:1px dashed var(--line);border-radius:10px;background:none;color:var(--pri);font:600 14px var(--bd);cursor:pointer}
-.find-more:disabled{color:var(--mute);cursor:default}
 .tpbar{display:flex;align-items:center;gap:10px;margin:6px 0 12px}
 .tpf{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font:700 14px var(--bd);color:var(--pri);cursor:pointer}.tpf.on{background:var(--pri);color:var(--card);border-color:var(--pri)}
 .tpl{color:var(--mute);font-size:13px}
@@ -818,3 +816,15 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:0s!important;ani
 .tf-res{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .tf-res:empty{display:none}
 @media (prefers-reduced-motion:reduce){.tdg-f .fl{animation:none}}
+/* athletes, inline follow, team page actions */
+.hs{flex:none;width:44px;height:36px;border-radius:10px;background:var(--pri-soft);color:var(--pri);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;font:700 14px/36px var(--hd);letter-spacing:.04em}
+.hs img{width:48px;height:35px;object-fit:cover;object-position:50% 0;display:block}
+.hs.big{width:64px;height:64px;border-radius:16px;font-size:22px;line-height:64px;align-items:center}
+.hs.big img{width:88px;height:64px}
+.find-tm .fstar{flex:none;margin-left:2px}
+.find-wait{font-style:italic}
+.tpacts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tpx{border:1px solid var(--line);background:none;border-radius:999px;padding:8px 14px;font:600 14px var(--bd);color:var(--mute);cursor:pointer;text-decoration:none}
+.tpx:hover{color:var(--pri);border-color:var(--pri)}
+.pn-l{cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 25%,transparent);text-underline-offset:3px}
+.pn-l:hover{color:var(--pri)}
