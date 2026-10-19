@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=86` → `?v=87` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=87` → `?v=88` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -114,7 +114,7 @@ Inline in `index.html` (markup, CSS and a few lines of script) so it paints befo
 
 ## Account stats
 
-Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps, `fav` the favorite card. Profile age comes from the profile's `c` timestamp. The Cards section leads with the **favorite card** the person picked (★ Favorite on any owned card's detail view; tapping the tile opens that card); with none picked, the tile is a shortcut into the Collection Log. There is no automatic "rarest" pick.
+Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps, `fav` the favorite card. Profile age comes from the profile's `c` timestamp. The Cards section leads with the **favorite card** the person picked (★ Favorite on any owned card's detail view; tapping the tile opens that card); with none picked, the tile is a shortcut into the Collection Log. There is no automatic "rarest" pick. Followed teams and people come from the live lists (`SB.config`), so the defaults count before any edit; a game opened before `fun.js` loads is queued (`S.gvq`) and counted when it does. **Sync keeps every counter**: `mergeCol` and `mergeMax` run everything outside `i`/`s`/`d` through `mergeExtra` (numbers keep the higher value, `d0` the earliest day, `ld`/`ue` the latest, the favorite and meters this device's copy), and visit days sort by date, not as text.
 
 ## Pop-ups
 
