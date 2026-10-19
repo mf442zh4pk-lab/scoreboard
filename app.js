@@ -2012,12 +2012,15 @@
     var path = sport + "/" + slug;
     return pathLeague(path) || { key: dynKey(path), path: path, label: label || slug.toUpperCase(), pending: true };
   }
+  // One row per team: a soccer club keeps one id across every competition it plays in, so it's keyed by club.
+  function teamKey(lk, id) { var lg = leagueOf(lk); return lg && lg.soccer ? "soccer_" + id : lk + "_" + id; }
   function mergeTeams(q, remote) {
-    var out = teamHits(q).slice(0, 8), seen = {};
-    out.forEach(function (t) { seen[t.lk + "_" + t.id] = 1; });
+    var out = [], seen = {};
+    teamHits(q).forEach(function (t) { var k = teamKey(t.lk, t.id); if (seen[k] || out.length >= 8) return; seen[k] = 1; out.push(t); });
     (remote ? remote.teams : []).forEach(function (r) {
+      if (/friendly/.test(r.slug)) return;   // ESPN's catch-all for clubs with no league feed
       var lg = leagueFor(r.sport, r.slug, r.ll); if (!lg) return;
-      var k = lg.key + "_" + r.id; if (seen[k]) return; seen[k] = 1;
+      var k = lg.pending ? (r.sport === "soccer" ? "soccer_" + r.id : lg.key + "_" + r.id) : teamKey(lg.key, r.id); if (seen[k]) return; seen[k] = 1;
       out.push({ lk: lg.key, id: r.id, name: r.name, ab: "", lg: r.lg, ll: lg.pending ? r.ll : lg.label, dl: lg.pending ? lg : null });
     });
     return out;
@@ -2090,7 +2093,7 @@
   // Results for one query, drawn into res: teams, then athletes, with a quiet line while the wider search runs.
   // ctl holds the debounce timer and the query on screen, so a slow answer never paints over a newer one.
   function drawHits(res, q, ctl, opts) {
-    var remote = ESPN.peekSearch(q), teams = mergeTeams(q, remote), people = remote ? remote.people.map(personOf).slice(0, 6) : [];
+    var remote = ESPN.peekSearch(q), teams = mergeTeams(q, remote), people = remote ? remote.people.filter(function (r) { return !/friendly/.test(r.slug); }).map(personOf).slice(0, 6) : [];
     var n = opts.nt || 8, shownT = teams.slice(0, n);
     if (shownT.length) {
       if (opts.heads) res.appendChild(el("h4", "find-sh", "Teams"));
@@ -2203,8 +2206,12 @@
     var mine = S.games[lg.key].filter(function (g) { return (g.pp || []).some(function (n) { return n.toLowerCase() === nm; }); }).map(function (g) { return { g: g, lk: lg.key, ll: lg.label }; });
     var rk = { live: 0, up: 1, final: 2 };
     mine.sort(function (a, b) { return rk[a.g.s] - rk[b.g.s] || (a.g.s === "final" ? byTime(b.g, a.g) : byTime(a.g, b.g)); });
+    var cal = S.games[lg.key].filter(function (g) { return g.s !== "final"; }).sort(byTime).slice(0, 3).map(function (g) { return { g: g, lk: lg.key, ll: lg.label }; });
     if (!mine.length) {
-      out.appendChild(lg.lazy && st !== "done" && st !== "failed" ? skel(1) : notice("Nothing on the " + lg.label + " calendar with " + p.name, "Covers the last week and the next two. Follow to catch the next one."));
+      if (lg.lazy && st !== "done" && st !== "failed") { out.appendChild(skel(1)); return; }
+      var race = lg.kind === "race";
+      if (!race) out.appendChild(notice("No " + lg.label + " event with " + p.name + " right now", "Covers the last week and the next two; fields often post a few days out. Follow and they\u2019re highlighted when they show up."));
+      if (cal.length) { var sc0 = el("section", "grp"); sc0.appendChild(el("h2", null, race ? "Next races" : "On the " + lg.label + " calendar")); sc0.appendChild(gridOf(cal, "", true)); out.appendChild(sc0); }
       return;
     }
     var sec0 = el("section", "grp"); sec0.appendChild(el("h2", null, mine.length > 1 ? "Events" : "Event"));
@@ -2278,6 +2285,10 @@
     if (!t.name) { out.appendChild(t.err ? notice("Couldn\u2019t find that team", "The link may be from a league this app doesn\u2019t carry.") : skel(2)); return; }
     loadTeam(t.name, lk, t.id);
     var T = S.teams[t.name] || {}, me = T.me || [t.name, t.ab || "", t.lg || "", t.id];
+    if (lg.dyn && T.standing && T.standing.group && /^[A-Z0-9._-]+$/.test(lg.label)) {   // "ENG.W.1" → "English Women's Super League"
+      lg.label = T.standing.group.replace(/^\d{4}(-\d{2,4})?\s+/, "");
+      if (DYN[lg.key]) { DYN[lg.key][1] = lg.label; try { localStorage.setItem("sb-dyn", JSON.stringify(DYN)); } catch (e) {} }
+    }
     // Header: logo, name, league, record and standing line, follow button.
     var hd = el("div", "tph"), lb = el("span", "ab lg big");
     if (me[2] && PREF.logos) lb.appendChild(logoImg(me[2], me[1])); else { lb.className = "ab big"; lb.textContent = me[1] || t.name.slice(0, 3).toUpperCase(); }
