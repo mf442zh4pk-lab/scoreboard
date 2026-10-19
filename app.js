@@ -42,7 +42,7 @@
   var DEFAULT_FOLLOWED = C.followed.slice();
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
   if (PREF.tab0 !== "last") S.tab = PREF.tab0;
-  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news" || sy === "week") S.ysub = sy; } catch (e) {}
+  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news" || sy === "week" || sy === "tomorrow") S.ysub = sy; } catch (e) {}
   try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
   // People you follow (fighters, drivers, golfers), matched by name against each event's entrants.
   C.fp = []; try { var sfp = JSON.parse(localStorage.getItem("sb-fp") || "[]"); if (sfp && sfp.length) C.fp = sfp; } catch (e) {}
@@ -450,7 +450,7 @@
   }
   function renderYesterday(out) {
     var sn = el("div", "subnav"); sn.setAttribute("role", "tablist");
-    [["teams", "Teams"], ["week", "Week"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
+    [["teams", "Teams"], ["week", "Week"], ["tomorrow", "Tomorrow"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
       var b = el("button", "sub", p[1]); b.type = "button"; b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", S.ysub === p[0] ? "true" : "false");
       b.onclick = function () {
@@ -464,6 +464,7 @@
     if (S.ysub === "recap") { renderRecap(out); return; }
     if (S.ysub === "news") { renderNews(out); return; }
     if (S.ysub === "week") { renderWeek(out); return; }
+    if (S.ysub === "tomorrow") { renderTomorrow(out); return; }
     var y = S.yesterday;
     if (!y) { out.appendChild(notice("No recap yet", "Pull down to load yesterday's results.")); return; }
     out.appendChild(el("p", "lg", y.date));
@@ -506,6 +507,91 @@
     });
     out.appendChild(gr);
     out.appendChild(overview(y, played));
+  }
+
+  // ---------- Tomorrow: a month of what's coming for your teams, summarized (schedules already on the phone) ----------
+  function renderTomorrow(out) {
+    var now = Date.now(), t0 = new Date(); t0.setHours(0, 0, 0, 0); var day0 = t0.getTime(), to = day0 + 30 * DAY, items = [], per = {};
+    C.followed.forEach(function (n) {
+      var list = [];
+      tcGames(n).forEach(function (g) {
+        var t = Date.parse(g.t); if (isNaN(t) || g.s === "final" || t < now - 4 * 3600000 || t >= to) return;
+        var it = { n: n, g: g, t: t, d: Math.floor((t - day0) / DAY) }; list.push(it); items.push(it);
+      });
+      list.sort(function (a, b) { return a.t - b.t; }); per[n] = list;
+    });
+    out.appendChild(el("p", "lg", "The next 30 days"));
+    if (!items.length) { out.appendChild(notice("Nothing scheduled yet", "Fixtures for your teams fill in once their schedules load (My teams).")); C.followed.forEach(loadTeam); return; }
+    items.sort(function (a, b) { return a.t - b.t; });
+    var box = el("div", "ovs"), fmtD = function (t, long) { return new Date(t).toLocaleDateString(undefined, long ? { weekday: "long", month: "short", day: "numeric" } : { weekday: "short", month: "short", day: "numeric" }); };
+    var fmtT = function (t) { return new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 }); };
+    // 1. the month at a glance
+    var days = {}, homeN = 0, seen = {}, derbies = [];
+    items.forEach(function (it) {
+      days[it.d] = (days[it.d] || 0) + 1; if (it.g.home) homeN++;
+      if (C.followed.indexOf(it.g.opp) >= 0 && !seen[it.g.id]) { seen[it.g.id] = 1; derbies.push(it); }
+    });
+    var busy = Object.keys(days).sort(function (a, b) { return days[b] - days[a] || a - b; })[0];
+    var gap = { n: 0, s: 0 }, run = 0, rs = 0;
+    for (var di = 0; di < 30; di++) { if (days[di]) { if (run > gap.n) gap = { n: run, s: rs }; run = 0; rs = di + 1; } else run++; }
+    if (run > gap.n) gap = { n: run, s: rs };
+    var gl = el("div", "glance"), glr = el("div", "gl-row"); gl.appendChild(glr);
+    var chip = function (big, small) { var c = el("div", "gch"); c.appendChild(el("b", null, big)); c.appendChild(el("span", null, small)); glr.appendChild(c); };
+    chip(String(items.length), "game" + (items.length === 1 ? "" : "s"));
+    chip(homeN + " / " + (items.length - homeN), "home / away");
+    if (busy != null && days[busy] > 1) chip(String(days[busy]), "on " + fmtD(day0 + busy * DAY));
+    if (gap.n >= 3) chip(gap.n + " days", "off from " + fmtD(day0 + gap.s * DAY));
+    var strip = el("div", "mstrip"), lbl = el("div", "mstrip-l");
+    for (var k = 0; k < 30; k++) {
+      var c = el("i", days[k] ? (days[k] > 1 ? "m" : "g") : ""), dd = new Date(day0 + k * DAY);
+      if (k === 0) c.classList.add("today");
+      if (days[k]) c.title = fmtD(day0 + k * DAY) + ": " + items.filter(function (it) { return it.d === k; }).map(function (it) { return it.n + (it.g.home ? " vs " : " at ") + it.g.opp; }).join(", ");
+      strip.appendChild(c);
+      if (k % 7 === 0) { var l = el("span", null, k === 0 ? "Today" : dd.toLocaleDateString(undefined, { month: "short", day: "numeric" })); l.style.setProperty("--k", k); lbl.appendChild(l); }
+    }
+    gl.appendChild(strip); gl.appendChild(lbl);
+    box.appendChild(ovSection("At a glance", null, gl));
+    // 2. one line per team: how many, where, and what's next
+    var tb = el("div", "tms");
+    C.followed.forEach(function (n) {
+      var L = per[n]; if (!L || !L.length) return;
+      var h = L.filter(function (it) { return it.g.home; }).length, nx = L[0];
+      var row = el("div", "tmr"), top = el("div", "tmr-t");
+      top.appendChild(el("b", null, n)); top.appendChild(el("span", "dvs", L.length + " game" + (L.length === 1 ? "" : "s") + " · " + h + " home"));
+      row.appendChild(top);
+      var ms = el("div", "mstrip sm");
+      for (var k2 = 0; k2 < 30; k2++) { var it2 = L.filter(function (q) { return q.d === k2; })[0]; var ci = el("i", it2 ? (it2.g.home ? "h" : "a") : ""); if (it2) ci.title = fmtD(it2.t) + (it2.g.home ? " vs " : " at ") + it2.g.opp; ms.appendChild(ci); }
+      row.appendChild(ms);
+      var nxt = el("div", "tmr-n"); nxt.appendChild(el("span", "tmr-k", "Next")); nxt.appendChild(el("span", null, fmtD(nx.t) + " " + fmtT(nx.t) + (nx.g.home ? " vs " : " at ") + nx.g.opp + (nx.g.b ? " · " + nx.g.b : "")));
+      row.appendChild(nxt);
+      var b2b = 0; for (var j = 1; j < L.length; j++) if (L[j].d - L[j - 1].d === 1) b2b++;
+      if (b2b) { var bb = el("div", "tmr-n"); bb.appendChild(el("span", "tmr-k", "B2B")); bb.appendChild(el("span", null, b2b + " back-to-back" + (b2b === 1 ? "" : "s"))); row.appendChild(bb); }
+      tb.appendChild(row);
+    });
+    box.appendChild(ovSection("Your teams", C.followed.filter(function (n) { return per[n] && per[n].length; }).length + " playing", tb));
+    // 3. followed vs followed
+    if (derbies.length) {
+      var dw = el("div", "ag");
+      derbies.forEach(function (it) { var r = el("div", "agr"); r.appendChild(el("span", "agt w", fmtD(it.t))); r.appendChild(el("b", null, (it.g.home ? it.g.opp : it.n) + " at " + (it.g.home ? it.n : it.g.opp))); r.appendChild(el("span", "ago", fmtT(it.t))); dw.appendChild(r); });
+      box.appendChild(ovSection("Your teams meet", derbies.length + " game" + (derbies.length === 1 ? "" : "s"), dw));
+    }
+    // 4. the agenda, a week at a time (this week open, the rest folded)
+    var weeks = {};
+    items.forEach(function (it) { var w = Math.floor(it.d / 7); (weeks[w] = weeks[w] || []).push(it); });
+    Object.keys(weeks).sort(function (a, b) { return a - b; }).forEach(function (w) {
+      var ag = el("div", "ag"), ld = "";
+      weeks[w].forEach(function (it) {
+        var dk = new Date(it.t).toDateString();
+        if (dk !== ld) { ld = dk; ag.appendChild(el("div", "agd", it.d === 0 ? "Today" : it.d === 1 ? "Tomorrow" : fmtD(it.t, true))); }
+        var r = el("div", "agr"); r.appendChild(el("span", "agt", fmtT(it.t)));
+        r.appendChild(el("b", null, it.n)); r.appendChild(el("span", "ago", (it.g.home ? "vs " : "at ") + it.g.opp + (it.g.b ? " · " + it.g.b : ""))); ag.appendChild(r);
+      });
+      var title = w === "0" ? "This week" : w === "1" ? "Next week" : "Week of " + new Date(day0 + w * 7 * DAY).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      var sec2 = ovSection(title, weeks[w].length + " game" + (weeks[w].length === 1 ? "" : "s"), ag); if (w !== "0") sec2.open = false;
+      box.appendChild(sec2);
+    });
+    out.appendChild(box);
+    C.followed.forEach(loadTeam);
   }
 
   // ---------- Week: the last seven days of results for your teams, day by day, then the next seven ----------
@@ -1238,7 +1324,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.4 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.5 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
@@ -1252,12 +1338,22 @@
       var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb);
       box.appendChild(el("h3", null, "New card reveal"));
       var rv = el("div", "seg"), rc = "f"; try { rc = localStorage.getItem("sb-rv") || "f"; } catch (e) {}
-      [["f", "Full show"], ["q", "Quick toast"]].forEach(function (o) {
+      [["f", "Full show"], ["q", "Quick toast"], ["0", "Off"]].forEach(function (o) {
         var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", o[0] === rc ? "true" : "false");
-        b.onclick = function () { try { if (o[0] === "f") localStorage.removeItem("sb-rv"); else localStorage.setItem("sb-rv", "q"); } catch (e) {} [].forEach.call(rv.children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); };
+        b.onclick = function () { try { if (o[0] === "f") localStorage.removeItem("sb-rv"); else localStorage.setItem("sb-rv", o[0]); } catch (e) {} [].forEach.call(rv.children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); };
         rv.appendChild(b);
       });
-      box.appendChild(rv); }
+      box.appendChild(rv);
+      box.appendChild(el("p", "hcold", "Off keeps finding cards quietly: they still land in the log with a NEW badge."));
+      box.appendChild(el("h3", null, "Card pack pop-ups"));
+      var pk = el("div", "seg"), pc = "1"; try { pc = localStorage.getItem("sb-pk") || "1"; } catch (e) {}
+      [["1", "On"], ["0", "Off"]].forEach(function (o) {
+        var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", o[0] === pc ? "true" : "false");
+        b.onclick = function () { try { if (o[0] === "1") localStorage.removeItem("sb-pk"); else localStorage.setItem("sb-pk", "0"); } catch (e) {} [].forEach.call(pk.children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); };
+        pk.appendChild(b);
+      });
+      box.appendChild(pk);
+      box.appendChild(el("p", "hcold", "Off: packs still pile up, the gold dot on the profile button says when one is ready.")); }
     out.appendChild(box);
   }
 
@@ -1566,6 +1662,56 @@
     if (g.s === "up") return g.a[1] + " at " + g.h[1] + " \u00b7 " + when(g.t);
     return g.a[1] + " " + g.a[2] + " \u00b7 " + g.h[1] + " " + g.h[2] + " \u00b7 " + (g.s === "live" ? (g.c || "Live") : "Final");
   }
+  // ---------- live watch: the bits that change while you're looking ----------
+  var LASTCELL = {}, LASTPL = {};
+  // Cells whose value moved since the last render pulse once (values are remembered per table, per game).
+  function flashCells(tw, rows, key) {
+    var prev = LASTCELL[key], cur = rows.map(function (r) { return r.map(function (v) { return v == null ? "" : String(v); }); });
+    LASTCELL[key] = cur;
+    if (!prev || prev.length !== cur.length) return;
+    var trs = tw.querySelectorAll("tbody tr");
+    cur.forEach(function (r, i) { r.forEach(function (v, j) { if (j && prev[i] && prev[i][j] !== v && trs[i] && trs[i].children[j]) trs[i].children[j].classList.add("chg"); }); });
+  }
+  function livePanel(g, d, lg) {
+    var q = g.q || {}, pa = (lg && lg.path) || "", w = el("div", "lv"), hd = el("div", "lvh");
+    hd.appendChild(el("span", "lvd")); hd.appendChild(el("b", null, g.c || "Live"));
+    if (d && d.wp && d.wp.length > 5) {
+      var cur = d.wp[d.wp.length - 1], was = d.wp[Math.max(0, d.wp.length - 6)], lead = cur >= 50 ? g.h[1] : g.a[1], pct = cur >= 50 ? cur : 100 - cur;
+      var mo = el("span", "lvwp", lead + " " + pct + "%"); var dlt = cur - was; if (Math.abs(dlt) >= 3) mo.appendChild(el("i", (dlt > 0) === (cur >= 50) ? "up" : "down", (dlt > 0) === (cur >= 50) ? "\u25B2" : "\u25BC"));
+      hd.appendChild(mo);
+    }
+    w.appendChild(hd);
+    if (/^football/.test(pa) && (q.pt || q.dd)) {
+      // Virtual field: away team's half on the left, the ball where ESPN says it is, driving toward the end zone they attack.
+      var fld = el("div", "fld" + (q.rz ? " rz" : "")), ez1 = el("span", "ez l", g.a[1]), ez2 = el("span", "ez r", g.h[1]);
+      fld.appendChild(ez1); fld.appendChild(ez2);
+      var m = /^([A-Z0-9&]+)\s+(\d+)/.exec(q.pt || ""), x = 50;
+      if (m) { var yd = +m[2]; x = m[1] === g.a[1] ? yd : m[1] === g.h[1] ? 100 - yd : 50; }
+      var away = q.p && q.p === String(g.a[4]), home = q.p && q.p === String(g.h[4]);
+      var ball = el("span", "ball" + (away ? " r" : home ? " l" : "")); ball.style.left = x + "%";
+      ball.appendChild(el("i", null, "\uD83C\uDFC8")); fld.appendChild(ball);
+      for (var y = 10; y < 100; y += 10) { var yl = el("span", "yl"); yl.style.left = y + "%"; fld.appendChild(yl); }
+      w.appendChild(fld);
+      var dd = el("div", "lvdd"); if (q.dd) dd.appendChild(el("b", null, q.dd)); else if (q.pt) dd.appendChild(el("b", null, "Ball on " + q.pt));
+      if (q.rz) dd.appendChild(el("span", "rzb", "RED ZONE"));
+      var tos = el("span", "tos");
+      if (q.at != null) tos.appendChild(toDots(g.a[1], q.at)); if (q.ht != null) tos.appendChild(toDots(g.h[1], q.ht));
+      dd.appendChild(tos); w.appendChild(dd);
+    } else if (/^baseball/.test(pa) && q.b) {
+      var bb = el("div", "bsb"), dia = el("div", "dia");
+      [1, 2, 0].forEach(function (i) { dia.appendChild(el("i", "b" + i + (q.b[i] ? " on" : ""))); });
+      bb.appendChild(dia);
+      var info = el("div", "bsi"), outs = el("div", "outs");
+      for (var oi = 0; oi < 3; oi++) outs.appendChild(el("i", oi < q.o ? "on" : ""));
+      outs.appendChild(el("span", null, q.o + " out" + (q.o === 1 ? "" : "s"))); info.appendChild(outs);
+      info.appendChild(el("div", "cnt", "Count " + q.bs));
+      if (q.bat) info.appendChild(el("div", "who", "AB: " + q.bat)); if (q.pit) info.appendChild(el("div", "who", "P: " + q.pit));
+      bb.appendChild(info); w.appendChild(bb);
+    }
+    if (q.lp) { var lp = el("div", "lvp" + (LASTPL["lp" + g.id] && LASTPL["lp" + g.id] !== q.lp ? " new" : "")); LASTPL["lp" + g.id] = q.lp; lp.appendChild(el("span", "lvk", "Last play")); lp.appendChild(el("span", null, q.lp)); w.appendChild(lp); }
+    return w;
+  }
+  function toDots(ab, n) { var s2 = el("span", "to"); s2.appendChild(el("em", null, ab)); for (var i = 0; i < 3; i++) s2.appendChild(el("i", i < n ? "on" : "")); return s2; }
   function renderDetail(out) {
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
     var back = el("button", "back", "\u2039 Scores"); back.type = "button"; back.onclick = closeGame;
@@ -1579,6 +1725,7 @@
     if (g.ev) { renderEvent(out, g); return; }
     if (d === undefined) { out.appendChild(skel(3)); return; }
     if (d === null) { out.appendChild(el("p", "rmsg", "Box score unavailable right now.")); return; }
+    if (g.s === "live") out.appendChild(livePanel(g, d, lg));
 
     var up = g.s === "up", list = [], prim = [], secd = [];
     var pv = el("div", "sum");
@@ -1623,10 +1770,13 @@
         for (var i = 1; i < r.length; i++) if (typeof r[i] === "number") tot += r[i];
         return r.concat([tot]);
       });
-      prim.push(sec(lg && lg.soccer ? "By half" : "By period", tbl({ cols: [""].concat(d.periods.labels.map(function (_, i) { return perLabel(v.x.lk, i); }), ["T"]), rows: rows }, "per"), true, false));
+      var pt = tbl({ cols: [""].concat(d.periods.labels.map(function (_, i) { return perLabel(v.x.lk, i); }), ["T"]), rows: rows }, "per");
+      if (g.s === "live") flashCells(pt, rows, "per" + g.id);
+      prim.push(sec(lg && lg.soccer ? "By half" : "By period", pt, true, false));
     }
     d.tables.filter(function (t) { return t.kind === "team"; }).forEach(function (t) {
-      prim.push(sec(up ? "Team stats" : t.title, tbl(t), true, false));
+      var tt = tbl(t); if (g.s === "live") flashCells(tt, t.rows, "team" + g.id);
+      prim.push(sec(up ? "Team stats" : t.title, tt, true, false));
     });
 
     // Players: followed team first (first three tables open), then the other team.
@@ -1646,8 +1796,10 @@
 
     if (d.plays.length) {
       var sc = el("div", "plays"); sc.tabIndex = 0;
-      d.plays.forEach(function (p) {
-        var r = el("div", "play");
+      var seenP = LASTPL[g.id] || null, firstP = d.plays[0] ? d.plays[0].t + "|" + d.plays[0].x : "";
+      if (g.s === "live") LASTPL[g.id] = firstP;
+      d.plays.forEach(function (p, pi) {
+        var r = el("div", "play" + (g.s === "live" && seenP && seenP !== firstP && pi === 0 ? " new" : ""));
         r.appendChild(el("span", "pt", p.t));
         r.appendChild(el("span", "px", p.x));
         sc.appendChild(r);
@@ -2110,6 +2262,7 @@
       else if (g.s === "up" && isFollowed(g)) { var d = new Date(g.t) - now; if (d < 5 * 60000 && d > -30 * 60000) soon = true; }
     });
     FOLLIVE = fol || soon;
+    if (S.view && S.view.x.g.s === "live" && !document.hidden) return 20000;   // watching a game: keep it moving
     return fol ? 30000 : live ? C.liveRefreshSeconds * 1000 : soon ? 60000 : 0;
   }
   setInterval(function () {
