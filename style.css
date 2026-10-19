@@ -459,8 +459,9 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .card.click:active,.story.click:active,.recap[role=button]:active{transform:scale(.985)}
 .rh{flex-wrap:wrap}
 
-#who{display:flex;align-items:center;gap:7px;margin:-6px 0 8px 50px;padding:0;border:0;background:none;font:700 11px/1 var(--bd);letter-spacing:.24em;text-transform:uppercase;color:var(--mute);cursor:pointer;white-space:nowrap}
+#who{display:inline-block;align-self:flex-end;margin:0 0 5px;padding:0;border:0;background:none;font:700 9.5px/1 var(--bd);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62px;flex:0 1 auto;min-width:0}
 #who[hidden]{display:none}
-#who::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--line);flex:none;margin-left:3px}
-#who.on::before{background:var(--win);box-shadow:0 0 0 3px color-mix(in srgb,var(--win) 22%,transparent)}
+#who::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--line);flex:none;margin-right:5px;display:inline-block}
+#who.on::before{background:var(--win);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--win) 22%,transparent)}
 #who:hover{color:var(--ter)}
+header:has(#who:not([hidden])) h1 .t2{font-size:clamp(19px,calc((100vw - 276px) / 4.8),30px)}
