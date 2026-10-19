@@ -56,15 +56,7 @@
   fpIdx();
   function fpHas(n) { return !!FPS[String(n).toLowerCase()]; }
   function fpIn(g) { return C.fp.length && g.pp ? g.pp.filter(fpHas) : []; }
-  function applyTheme() {
-    var t = "auto";
-    try { t = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
-    if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
-    var dark = t === "dark" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches), m = document.querySelector("meta[name=theme-color]");
-    if (m) m.content = dark ? "#121722" : "#eef1f6";
-  }
-  applyTheme();
-  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {}
+  try { localStorage.removeItem("sb-theme"); } catch (e) {}   // dark only now; drop the old Light/Auto choice
   // toast(msg) shows for six seconds; toast(msg, ms, fn) stays longer and runs fn when tapped.
   function toast(msg, ms, fn) {
     var t = $("toast"); t.textContent = msg; t.className = "show" + (fn ? " act" : ""); t.onclick = fn ? function () { t.className = ""; fn(); } : null;
@@ -1453,8 +1445,6 @@
     var pref = function (k, label, hint, opts, rerender) { return segRow(label, hint, opts, PREF[k], function (v) { setPref(k, v); if (rerender) render(); }); };
     var ONOFF = [[true, "On"], [false, "Off"]];
     box.appendChild(el("h3", null, "Look"));
-    var cur = "auto"; try { cur = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
-    box.appendChild(segRow("Theme", "", [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]], cur, function (v) { try { localStorage.setItem("sb-theme", v); } catch (e) {} applyTheme(); }));
     box.appendChild(pref("compact", "Compact cards", "Tighter cards, no records", ONOFF, true));
     box.appendChild(pref("logos", "Team logos", "Off shows abbreviations", ONOFF, true));
     box.appendChild(pref("text", "Text size", "", [["n", "Normal"], ["l", "Large"]]));
