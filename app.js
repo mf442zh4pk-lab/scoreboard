@@ -382,7 +382,7 @@
     if (S.ysub === "recap") { renderRecap(out); return; }
     if (S.ysub === "news") { renderNews(out); return; }
     var y = S.yesterday;
-    if (!y) { out.appendChild(notice("No recap yet", "Hit Refresh to load yesterday's results.")); return; }
+    if (!y) { out.appendChild(notice("No recap yet", "Pull down to load yesterday's results.")); return; }
     out.appendChild(el("p", "lg", y.date));
     var played = y.teams.filter(function (t) { return t.played; });
     if (!played.length) { out.appendChild(notice("No games yesterday", "None of your teams played yesterday.")); out.appendChild(overview(y, played)); return; }
@@ -1329,7 +1329,7 @@
     if (C.noFeed.length) about += " " + C.noFeed.join(", ") + " " + (C.noFeed.length > 1 ? "are" : "is") + " on the list, but there is no data feed for " + (C.noFeed.length > 1 ? "them" : "it") + " yet.";
     $("about").textContent = about;
 
-    if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Hit Refresh if nothing appears.")); return; }
+    if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Pull down to refresh if nothing appears.")); return; }
     if (S.settings) { renderSettings(out); return; }
     if (S.view) { renderDetail(out); return; }
     if (S.more) out.appendChild(morePanel());
@@ -1341,7 +1341,7 @@
     items = items.filter(function (x) { return !isPinned(x); });
     var cl = leagueOf(S.tab), cst = cl && S.lgState[cl.key];
     if (!items.length && !pins.length) {
-      out.appendChild(cst === "loading" ? notice("Loading " + cl.label, "Fetching the latest games…") : cst === "failed" ? notice("Could not load " + cl.label, "Tap Refresh to try again.") : notice("Nothing on right now", "No games for this view in the latest update."));
+      out.appendChild(cst === "loading" ? notice("Loading " + cl.label, "Fetching the latest games…") : cst === "failed" ? notice("Could not load " + cl.label, "Pull down to try again.") : notice("Nothing on right now", "No games for this view in the latest update."));
       return;
     }
     var big = S.tab === "pinned";
@@ -1393,17 +1393,17 @@
   }
   function stampTick() {
     var s = $("stamp"), d = $("dot");
-    if (!S.last) { s.textContent = S.loading ? "Loading scores" : "No scores yet"; d.className = "dot"; return; }
+    if (!S.last) { s.textContent = S.loading ? "Loading scores" : "No scores yet"; d.className = "dot"; $("refresh").title = s.textContent; return; }
     [].forEach.call(document.querySelectorAll("[data-cd]"), function (n) {
       var t = countdown(n.getAttribute("data-cd"), !!n.getAttribute("data-long"));
       n.textContent = t ? " · " + t : "";
     });
     var m = Math.max(0, Math.round((Date.now() - S.last) / 60000));
     s.textContent = "Updated " + (m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " hr ago");
-    d.className = "dot " + (m <= 5 ? "fresh" : "stale");
+    d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = s.textContent;
     var bad = S.failed.map(function (k) { return leagueOf(k).label; });
     $("foot").textContent = (bad.length ? "Could not load: " + bad.join(", ") + ". " : "") +
-      "Scores refresh by themselves every minute while a game is live. Tap Refresh any time for the latest.";
+      "Scores refresh by themselves every minute while a game is live. Pull down, or tap the status light, any time for the latest.";
   }
 
   // ---------- loading ----------
@@ -1435,7 +1435,7 @@
   function load(full, only) {
     if (S.loading) return;
     S.loading = true;
-    var btn = $("refresh"); btn.disabled = true; btn.textContent = "Refreshing"; stampTick();
+    var btn = $("refresh"); btn.disabled = true; btn.setAttribute("aria-busy", "true"); stampTick();
     document.body.classList.add("ld");
     var offsets = [];
     for (var i = -1; i <= (full ? C.daysAhead : 0); i++) offsets.push(i);
@@ -1496,7 +1496,7 @@
     }).catch(function () {
       $("stamp").textContent = "Could not reach the score server"; $("dot").className = "dot stale";
     }).then(function () {
-      S.loading = false; btn.disabled = false; btn.textContent = "Refresh"; stampTick();
+      S.loading = false; btn.disabled = false; btn.removeAttribute("aria-busy"); stampTick();
       document.body.classList.remove("ld");
       if (window.ptrDone) window.ptrDone();
     });
@@ -1505,7 +1505,13 @@
 
   // ---------- start ----------
   document.title = C.title;
-  $("title").textContent = C.title;
+  (function () {
+    var t = $("title"), w = C.title.split(" "), last = w.pop(); t.textContent = "";
+    if (w.length) { var a = document.createElement("span"); a.className = "t1"; a.textContent = w.join(" "); t.appendChild(a); }
+    var b = document.createElement("span"); b.className = "t2"; b.textContent = last; t.appendChild(b);
+    t.setAttribute("aria-label", C.title);
+    $("mark").onclick = function () { t.click(); };
+  })();
   // Tapping the title goes home (Following tab).
   (function () {
     var ti = $("title"), home = function () {
@@ -1630,5 +1636,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=51").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=52").catch(function () {}); } catch (e) {} });
 })();
