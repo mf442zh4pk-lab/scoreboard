@@ -1265,6 +1265,7 @@
     var x = allGames().filter(function (q) { return q.lk === m[1] && q.g.id === m[2]; })[0];
     if (!x) { S.view = null; render(); return; }
     S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]), n: undefined };
+    if (window.FUN && FUN.team) FUN.team(x.lk, x.g);
     render(); window.scrollTo(0, 0); loadDetail(); loadNarr();
   }
   // The written recap/preview (AP via ESPN) loads alongside the box score and is added when it arrives.
@@ -1633,5 +1634,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=53").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=54").catch(function () {}); } catch (e) {} });
 })();
