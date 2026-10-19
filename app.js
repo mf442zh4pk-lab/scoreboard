@@ -26,7 +26,7 @@
   }
   applyTheme();
   function toast(msg) {
-    var t = $("toast"); t.textContent = msg; t.className = "show";
+    var t = $("toast"); t.textContent = msg; t.className = "show"; t.onclick = null;
     clearTimeout(toast.h); toast.h = setTimeout(function () { t.className = ""; }, 6000);
   }
 
@@ -1621,5 +1621,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=47").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=48").catch(function () {}); } catch (e) {} });
 })();
