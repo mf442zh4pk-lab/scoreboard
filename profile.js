@@ -1,4 +1,4 @@
-/* Profiles + Collection Log. Loaded only when the profile button is tapped (or a transfer link is opened). */
+/* Profiles + Collection Log. Loaded only when the profile button is tapped. */
 (function () {
   "use strict";
   var D = document, F = window.FUN, LS = localStorage;
@@ -49,7 +49,7 @@
   }
   function login(name, pw) {
     var P = profiles(), p = P[name.toLowerCase()];
-    if (!p) return Promise.reject("No profile with that name here. Create one or import a transfer code.");
+    if (!p) return Promise.reject("No profile with that name on this device.");
     return hashPw(pw, p.s, p.it || ITER).then(function (h) {
       if (h !== p.h) throw "Wrong password.";
       var guest = parse(g("sb-col")), blob = p.d || {}, merged = mergeCol(parse(blob["sb-col"]), guest);
@@ -63,25 +63,6 @@
   function logout() { saveActive(); applyBlob(null); s("sb-active", null); s("sb-lb", null); location.reload(); }
   function removeProfile() { var a = active(), P = profiles(); if (a) { delete P[a]; putProfiles(P); s("sb-active", null); s("sb-lb", null); } }
 
-  // ---------- transfer ----------
-  function utf8b64(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
-  function b64utf8(x) { x = x.replace(/-/g, "+").replace(/_/g, "/"); while (x.length % 4) x += "="; return decodeURIComponent(escape(atob(x))); }
-  function exportCode() {
-    saveActive(); var a = active(), p = profiles()[a];
-    return "SB1." + utf8b64(JSON.stringify({ n: p.n, s: p.s, h: p.h, it: p.it, d: p.d, c: p.c }));
-  }
-  function importCode(code) {
-    code = (code || "").trim(); var m = /xfer=([^&\s]+)/.exec(code); if (m) code = decodeURIComponent(m[1]);
-    if (code.indexOf("SB1.") !== 0) throw "That doesn't look like a transfer code.";
-    var o; try { o = JSON.parse(b64utf8(code.slice(4))); } catch (e) { throw "That code looks damaged. Copy it again."; }
-    if (!o || !o.n || !o.s || !o.h || !validName(o.n)) throw "That code looks damaged. Copy it again.";
-    return o;
-  }
-  function copy(txt, done) {
-    var ok = function () { done(true); };
-    try { navigator.clipboard.writeText(txt).then(ok, function () { fb(); }); } catch (e) { fb(); }
-    function fb() { var t = el("textarea"); t.value = txt; t.style.cssText = "position:fixed;opacity:0"; D.body.appendChild(t); t.select(); var r = false; try { r = D.execCommand("copy"); } catch (e) {} D.body.removeChild(t); done(r); }
-  }
 
 
   // ---------- online leaderboard (Firebase REST: no SDK, loaded only here) ----------
@@ -209,11 +190,11 @@
     var sheet = el("div", "pm-sheet"); root.appendChild(sheet); sheet.scrollTop = 0;
     var top = el("div", "pm-top");
     if (view !== "home") top.appendChild(btn("‹ Back", "pm-back", function () { show("home"); }));
-    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard", xfer: "Transfer", import: "Import profile" }[view] || ""));
+    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard" }[view] || ""));
     var x = btn("✕", "pm-x", close); x.setAttribute("aria-label", "Close"); top.appendChild(x);
     sheet.appendChild(top);
     var body = el("div", "pm-body"); sheet.appendChild(body);
-    ({ home: vHome, log: vLog, lb: vLb, xfer: vXfer, import: vImport })[view](body, arg);
+    ({ home: vHome, log: vLog, lb: vLb })[view](body, arg);
   }
   function msg(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
   function field(label, type, ac, val) {
@@ -236,7 +217,6 @@
       summary(body);
       body.appendChild(btn("Open Collection Log", "pm-b pri", function () { show("log"); }));
       body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
-      body.appendChild(btn("Transfer to another device", "pm-b", function () { show("xfer"); }));
       body.appendChild(btn("Log out", "pm-b", logout));
       var dz = el("details", "pm-dz"); dz.appendChild(el("summary", null, "More"));
       var dm = msg(dz), db = btn("Delete this profile", "pm-b dng", function () {
@@ -246,7 +226,7 @@
       dz.appendChild(db); dz.appendChild(el("p", "pm-note", "Deleting removes the login and its saved copy here. Your current scores, teams and cards stay as a guest.")); body.appendChild(dz);
       return;
     }
-    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together, and to join the leaderboard. Use the same login on any device, or Transfer to move your data."));
+    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together, and to join the leaderboard. "));
     summary(body);
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
@@ -268,43 +248,11 @@
       pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       form.appendChild(go);
       if (mode === "create") form.appendChild(el("p", "pm-note", "Username: letters, numbers, _ . - (3 to 16). Password 6+. Your current teams, settings and cards become this profile's starting point, and it joins the online leaderboard."));
-      if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Create one, or import one from another device."));
+      if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Create one to get started."));
     }
     bl.onclick = function () { mode = "login"; draw(); }; bc.onclick = function () { mode = "create"; draw(); };
     if (arg && arg.name) mode = "login"; else if (!hasAny) mode = "create";
     draw();
-    body.appendChild(btn("Import a profile from another device", "pm-b ghost", function () { show("import"); }));
-  }
-
-  // ---------- transfer / import ----------
-  function vXfer(body) {
-    if (!active()) { body.appendChild(el("p", "pm-lead", "Log in first.")); return; }
-    var code = exportCode(), link = location.origin + location.pathname + "#xfer=" + encodeURIComponent(code);
-    body.appendChild(el("p", "pm-lead", "To move this profile to another phone or computer, send yourself the link (or the code) and open it there. You'll log in with the same password."));
-    var m = msg(body);
-    function copyBtn(label, txt) { return btn(label, "pm-b", function () { copy(txt, function (ok) { m(ok ? "Copied." : "Couldn't copy. Select the code below and copy it.", ok); }); }); }
-    body.appendChild(copyBtn("Copy transfer link", link));
-    if (navigator.share) body.appendChild(btn("Share…", "pm-b", function () { navigator.share({ title: "Scoreboard profile", url: link }).catch(function () {}); }));
-    body.appendChild(copyBtn("Copy transfer code", code));
-    var ta = el("textarea", "pm-ta"); ta.readOnly = true; ta.value = code; ta.onclick = function () { ta.select(); }; body.appendChild(ta);
-    body.appendChild(el("p", "pm-note", "Anyone with this code could try to guess your password, so only send it to yourself. Importing replaces a profile with the same name on the other device; it doesn't sync afterward, so transfer again whenever you want to update it."));
-  }
-  function vImport(body, arg) {
-    body.appendChild(el("p", "pm-lead", "Paste a transfer code or link from your other device."));
-    var ta = el("textarea", "pm-ta"); ta.placeholder = "SB1.…"; ta.value = (arg && arg.code) || ""; body.appendChild(ta);
-    var m = msg(body), go = btn("Import", "pm-b pri");
-    function run() {
-      var o; try { o = importCode(ta.value); } catch (e) { m(e); return; }
-      var P = profiles(), l = o.n.toLowerCase();
-      if (P[l] && go.dataset.c !== "1") { go.dataset.c = "1"; go.textContent = "Replace '" + P[l].n + "' on this device?"; m("A profile with that name is already here."); return; }
-      var wasActive = active() === l;
-      P[l] = { n: o.n, s: o.s, h: o.h, it: o.it || ITER, d: o.d || {}, c: o.c || Date.now() }; putProfiles(P);
-      if (wasActive) { s("sb-active", null); }
-      history.replaceState(null, "", location.pathname + location.search);
-      show("home", { name: o.n }); setTimeout(function () { var mm = root && root.querySelector(".pm-msg"); if (mm) { mm.textContent = "Imported. Log in as " + o.n + " to finish."; mm.className = "pm-msg ok"; } }, 0);
-    }
-    go.onclick = run; body.appendChild(go);
-    if (arg && arg.code) setTimeout(function () { try { var o = importCode(arg.code); m("Found profile '" + o.n + "'. Tap Import.", true); } catch (e) { m(e); } }, 0);
   }
 
   // ---------- collection log ----------
@@ -398,9 +346,7 @@
   D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
   window.PROF = {
     open: function (v, a) {
-      var m = /^#xfer=(.+)$/.exec(location.hash);
-      if (m && !v) { open("import", { code: decodeURIComponent(m[1]) }); history.replaceState(null, "", location.pathname + location.search); }
-      else open(v, a);
+      open(v, a);
     },
     refresh: refreshBtn, sync: function () { return lbSync().catch(function () {}); }
   };
