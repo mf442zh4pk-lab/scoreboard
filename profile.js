@@ -44,6 +44,7 @@
     return hashPw(pw, salt, ITER).then(function (h) {
       P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() };
       putProfiles(P); s("sb-active", l);
+      F.disc("mack");
       lbJoin.changed = false;
       return Promise.race([lbJoin(name, pw, true, true), new Promise(function (r) { setTimeout(r, 2500); })]).then(function () { if (lbJoin.changed) location.reload(); });
     });
@@ -54,6 +55,7 @@
     return hashPw(pw, p.s, p.it || ITER).then(function (h) {
       if (h !== p.h) throw "Wrong password.";
       var guest = parse(g("sb-col")), blob = p.d || {}, merged = mergeCol(parse(blob["sb-col"]), guest);
+      if (!merged.i.mack) merged.i.mack = [Date.now(), 1];
       blob["sb-col"] = JSON.stringify(merged);
       applyBlob(blob); s("sb-active", name.toLowerCase());
       var go = function () { location.reload(); };
@@ -72,7 +74,7 @@
   // ---------- online leaderboard (Firebase REST: no SDK, loaded only here) ----------
   var FB = { key: "AIzaSyAJPV2xfmuK95zJwxaXbfVz9IWbUfdDCFI", pid: "scoreboard-b6d7e" };
   var DOC = "https://firestore.googleapis.com/v1/projects/" + FB.pid + "/databases/(default)/documents";
-  var WT = { C: 1, U: 3, R: 8, E: 20, L: 50, M: 150 };
+  var WT = { C: 1, U: 3, R: 8, E: 20, L: 50, M: 150, S: 200 };
   function myScore() { var c = F.col().i, sc = 0, n = 0; F.CAT.forEach(function (x) { if (c[x[0]]) { sc += WT[x[2]]; n++; } }); return { score: sc, cards: n }; }
   function lbGet() { return parse(g("sb-lb")); }
   function lbPut(o) { s("sb-lb", o ? JSON.stringify(o) : null); }
@@ -153,6 +155,7 @@
         var salt = b64(crypto.getRandomValues(new Uint8Array(16))), l = name.toLowerCase();
         return hashPw(pw, salt, ITER).then(function (h) {
           var blob = rb || {}, merged = mergeCol(parse(blob["sb-col"]), parse(g("sb-col")));
+          if (!merged.i.mack) merged.i.mack = [Date.now(), 1];
           blob["sb-col"] = JSON.stringify(merged); applyBlob(blob);
           var P = profiles(); P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() }; putProfiles(P); s("sb-active", l);
           var go = function () { location.reload(); };
@@ -272,6 +275,7 @@
   function vHome(body, arg) {
     var a = active(), P = profiles(), p = a && P[a];
     if (p) {
+      if (!F.col().i.mack) F.disc("mack");
       var hd = el("div", "pm-who"); hd.appendChild(el("span", "pm-av", p.n.charAt(0).toUpperCase()));
       var w = el("div"); w.appendChild(el("div", "pm-name", p.n)); w.appendChild(el("div", "pm-sub", "Signed in on this device")); hd.appendChild(w); body.appendChild(hd);
       summary(body);
@@ -316,7 +320,7 @@
   }
 
   // ---------- collection log ----------
-  var filter = "all", RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M" };
+  var filter = "all", RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
   function pad(n) { return ("00" + n).slice(-3); }
   function vLog(body, arg) {
     var col = F.col(), found = F.count(), t = F.total;
@@ -351,7 +355,7 @@
     body.appendChild(chips); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
     var lg = el("div", "pm-key");
-    ["C", "U", "R", "E", "L", "M"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
+    ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
     body.appendChild(lg);
     body.dataset.keep = "1";
   }
@@ -396,12 +400,12 @@
     var pb = btn("‹", "pm-b tcd-n", function () { nav(-1); }); if (dList && idx === 0) pb.disabled = true; pb.setAttribute("aria-label", "Previous card"); ctl.appendChild(pb);
     var pl = /^[wlcb]_/.test(c[0]);
     if (got && pl) ctl.appendChild(btn("▶ Replay", "pm-b", function () { F.play(c[0], card); }));
-    if (got && /^[RELM]$/.test(c[2])) ctl.appendChild(btn("✨ Reveal", "pm-b", function () { F.reveal(c); }));
+    if (got && /^[RELMS]$/.test(c[2])) ctl.appendChild(btn("✨ Reveal", "pm-b", function () { F.reveal(c); }));
     ctl.appendChild(btn("Close", "pm-b", closeD));
     var nb = btn(dList && idx === L.length - 1 ? "✓" : "›", "pm-b tcd-n", function () { nav(1); }); nb.setAttribute("aria-label", dList && idx === L.length - 1 ? "Done" : "Next card"); ctl.appendChild(nb);
     wrap.appendChild(ctl); ov.appendChild(wrap); (root || D.body).appendChild(ov);
     requestAnimationFrame(function () { ov.classList.add("in"); });
-    if (got && (c[2] === "L" || c[2] === "M") && !F.reduced) F.confetti(24, ["✨", "⭐"]);
+    if (got && (c[2] === "L" || c[2] === "M" || c[2] === "S") && !F.reduced) F.confetti(24, ["✨", "⭐"]);
   }
   function closeD() { if (!dRoot) return; var d = dRoot; dRoot = null; dList = null; d.classList.remove("in"); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 180);
     if (root) { var v = root.querySelector(".pm-grid"); if (v) { var sc = root.querySelector(".pm-sheet").scrollTop; show("log"); root.querySelector(".pm-sheet").scrollTop = sc; } } }
