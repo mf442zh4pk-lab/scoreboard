@@ -17,9 +17,9 @@
 
   // ---------- collection log ----------
   // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
-  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones" };
+  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams" };
   var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic" };
-  var RW = { C: 10, U: 6, R: 3, E: 1.3, L: .5, M: .1 };
+  var RW = { C: 11, U: 5, R: 2.4, E: 1, L: .35, M: .07 };
   var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
   var CAT = [
     ["w_confetti","w","C","🎊","Confetti Cannon","The classic. Someone's team came through.",HW],
@@ -110,9 +110,34 @@
     ["m10","m","U","📒","Rookie Collector","Ten cards in the binder.","Collect 10 cards."],
     ["m25","m","R","🗂️","Veteran Collector","Twenty-five and counting.","Collect 25 cards."],
     ["m50","m","L","📚","Hall Of Famer","Fifty cards. Impressive.","Collect 50 cards."],
-    ["gt","m","M","🎫","Golden Ticket","One in four hundred, every time the page changes. Nobody finds this on purpose.","It's in the air. Keep moving around."],
+    ["m100","m","L","🏅","Centurion","One hundred cards. Respect.","Collect 100 cards."],
+    ["gt","m","M","🎫","Golden Ticket","One in six hundred, every time the page changes. Nobody finds this on purpose.","It's in the air. Keep moving around."],
     ["all","m","M","💎","Completionist","Every card. Every one.","Find every other card."]
   ];
+  var TEAMS = {
+    nfl: "Green Bay Packers|Packers|🧀|M\nDallas Cowboys|Cowboys|🤠|L\nNew England Patriots|Patriots|🎖️|L\nPittsburgh Steelers|Steelers|⚙️|L\nSan Francisco 49ers|49ers|⛏️|E\nKansas City Chiefs|Chiefs|🏹|E\nNew York Giants|Giants|🏔️|E\nChicago Bears|Bears|🐻|E\nPhiladelphia Eagles|Eagles|🦅|E\nDenver Broncos|Broncos|🐴|R\nLas Vegas Raiders|Raiders|🏴|R\nWashington Commanders|Commanders|🪖|R\nBaltimore Ravens|Ravens|🪶|R\nSeattle Seahawks|Seahawks|🌊|R\nLos Angeles Rams|Rams|🐏|R\nMiami Dolphins|Dolphins|🐬|R\nIndianapolis Colts|Colts|🏇|U\nBuffalo Bills|Bills|🦬|U\nMinnesota Vikings|Vikings|⚔️|U\nCleveland Browns|Browns|🟤|U\nNew Orleans Saints|Saints|⚜️|U\nTampa Bay Buccaneers|Buccaneers|☠️|U\nCincinnati Bengals|Bengals|🐯|U\nNew York Jets|Jets|✈️|U\nArizona Cardinals|Cardinals|🐦|C\nAtlanta Falcons|Falcons|🪽|C\nCarolina Panthers|Panthers|🐆|C\nDetroit Lions|Lions|🦁|C\nHouston Texans|Texans|🐂|C\nJacksonville Jaguars|Jaguars|🐾|C\nLos Angeles Chargers|Chargers|⚡|C\nTennessee Titans|Titans|🔱|C".split("\n"),
+    nba: "Boston Celtics|Celtics|☘️|M\nLos Angeles Lakers|Lakers|🌴|L\nChicago Bulls|Bulls|🐃|L\nGolden State Warriors|Warriors|🌉|L\nSan Antonio Spurs|Spurs|🌵|E\nMiami Heat|Heat|🔥|E\nDetroit Pistons|Pistons|🔧|E\nNew York Knicks|Knicks|🗽|E\nHouston Rockets|Rockets|🚀|E\nPhiladelphia 76ers|76ers|🔔|R\nMilwaukee Bucks|Bucks|🦌|R\nDallas Mavericks|Mavericks|🐎|R\nPhoenix Suns|Suns|☀️|R\nOklahoma City Thunder|Thunder|⛈️|R\nDenver Nuggets|Nuggets|⛰️|R\nCleveland Cavaliers|Cavaliers|🛡️|R\nToronto Raptors|Raptors|🦖|U\nPortland Trail Blazers|Trail Blazers|🌲|U\nOrlando Magic|Magic|🪄|U\nIndiana Pacers|Pacers|🏎️|U\nSacramento Kings|Kings|👑|U\nAtlanta Hawks|Hawks|🦅|U\nLA Clippers|Clippers|⛵|U\nBrooklyn Nets|Nets|🕸️|U\nCharlotte Hornets|Hornets|🐝|C\nMemphis Grizzlies|Grizzlies|🐻‍❄️|C\nNew Orleans Pelicans|Pelicans|🪺|C\nMinnesota Timberwolves|Timberwolves|🐺|C\nUtah Jazz|Jazz|🎷|C\nWashington Wizards|Wizards|🧙|C".split("\n"),
+    mlb: "New York Yankees|Yankees|🎩|M\nSt. Louis Cardinals|Cardinals|🐦|L\nBoston Red Sox|Red Sox|🧦|L\nLos Angeles Dodgers|Dodgers|🐕|L\nSan Francisco Giants|Giants|🌉|E\nAthletics|Athletics|🐘|E\nCincinnati Reds|Reds|🔴|E\nChicago Cubs|Cubs|🐻|E\nAtlanta Braves|Braves|🪓|E\nDetroit Tigers|Tigers|🐯|R\nPittsburgh Pirates|Pirates|🏴‍☠️|R\nBaltimore Orioles|Orioles|🪺|R\nPhiladelphia Phillies|Phillies|🔔|R\nHouston Astros|Astros|🪐|R\nNew York Mets|Mets|🍎|R\nMinnesota Twins|Twins|👯|R\nToronto Blue Jays|Blue Jays|🐦|U\nCleveland Guardians|Guardians|🛡️|U\nKansas City Royals|Royals|👑|U\nArizona Diamondbacks|Diamondbacks|🐍|U\nMiami Marlins|Marlins|🐟|U\nLos Angeles Angels|Angels|😇|U\nChicago White Sox|White Sox|⚪|U\nTexas Rangers|Rangers|🤠|U\nTampa Bay Rays|Rays|🌞|C\nColorado Rockies|Rockies|🏔️|C\nMilwaukee Brewers|Brewers|🍺|C\nSeattle Mariners|Mariners|⚓|C\nWashington Nationals|Nationals|🏛️|C\nSan Diego Padres|Padres|⛪|C".split("\n"),
+    nhl: "Montréal Canadiens|Canadiens|🍁|M\nDetroit Red Wings|Red Wings|🪽|L\nToronto Maple Leafs|Maple Leafs|🍃|L\nBoston Bruins|Bruins|🐻|L\nChicago Blackhawks|Blackhawks|🪶|E\nPittsburgh Penguins|Penguins|🐧|E\nEdmonton Oilers|Oilers|🛢️|E\nNew York Islanders|Islanders|🏝️|E\nNew York Rangers|Rangers|🗽|E\nPhiladelphia Flyers|Flyers|🛸|R\nNew Jersey Devils|Devils|😈|R\nColorado Avalanche|Avalanche|🏔️|R\nTampa Bay Lightning|Lightning|⚡|R\nLos Angeles Kings|Kings|👑|R\nDallas Stars|Stars|⭐|R\nWashington Capitals|Capitals|🦅|R\nCarolina Hurricanes|Hurricanes|🌀|U\nAnaheim Ducks|Ducks|🦆|U\nSt. Louis Blues|Blues|🎵|U\nCalgary Flames|Flames|🔥|U\nVancouver Canucks|Canucks|🐳|U\nBuffalo Sabres|Sabres|🗡️|U\nOttawa Senators|Senators|🏛️|U\nVegas Golden Knights|Golden Knights|🛡️|U\nFlorida Panthers|Panthers|🐆|C\nNashville Predators|Predators|🐯|C\nWinnipeg Jets|Jets|✈️|C\nMinnesota Wild|Wild|🌲|C\nSan Jose Sharks|Sharks|🦈|C\nColumbus Blue Jackets|Blue Jackets|🧥|C\nSeattle Kraken|Kraken|🦑|C\nUtah Mammoth|Mammoth|🦣|C".split("\n")
+  };
+  var TCAT = { nfl: "tn", nba: "tb", mlb: "tm", nhl: "th" }, TLBL = { nfl: "NFL", nba: "NBA", mlb: "MLB", nhl: "NHL" }, TK = {};
+  var TFL = {
+    C: ["A steady presence on the schedule.", "Never far from a scoreboard.", "Part of the everyday slate."],
+    U: ["A name that gets noticed.", "Always worth a look at game time.", "Quietly collectible."],
+    R: ["A real find in the log.", "Collectors circle this one.", "Hard to pull on any given night."],
+    E: ["Big moments live here.", "A banner franchise.", "History lives here."],
+    L: ["Banners for days.", "A dynasty's name on the card.", "Legends wore this crest."],
+    M: ["Franchise royalty.", "Top of the mountain.", "The rarest crest in the league."]
+  };
+  function slug(x) { return String(x).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  Object.keys(TEAMS).forEach(function (lk) {
+    TEAMS[lk].forEach(function (t, i) {
+      var p = t.split("|"), id = "t_" + lk + "_" + slug(p[1]);
+      CAT.push([id, TCAT[lk], p[3], p[2], p[0], TFL[p[3]][(i + p[1].length) % 3], "Open a game featuring the " + p[1] + ". The rarer the team, the lower the drop chance."]);
+      TK[lk + "|" + slug(p[0])] = id;
+    });
+  });
+  TK["nba|losangelesclippers"] = "t_nba_clippers"; TK["nhl|utahhockeyclub"] = "t_nhl_mammoth"; TK["mlb|oaklandathletics"] = "t_mlb_athletics";
   var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; });
   var TOTAL = CAT.length, col = { i: {}, s: {}, d: [] };
   try { var rc = JSON.parse(localStorage.getItem("sb-col") || "null"); if (rc && rc.i) col = rc; } catch (e) {}
@@ -126,10 +151,10 @@
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
   function say(msg, go, cls) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = (go ? "show go" : "show") + (cls ? " " + cls : ""); t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
   var newQ = [], newT = 0;
-  function disc(id) {
+  function disc(id, extra) {
     var c = IDX[id]; if (!c) return;
     var e = col.i[id]; if (e) { e[1]++; save(); return; }
-    col.i[id] = [Date.now(), 1]; save(); newQ.push(c);
+    col.i[id] = [Date.now(), 1]; if (extra) col.i[id][2] = extra; save(); newQ.push(c);
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
@@ -140,13 +165,34 @@
       else if (mt >= 2 && quick) vib(30);
       say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); }, "r" + "CURELM".charAt(mt));
           }, newQ.some(function (c) { return tier(c) >= 3; }) ? 1100 : 450);
-    var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50");
+    var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50"); if (n >= 100) disc("m100");
     if (id !== "all" && n >= TOTAL - 1) disc("all");
   }
 
   // ---------- new-card reveal (scales with rarity) ----------
   var CH = [0, 0, 250, 850, 1350, 1900], RVW = ["", "", "RARE", "EPIC", "LEGENDARY", "MYTHIC"], RVC = { R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d" }, rvO = null;
   function E(t, c, x) { var e = D.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+  function artEl(c, cls, px, got) {             // team cards show their real logo once found
+    var e = col.i[c[0]], p = got && e && e[2];
+    if (p) {
+      var im = E("img", cls + " lg"); im.alt = c[4]; im.loading = "lazy"; im.decoding = "async";
+      im.onerror = function () { var s2 = E("span", cls, c[3]); if (im.parentNode) im.parentNode.replaceChild(s2, im); };
+      im.src = "https://a.espncdn.com/combiner/i?img=" + p + "&w=" + px + "&h=" + px; return im;
+    }
+    return E("span", cls, c[3]);
+  }
+  var TP = { C: .5, U: .35, R: .2, E: .1, L: .05, M: .025 };
+  function teamDrop(lk, g) {                     // opening a game rolls once for each team in it, by rarity
+    if (!g || !TCAT[lk]) return;
+    var rolled, ch = false; try { rolled = JSON.parse(localStorage.getItem("sb-roll") || "[]"); } catch (e) { rolled = []; }
+    [g.h, g.a].forEach(function (s) {
+      if (!s) return; var id = TK[lk + "|" + slug(s[0])]; if (!id || col.i[id]) return;
+      var key = lk + g.id + id; if (rolled.indexOf(key) >= 0) return;
+      rolled.push(key); ch = true;
+      if (Math.random() < TP[IDX[id][2]]) { var m = /img=([^&]+)/.exec(s[5] || ""); disc(id, m ? decodeURIComponent(m[1]) : ""); }
+    });
+    if (ch) { try { localStorage.setItem("sb-roll", JSON.stringify(rolled.slice(-300))); } catch (e) {} }
+  }
   function tier(c) { return "CURELM".indexOf(c[2]); }
   function vib(p) { try { if (!RM && navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   function revealClose() {
@@ -168,7 +214,7 @@
     chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
     flip.appendChild(E("div", "rv-bk", "?"));
     var card = E("div", "tc r" + c[2] + " got"), hd = E("div", "tc-h"); hd.appendChild(E("span", null, "No. " + ("00" + c.n).slice(-3) + " / " + ("00" + TOTAL).slice(-3))); hd.appendChild(E("span", null, CATS[c[1]])); card.appendChild(hd);
-    var art = E("div", "tc-art"); art.appendChild(E("span", "tc-em", c[3])); card.appendChild(art);
+    var art = E("div", "tc-art"); art.appendChild(artEl(c, "tc-em", 200, true)); card.appendChild(art);
     card.appendChild(E("h3", "tc-n", c[4]));
     var rb = E("div", "tc-rar"); rb.appendChild(E("i", null, c[2])); rb.appendChild(D.createTextNode(RAR[c[2]])); card.appendChild(rb);
     card.appendChild(E("p", "tc-d", c[5])); card.appendChild(E("span", "tc-foil"));
@@ -286,7 +332,7 @@
     var st = out.querySelectorAll(".fire3,.fire5,.cold3,.cold5,.heat");
     for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
     if (RM) return; arrivals++;
-    if (Math.random() < 1 / 400) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
+    if (Math.random() < 1 / 600) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, 4), anyWin = false;
     cards.forEach(function (c) {
       var win = c.classList.contains("w") || !!c.querySelector(".pill.final.w"), loss = c.classList.contains("l") || !!c.querySelector(".pill.final.l");
@@ -302,9 +348,9 @@
         else LOSE[k](holder(c));
       }
     });
-    if (anyWin && Math.random() < .07) { gConfetti(70); found("legend"); }
+    if (anyWin && Math.random() < .045) { gConfetti(70); found("legend"); }
     var r = Math.random();
-    if (r < .10) ball(); else if (r < .17) seasonal(); else if (r < .21) gold(out); else if (r < .24) cameo();
+    if (r < .07) ball(); else if (r < .12) seasonal(); else if (r < .15) gold(out); else if (r < .17) cameo();
     special();
   }
   var SPECIAL_DONE = false;
@@ -423,7 +469,7 @@
   }, { passive: true });
   dates();
 
-  window.FUN = { reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
