@@ -218,6 +218,9 @@
   function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
   function say(msg, go, cls) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = (go ? "show go" : "show") + (cls ? " " + cls : ""); t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
+  // No pop-ups before there's an account (the one-time account prompt is the only exception): cards and packs still
+  // pile up quietly, with NEW badges in the log and the gold dot on the profile button.
+  function acct() { try { return !!localStorage.getItem("sb-active"); } catch (e) { return false; } }
   var newQ = [], newT = 0, TAPPING = false;
   function disc(id, extra) {
     var c = IDX[id]; if (!c) return;
@@ -229,7 +232,7 @@
       var q = newQ; newQ = [];
       var cid = q.length === 1 ? q[0][0] : null;
       var rvm = "f"; try { rvm = localStorage.getItem("sb-rv") || "f"; } catch (e) {}
-      if (rvm === "0") return;                      // pop-ups off: the cards are in the log with a NEW badge, nothing else
+      if (rvm === "0" || !acct()) return;           // pop-ups off (or no account yet): the cards are in the log with a NEW badge, nothing else
       var quick = rvm === "q";
       if (!quick && reveal(q)) return;
       var mt = Math.max.apply(null, q.map(tier)); if (mt === 1 && !RM) gConfetti(10, ["✨"]);
@@ -492,7 +495,7 @@
     for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
     quipNow(false); earn(3, "use");
     if (RM) return; arrivals++; holidayFx();
-    if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
+    if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); if (acct()) say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, Math.random() < .5 ? 1 : 0), anyWin = false;
     cards.forEach(function (c) {
       var win = c.classList.contains("w") || !!c.querySelector(".pill.final.w"), loss = c.classList.contains("l") || !!c.querySelector(".pill.final.l");
@@ -675,7 +678,7 @@
     while (hk && col.hc >= COST) { if (col.hl && Date.now() - col.hl < 7 * 864e5) { col.hc = COST; break; } col.hc -= COST; col.hk.push(hk); col.hl = Date.now(); gotH = true; }
     save(); badge();
     var pop = true; try { pop = localStorage.getItem("sb-pk") !== "0"; } catch (e) {}
-    if ((gotR || gotH) && pop) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
+    if ((gotR || gotH) && pop && acct()) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
   }
   var PKP = null;
   function packPop(r, hk) {
