@@ -262,14 +262,14 @@
     var sheet = el("div", "pm-sheet"); root.appendChild(sheet); sheet.scrollTop = 0;
     var top = el("div", "pm-top");
     if (view !== "home") top.appendChild(btn("‹ Back", "pm-back", function () { show("home"); }));
-    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard" }[view] || ""));
+    top.appendChild(el("h2", "pm-h", { home: "Profile", log: "Collection Log", lb: "Leaderboard", stats: "Stats" }[view] || ""));
     var x = btn("✕", "pm-x", close); x.setAttribute("aria-label", "Close"); top.appendChild(x);
     sheet.appendChild(top);
     var sy0 = null;                                  // swipe down on the title bar to close
     top.addEventListener("touchstart", function (e) { sy0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
     top.addEventListener("touchend", function (e) { if (sy0 != null && e.changedTouches[0].clientY - sy0 > 70) close(); sy0 = null; });
     var body = el("div", "pm-body"); sheet.appendChild(body);
-    ({ home: vHome, log: vLog, lb: vLb })[view](body, arg);
+    ({ home: vHome, log: vLog, lb: vLb, stats: vStats })[view](body, arg);
   }
   function msg(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
   function field(label, type, ac, val) {
@@ -281,6 +281,66 @@
     box.appendChild(el("div", "pm-sumn", n + " / " + t)); box.appendChild(el("div", "pm-suml", "cards collected"));
     var bar = el("div", "pm-pg"), fill = el("i"); fill.style.width = Math.round(n / t * 100) + "%"; bar.appendChild(fill); box.appendChild(bar);
     parent.appendChild(box);
+  }
+
+  // ---------- account stats ----------
+  function vStats(body) {
+    var a = active(), P = profiles(), p = a && P[a], col = F.col(), days = col.d || [], D = 864e5;
+    var fmt = function (t) { return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
+    var first = col.d0 ? F.keyDate(col.d0) : (days.length ? F.keyDate(days[0]) : null);
+    var since = p && p.c ? p.c : first, age = since ? Math.max(1, Math.floor((Date.now() - since) / D) + 1) : 0;
+    var cur = F.streak(days), last = days.length ? F.keyDate(days[days.length - 1]) : 0, today = new Date(); today.setHours(0, 0, 0, 0);
+    if (last && today - last > D) cur = 0;                          // the streak only counts if it reaches yesterday or today
+    var longest = Math.max(col.ls || 0, cur), opened = Math.max(col.dn || 0, days.length);
+    var owned = 0, dupes = 0, byR = {}, top = null, firstC = null, lastC = null, holo = 0;
+    F.CAT.forEach(function (c) {
+      var e = col.i[c[0]]; if (!e) return; owned++; dupes += Math.max(0, e[1] - 1); byR[c[2]] = (byR[c[2]] || 0) + 1;
+      if (!top || "CURELMS".indexOf(c[2]) > "CURELMS".indexOf(top[2])) top = c;
+      if (!firstC || e[0] < firstC[0]) firstC = [e[0], c]; if (!lastC || e[0] > lastC[0]) lastC = [e[0], c];
+      if (c.h) holo++;
+    });
+    var sc = myScore(), fol = 0, ppl = 0; try { fol = (JSON.parse(g("sb-followed") || "[]") || []).length; ppl = (JSON.parse(g("sb-fp") || "[]") || []).length; } catch (e) {}
+    var wd = [0, 0, 0, 0, 0, 0, 0]; days.forEach(function (k) { wd[new Date(F.keyDate(k)).getDay()]++; });
+    var favD = wd.indexOf(Math.max.apply(null, wd)), DN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var hd = el("div", "pm-who"); hd.appendChild(el("span", "pm-av", p ? p.n.charAt(0).toUpperCase() : "★"));
+    var w = el("div"); w.appendChild(el("div", "pm-name", p ? p.n : "This device")); w.appendChild(el("div", "pm-sub", since ? (p ? "Profile made " : "First visit ") + fmt(since) : "No visits logged yet")); hd.appendChild(w); body.appendChild(hd);
+    function grid(title, tiles) {
+      body.appendChild(el("h3", "ac-h", title)); var gr = el("div", "ac-grid");
+      tiles.forEach(function (t) { if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
+      body.appendChild(gr);
+    }
+    grid("Account", [
+      [age, age === 1 ? "day old" : "days old"],
+      [opened, opened === 1 ? "day opened" : "days opened"],
+      [cur, "day streak" + (cur ? " 🔥" : ""), cur >= 7 ? "hot" : ""],
+      [longest, "longest streak"],
+      [opened && age ? Math.round(opened / age * 100) + "%" : null, "of days visited"],
+      [days.length ? DN[favD] : null, "favorite day"],
+    ]);
+    grid("Cards", [
+      [owned + " / " + F.total, "cards found"],
+      [col.po || 0, (col.po === 1 ? "pack" : "packs") + " opened"],
+      [F.packs ? F.packs().n : 0, "packs waiting"],
+      [dupes, "duplicates"],
+      [top ? F.RAR[top[2]] : null, top ? "rarest: " + top[4] : ""],
+      [holo || null, "holiday cards"],
+      [sc.score, "leaderboard score"],
+      [firstC ? fmt(firstC[0]) : null, firstC ? "first card: " + firstC[1][4] : ""],
+      [lastC ? fmt(lastC[0]) : null, lastC ? "latest: " + lastC[1][4] : ""],
+    ]);
+    var rr = el("div", "ac-rar"); ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var tot = F.CAT.filter(function (c) { return c[2] === k; }).length; if (!tot) return; var r = el("div", "ac-rr r" + k); r.appendChild(el("i", null, k)); r.appendChild(el("span", null, F.RAR[k])); var bar = el("div", "ac-bar"), fl = el("u"); fl.style.width = Math.round((byR[k] || 0) / tot * 100) + "%"; bar.appendChild(fl); r.appendChild(bar); r.appendChild(el("em", null, (byR[k] || 0) + "/" + tot)); rr.appendChild(r); });
+    body.appendChild(rr);
+    grid("Scoreboard", [
+      [col.gv || 0, (col.gv === 1 ? "game" : "games") + " opened"],
+      [col.tp || 0, "taps"],
+      [fol, fol === 1 ? "team followed" : "teams followed"],
+      [ppl || null, ppl === 1 ? "person followed" : "people followed"],
+    ]);
+    if (lbGet()) {
+      var rk = el("p", "pm-note", "Rank: …"); body.appendChild(rk);
+      lbRank(sc.score).then(function (r) { rk.textContent = "Leaderboard rank: #" + r; }, function () { rk.textContent = ""; });
+    }
+    body.appendChild(el("p", "pm-note", "Days and streaks count from when this device first opened the app" + (p ? " (or the profile's own history once it syncs)" : "") + "."));
   }
 
   // ---------- home ----------
@@ -296,6 +356,7 @@
       if (pk1.n) body.appendChild(btn("\uD83C\uDF81 Open pack (" + pk1.n + ")", "pm-b pri", function () { close(); F.openPacks(); }));
       body.appendChild(btn("Open Collection Log", pk1.n ? "pm-b" : "pm-b pri", function () { show("log"); }));
       body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
+      body.appendChild(btn("Stats", "pm-b", function () { show("stats"); }));
       body.appendChild(btn("Settings", "pm-b", openSet));
       body.appendChild(btn("Log out", "pm-b", logout));
 
@@ -307,6 +368,7 @@
     if (pk2.n) body.appendChild(btn("\uD83C\uDF81 Open pack (" + pk2.n + ")", "pm-b pri", function () { close(); F.openPacks(); }));
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
+    body.appendChild(btn("Stats", "pm-b", function () { show("stats"); }));
     body.appendChild(btn("Settings", "pm-b", openSet));
     var tabs = el("div", "pm-seg"), mode = "login", form = el("div", "pm-form");
     var bl = btn("Log in", "on"), bc = btn("Create profile", "");
