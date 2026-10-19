@@ -326,3 +326,50 @@ body.rv-on .fxg{z-index:95}
 .pm-cnt{margin:2px 0 6px}.pm-none{grid-column:1/-1;text-align:center;padding:18px 0}
 
 .pm-hol{margin:0 0 10px;line-height:1.4}
+
+/* v62 minimal sheets and filters */
+.pm-h{font-size:19px;letter-spacing:.08em;font-weight:700}
+.pm-x,.pm-back{background:none;border:0;color:var(--mute);height:32px;padding:0 6px}
+.pm-x{width:32px}
+.pm-b{background:none;border:1px solid var(--line);border-radius:10px;font-weight:600;text-align:left;padding:11px 14px;transition:border-color .15s,transform .1s}
+.pm-b:active{transform:scale(.985)}
+.pm-b:hover{border-color:var(--mute)}
+.pm-b.pri{background:var(--pri);border-color:var(--pri);text-align:center;font-weight:700}
+.pm-sum{background:none;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;padding:12px 2px}
+.pm-pg{height:3px}
+.pm-seg{background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:0;gap:0}
+.pm-seg button{border-radius:0;border-bottom:2px solid transparent;padding:9px}
+.pm-seg button.on{background:none;color:var(--fg);border-bottom-color:var(--ter)}
+.pm-chips{gap:14px;border-bottom:1px solid var(--line);padding-bottom:0}
+.pm-chip{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:7px 1px;font-size:12.5px;letter-spacing:.03em}
+.pm-chip.on{background:none;color:var(--fg);border-bottom-color:var(--ter)}
+.pm-chip.pm-rc i{width:9px;height:9px;font-size:0}
+.pm-q{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:10px 2px}
+.pm-q:focus{outline:0;border-bottom-color:var(--ter)}
+.pm-stk{position:sticky;top:58px;z-index:1;background:var(--bg);padding-bottom:2px;display:flex;flex-direction:column;gap:0}
+.pm-stk .pm-q{margin:0}.pm-stk .pm-chips{margin:0}
+.pm-f input{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:10px 2px}
+.pm-f input:focus{outline:0;border-bottom-color:var(--ter)}
+.pm-sheet{transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+/* holiday animations */
+.hf{position:absolute;left:var(--x);top:0;font-size:calc(var(--s,1) * 22px);line-height:1;animation-duration:var(--t);animation-delay:var(--dl);animation-fill-mode:both;animation-timing-function:ease-in-out;will-change:transform,opacity;pointer-events:none}
+.hf-fall,.hf-tumble,.hf-drift{animation-name:hfFall}
+.hf-tumble{animation-timing-function:ease-in}.hf-drift{animation-timing-function:linear}
+@keyframes hfFall{0%{transform:translate(0,-8vh) rotate(0);opacity:0}8%{opacity:1}100%{transform:translate(var(--dx),108vh) rotate(var(--r));opacity:.9}}
+.hf-rise{top:auto;bottom:-6vh;animation-name:hfRise}
+@keyframes hfRise{0%{transform:translate(0,0) scale(.7);opacity:0}12%{opacity:1}50%{transform:translate(var(--dx),-50vh) scale(1)}100%{transform:translate(calc(var(--dx) * -1),-108vh) scale(1.15);opacity:0}}
+.hf-float{top:auto;bottom:-6vh;animation-name:hfFloat}
+@keyframes hfFloat{0%{transform:translate(0,0);opacity:0}15%{opacity:.95}50%{transform:translate(var(--dx),-45vh)}100%{transform:translate(calc(var(--dx) * -.5),-100vh);opacity:0}}
+.hf-roll{top:auto;bottom:6px;left:-12vw;animation-name:hfRoll;animation-timing-function:linear}
+@keyframes hfRoll{to{transform:translateX(124vw) rotate(900deg)}}
+.hf-hop{top:auto;bottom:6px;left:-12vw;animation-name:hfHop;animation-timing-function:linear}
+@keyframes hfHop{0%{transform:translate(0,0)}6%{transform:translate(8vw,-56px)}12%{transform:translate(16vw,0)}25%{transform:translate(32vw,-56px)}37%{transform:translate(48vw,0)}50%{transform:translate(64vw,-56px)}62%{transform:translate(80vw,0)}75%{transform:translate(96vw,-56px)}87%{transform:translate(112vw,0)}100%{transform:translate(128vw,0)}}
+.hf-fly{top:var(--y);left:-12vw;animation-name:hfFly;animation-timing-function:linear}
+@keyframes hfFly{0%{transform:translate(0,0)}25%{transform:translate(32vw,-24px)}50%{transform:translate(64vw,12px)}75%{transform:translate(96vw,-18px)}100%{transform:translate(128vw,0)}}
+.hf-trail{top:var(--y);left:-12vw;animation-name:hfTrail;animation-timing-function:cubic-bezier(.2,.7,.4,1)}
+@keyframes hfTrail{0%{transform:translateX(0) rotate(0)}100%{transform:translateX(124vw) rotate(720deg)}}
+.hf-pop,.hf-zoom{top:var(--y);animation-name:hfPop}
+@keyframes hfPop{0%{transform:scale(0) rotate(-20deg);opacity:0}30%{transform:scale(1.35) rotate(8deg);opacity:1}60%{transform:scale(1) rotate(0)}100%{transform:scale(.4);opacity:0}}
+.hf-zoom{animation-name:hfZoom}
+@keyframes hfZoom{0%{transform:scale(.2);opacity:0}30%{opacity:1}100%{transform:scale(2.4) translateY(-12vh);opacity:0}}
+@media (prefers-reduced-motion:reduce){.hf{display:none}}
