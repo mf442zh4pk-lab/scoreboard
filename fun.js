@@ -15,17 +15,141 @@
     h.push(c); if (h.length > 2) h.shift(); return c;
   }
 
-  // ---------- secrets ----------
-  var SECRETS = { title5: "Title tapper", title12: "Trophy shower", foot3: "Upside down", konami: "Retro mode", logos10: "Logo spinner", owl: "Night owl", bottom: "Rock bottom", refresh7: "Dizzy", golden: "Golden card", legend: "Legendary win", bat: "Spooky season", cameo: "Special guest", dbl: "Double tap" };
-  var TOTAL = Object.keys(SECRETS).length, store = {};
-  try { store = JSON.parse(localStorage.getItem("sb-fun") || "{}") || {}; } catch (e) {}
-  function count() { var n = 0; for (var k in SECRETS) if (store[k]) n++; return n; }
+  // ---------- collection log ----------
+  // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
+  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones" };
+  var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic" };
+  var RW = { C: 10, U: 6, R: 3, E: 1.3, L: .5, M: .1 };
+  var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
+  var CAT = [
+    ["w_confetti","w","C","🎊","Confetti Cannon","The classic. Someone's team came through.",HW],
+    ["w_emoji","w","C","🥳","Emoji Shower","It's raining good vibes.",HW],
+    ["w_shock","w","C","💥","Shockwave","A win you can feel in the pixels.",HW],
+    ["w_balloons","w","U","🎈","Balloon Lift","Up, up and away with the W.",HW],
+    ["w_stars","w","U","⭐","Star Burst","Every star in the building, at once.",HW],
+    ["w_shine","w","U","✨","Glint","A quick shine across a clean win.",HW],
+    ["w_trophy","w","R","🏆","Trophy Rise","Lifted straight out of the scoreboard.",HW],
+    ["w_popper","w","R","🎉","Party Popper","Pop. Someone's celebrating.",HW],
+    ["w_medal","w","R","🥇","Medal Drop","Gold around the neck.",HW],
+    ["w_fireworks","w","E","🎆","Fireworks Show","Three bursts over a very good night.",HW],
+    ["l_rain","l","C","🌧️","Rain Cloud","Your own personal storm cell.",HL],
+    ["l_crack","l","C","💔","Cracked Glass","Some losses leave a mark.",HL],
+    ["l_shake","l","C","🫨","Rattled","The card never saw it coming.",HL],
+    ["l_tumble","l","U","🍂","Tumbleweed","Nothing left in the offense.",HL],
+    ["l_deflate","l","U","🎈","Deflation","All the air, gone.",HL],
+    ["l_trombone","l","U","🎺","Sad Trombone","Wah wah wahhh.",HL],
+    ["l_cry","l","R","😢","Waterworks","Let it out.",HL],
+    ["l_wilt","l","R","🥀","Wilted","The season's looking dry.",HL],
+    ["l_thunder","l","E","⚡","Thunderclap","A loss with a lightning bolt attached.",HL],
+    ["l_ghost","l","E","👻","Ghosted","The defense just vanished.",HL],
+    ["e_rise","e","C","⬆️","Rise","The standard entrance.",HE],
+    ["e_blur","e","C","🌫️","Fade Focus","Out of the fog and into focus.",HE],
+    ["e_flip","e","U","🔄","Flip In","Cards turn up face first.",HE],
+    ["e_zoom","e","U","🔍","Zoom In","Straight from the nosebleeds to courtside.",HE],
+    ["e_slidel","e","U","⬅️","Slide Left","Enters stage left.",HE],
+    ["e_slider","e","U","➡️","Slide Right","Enters stage right.",HE],
+    ["e_tilt","e","U","📐","Tilt","Slightly off. On purpose.",HE],
+    ["e_swing","e","R","🎢","Swing","Hung from the rafters, then dropped in.",HE],
+    ["e_drop","e","R","⬇️","Drop In","Dunked straight onto the page.",HE],
+    ["e_spin","e","R","🌀","Pinwheel","A full rotation on arrival.",HE],
+    ["c_kite","c","C","🪁","Kite","Catching a breeze across the page.",HC],
+    ["c_runner","c","C","🏃","Streaker","Sprints across. No explanation given.",HC],
+    ["c_dog","c","C","🐕","Field Dog","A good boy on the field.",HC],
+    ["c_heli","c","U","🚁","Chopper","Traffic report from above.",HC],
+    ["c_turtle","c","U","🐢","Slow Turtle","Taking its time. All of it.",HC],
+    ["c_eagle","c","U","🦅","Eagle Flyover","Anthem's over. Bird's not.",HC],
+    ["c_ufo","c","R","🛸","Visitor","They came for the highlights.",HC],
+    ["c_train","c","R","🚂","Hype Train","All aboard.",HC],
+    ["c_rocket","c","R","🚀","Rocket","Going to the moon, or at least the end of the page.",HC],
+    ["c_unicorn","c","E","🦄","Unicorn","Seen by almost no one.",HC],
+    ["b_football","b","C","🏈","Football","Rolls on in.",HB],["b_basketball","b","C","🏀","Basketball","Bounces through.",HB],["b_hockey","b","C","🏒","Puck","Slides by.",HB],["b_baseball","b","C","⚾","Baseball","Pitch comes in.",HB],
+    ["b_soccer","b","U","⚽","Soccer Ball","Goal. Of the page.",HB],["b_volley","b","U","🏐","Volleyball","Bump, set.",HB],["b_tennis","b","U","🎾","Tennis Ball","Fault. Let's go again.",HB],["b_softball","b","R","🥎","Softball","The odd one out.",HB],
+    ["g_logo_spin","g","C","🌀","Logo Spin","Tap a team logo.","Tap team logos."],["g_logo_bounce","g","C","🏀","Logo Bounce","A boing for a logo.","Tap team logos."],["g_logo_wobble","g","C","🫨","Logo Wobble","Shake it off.","Tap team logos."],
+    ["g_logo_grow","g","U","🔎","Logo Grow","Big logo energy.","Tap team logos."],["g_logo_jelly","g","U","🍮","Logo Jelly","Wiggle wiggle.","Tap team logos."],["g_logo_flip","g","R","🪙","Logo Flip","Heads or tails?","Tap team logos."],
+    ["g_rf_spin","g","C","🔃","Refresh Spin","Spin it round.","Tap Refresh."],["g_rf_boing","g","U","🦘","Refresh Boing","Springy.","Tap Refresh."],["g_rf_wig","g","U","〰️","Refresh Wiggle","A nervous button.","Tap Refresh."],["g_rf_flip","g","R","🔁","Refresh Flip","Landed on its feet.","Tap Refresh."],
+    ["s_heat","s","C","🌡️","Heat Check","You checked the heat.","Open the My teams tab and look at the Trends."],
+    ["s_fire3","s","U","🔥","Heating Up","A fiery border for a 3+ game win streak.","Follow a team that wins 3 in a row."],
+    ["s_cold3","s","U","🧊","Cold Snap","An icy border for 3+ straight losses.","Follow a team that drops 3 in a row."],
+    ["s_fire5","s","R","🌋","On Fire","Five wins running and the border knows it.","Follow a team that wins 5 in a row."],
+    ["s_cold5","s","R","❄️","Deep Freeze","Five losses running. Brr.","Follow a team that drops 5 in a row."],
+    ["title5","x","C","🏷️","Title Tapper","You poked the title five times.","Tap the title, quickly."],
+    ["dbl","x","C","👆","Double Tap","Tap tap.","Double-tap a score."],
+    ["cameo","x","C","🎪","Special Guest","Someone dropped by.","Wait for a visitor."],
+    ["bottom","x","C","⬇️","Rock Bottom","You scrolled all the way down.","Scroll to the very bottom."],
+    ["stamp","x","C","⏱️","Clock Watcher","The little timestamp has feelings too.","Tap the time stamp a few times."],
+    ["tour","x","C","🧭","Tour Guide","You visited five different tabs.","Visit lots of tabs in one go."],
+    ["dive","x","C","🤿","Deep Dive","Opened a game's full details.","Open a game."],
+    ["title12","x","U","🏆","Trophy Shower","Twelve taps earns a parade.","Tap the title a lot."],
+    ["foot3","x","U","🙃","Upside Down","The world flipped.","Tap the very bottom of the page, fast."],
+    ["logos10","x","U","🎡","Logo Spinner","Ten logo taps.","Tap logos. Many logos."],
+    ["refresh7","x","U","😵‍💫","Dizzy","Refresh a bit too hard.","Tap Refresh repeatedly."],
+    ["owl","x","U","🦉","Night Owl","Scores don't sleep.","Visit very late at night."],
+    ["bat","x","U","🦇","Spooky Season","It's October.","Visit in October."],
+    ["goat","x","U","🐐","GOAT","Greatest. Of. All. Typed.","On a keyboard, type the greatest of all time."],
+    ["gear","x","U","⚙️","Gear Head","Tightened every bolt.","Give the settings gear some attention."],
+    ["whip","x","U","🌪️","Whiplash","Bottom to top in a blink.","Scroll to the bottom and straight back up."],
+    ["land","x","U","📱","Sideways","Landscape lover.","Turn your phone sideways."],
+    ["konami","x","R","🕹️","Retro Mode","Up up down down...","A classic cheat code."],
+    ["golden","x","R","🪙","Golden Card","One card turned to gold.","Sometimes a card shines gold."],
+    ["hold","x","R","🧢","Lucky Number","Press and hold on a good luck charm.","Press and hold the title."],
+    ["off","x","R","📡","Off The Grid","You went offline.","Lose your connection."],
+    ["legend","x","E","👑","Legendary Win","The whole screen celebrates.","A very rare celebration after a win."],
+    ["d_ny","d","U","🎆","New Year","Fresh season energy.","Visit on January 1st."],
+    ["d_j4","d","U","🗽","Fourth of July","Fireworks and baseball.","Visit on July 4th."],
+    ["d_xmas","d","U","🎄","Christmas Day","Basketball and snow.","Visit on December 25th."],
+    ["d_val","d","U","💘","Valentine's","Love of the game.","Visit on February 14th."],
+    ["d_pi","d","R","🥧","Pi Day","3.14 games to go.","Visit on March 14th."],
+    ["d_hween","d","R","🎃","Trick Or Treat","Treat yourself to the scores.","Visit on October 31st."],
+    ["d_f13","d","R","🐈‍⬛","Friday the 13th","Unlucky for someone.","Visit on a Friday the 13th."],
+    ["d_leap","d","E","🐸","Leap Day","Once every four years.","Visit on February 29th."],
+    ["t_lunch","t","C","🥪","Lunch Break","Scores with a sandwich.","Visit around noon."],
+    ["t_early","t","U","🌅","Early Bird","Checking scores at sunrise.","Visit between 5 and 7 AM."],
+    ["t_mid","t","R","🌙","Midnight Oil","Past the witching hour.","Visit just after midnight."],
+    ["t_d7","t","R","📆","Regular","Seven different days.","Come back on seven different days."],
+    ["t_d30","t","E","🎟️","Season Ticket","Thirty different days. Dedicated.","Come back on thirty different days."],
+    ["m10","m","U","📒","Rookie Collector","Ten cards in the binder.","Collect 10 cards."],
+    ["m25","m","R","🗂️","Veteran Collector","Twenty-five and counting.","Collect 25 cards."],
+    ["m50","m","E","📚","Hall Of Famer","Fifty cards. Impressive.","Collect 50 cards."],
+    ["gt","m","M","🎫","Golden Ticket","One in four hundred, every time the page changes. Nobody finds this on purpose.","It's in the air. Keep moving around."],
+    ["all","m","M","💎","Completionist","Every card. Every one.","Find every other card."]
+  ];
+  var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; });
+  var TOTAL = CAT.length, col = { i: {}, s: {}, d: [] };
+  try { var rc = JSON.parse(localStorage.getItem("sb-col") || "null"); if (rc && rc.i) col = rc; } catch (e) {}
+  try {                                          // migrate the old secrets store
+    var old = JSON.parse(localStorage.getItem("sb-fun") || "null");
+    if (old) { for (var ok in old) if (IDX[ok] && !col.i[ok]) col.i[ok] = [Date.now(), 1]; localStorage.removeItem("sb-fun"); }
+  } catch (e) {}
+  if (!col.s) col.s = {}; if (!col.d) col.d = [];
+  var saveT = 0;
+  function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
+  function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
   function say(msg) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = "show"; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; }, 3800); }
-  function found(k) {
-    if (store[k] || !SECRETS[k]) return; store[k] = 1;
-    try { localStorage.setItem("sb-fun", JSON.stringify(store)); } catch (e) {}
-    say("🔓 Secret found: " + SECRETS[k] + " (" + count() + "/" + TOTAL + ")");
+  var newQ = [], newT = 0;
+  function disc(id) {
+    var c = IDX[id]; if (!c) return;
+    var e = col.i[id]; if (e) { e[1]++; save(); return; }
+    col.i[id] = [Date.now(), 1]; save(); newQ.push(c);
+    clearTimeout(newT); newT = setTimeout(function () {
+      var q = newQ; newQ = [];
+      say(q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log");
+      if (q.some(function (c) { return c[2] === "M" || c[2] === "L"; })) gConfetti(60, ["💎", "✨", "⭐", "🎫"]);
+    }, 450);
+    var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50");
+    if (id !== "all" && n >= TOTAL - 1) disc("all");
   }
+  var found = disc;
+  function wpick(key, arr, idf) {                // weighted by rarity, never the same as the last two
+    var h = hist[key] || (hist[key] = []), c, t = 0;
+    do {
+      var tot = 0, ws = arr.map(function (x) { var d = IDX[idf(x)]; var w = d ? RW[d[2]] : 5; tot += w; return w; }), r = Math.random() * tot, i = 0;
+      while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; }
+      c = arr[i]; t++;
+    } while (h.indexOf(c) >= 0 && t < 12);
+    h.push(c); if (h.length > 2) h.shift(); disc(idf(c)); return c;
+  }
+  // days visited
+  (function () { var d = new Date(), k = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); if (col.d.indexOf(k) < 0) { col.d.push(k); if (col.d.length > 60) col.d.shift(); save(); } })();
 
   // ---------- global layer ----------
   var G = null;
@@ -52,8 +176,9 @@
     var g = layer(), f = mk("fx-fly" + (cls ? " " + cls : ""), ch, "--y:" + Math.round(R(12, 60)) + "%");
     g.appendChild(f); gone(f, 5600);
   }
+  var BN = { "🏈": "football", "🏀": "basketball", "🏒": "hockey", "⚾": "baseball", "⚽": "soccer", "🏐": "volley", "🥎": "softball", "🎾": "tennis" };
   function ball() {
-    var g = layer(), em = pick("ball", ["🏈", "🏀", "🏒", "⚾", "⚽", "🏐", "🥎", "🎾"]);
+    var g = layer(), em = wpick("ball", ["🏈", "🏀", "🏒", "⚾", "⚽", "🏐", "🥎", "🎾"], function (x) { return "b_" + BN[x]; });
     var b = mk("fx-ball " + (Math.random() < .5 ? "roll" : "bounce"), "", ""); var inner = D.createElement("b"); inner.textContent = em; b.appendChild(inner);
     g.appendChild(b); gone(b, 3600);
   }
@@ -91,11 +216,14 @@
   function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = rnd(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
   // ---------- arriving somewhere new ----------
-  var ENTER = ["rise", "rise", "flip", "zoom", "slidel", "slider", "swing", "blur", "drop", "spin", "tilt"];
-  function enterFx() { return RM ? "rise" : pick("enter", ENTER); }
+  var ENTER = ["rise", "flip", "zoom", "slidel", "slider", "swing", "blur", "drop", "spin", "tilt"];
+  function enterFx() { return RM ? "rise" : wpick("enter", ENTER, function (k) { return "e_" + k; }); }
   var arrivals = 0;
   function after(out) {
+    var st = out.querySelectorAll(".fire3,.fire5,.cold3,.cold5,.heat");
+    for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
     if (RM) return; arrivals++;
+    if (Math.random() < 1 / 400) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, 4), anyWin = false;
     cards.forEach(function (c) {
       var win = c.classList.contains("w") || !!c.querySelector(".pill.final.w"), loss = c.classList.contains("l") || !!c.querySelector(".pill.final.l");
@@ -104,10 +232,10 @@
         anyWin = true;
         if (Math.random() < .12) return;                                  // sometimes keep the classic confetti
         var cf = c.querySelector(":scope > .cf"); if (cf) cf.parentNode.removeChild(cf);
-        WIN[pick("win", WINK)](holder(c));
+        WIN[wpick("win", WINK, function (k) { return "w_" + k; })](holder(c));
       } else {
-        var k = pick("lose", LOSEK);
-        if (Math.random() < .12) { c.classList.add("fx-shake"); setTimeout(function () { c.classList.remove("fx-shake"); }, 700); }
+        var k = wpick("lose", LOSEK, function (x) { return "l_" + x; });
+        if (Math.random() < .12) { disc("l_shake"); c.classList.add("fx-shake"); setTimeout(function () { c.classList.remove("fx-shake"); }, 700); }
         else LOSE[k](holder(c));
       }
     });
@@ -117,6 +245,15 @@
     special();
   }
   var SPECIAL_DONE = false;
+  function dates() {
+    var d = new Date(), m = d.getMonth() + 1, dd = d.getDate(), h = d.getHours();
+    if (m === 1 && dd === 1) disc("d_ny"); if (m === 7 && dd === 4) disc("d_j4"); if (m === 12 && dd === 25) disc("d_xmas");
+    if (m === 2 && dd === 14) disc("d_val"); if (m === 3 && dd === 14) disc("d_pi"); if (m === 10 && dd === 31) disc("d_hween");
+    if (m === 2 && dd === 29) disc("d_leap"); if (d.getDay() === 5 && dd === 13) disc("d_f13");
+    if (h === 12) disc("t_lunch"); if (h >= 5 && h < 7) disc("t_early"); if (h === 0) disc("t_mid");
+    if (m === 10) disc("bat");
+    if (col.d.length >= 7) disc("t_d7"); if (col.d.length >= 30) disc("t_d30");
+  }
   function special() {
     if (SPECIAL_DONE) return; var d = new Date(), m = d.getMonth() + 1, dd = d.getDate();
     if ((m === 1 && dd === 1) || (m === 7 && dd === 4) || (m === 12 && dd === 31)) { SPECIAL_DONE = true; gFireworks(); }
@@ -132,7 +269,8 @@
     else if (m === 7) gFireworks();
     else cameo();
   }
-  function cameo() { flyer(pick("cam", ["🛸", "🚁", "🪁", "🦄", "🐢", "🚂", "🦅", "🚀", "🏃", "🐕"]), Math.random() < .5 ? "slow" : ""); found("cameo"); }
+  var CAMN = { "🛸": "ufo", "🚁": "heli", "🪁": "kite", "🦄": "unicorn", "🐢": "turtle", "🚂": "train", "🦅": "eagle", "🚀": "rocket", "🏃": "runner", "🐕": "dog" };
+  function cameo() { flyer(wpick("cam", Object.keys(CAMN), function (x) { return "c_" + CAMN[x]; }), Math.random() < .5 ? "slow" : ""); found("cameo"); }
   function gold(out) {
     var c = out.querySelector(".card,.recap,.story"); if (!c) return;
     c.classList.add("gold"); found("golden"); setTimeout(function () { c.classList.remove("gold"); }, 9000);
@@ -142,7 +280,7 @@
   var taps = { title: [], foot: [], logos: 0, refresh: [], dbl: 0 };
   function recent(arr, win) { var n = Date.now(); arr.push(n); while (arr.length && n - arr[0] > win) arr.shift(); return arr.length; }
   var LOGOFX = ["spin", "bounce", "wobble", "grow", "jelly", "flip"];
-  function logoFx(el) { var k = pick("logo", LOGOFX), cls = "lg-" + k; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(function () { el.classList.remove(cls); }, 1000); }
+  function logoFx(el) { var k = wpick("logo", LOGOFX, function (x) { return "g_logo_" + x; }), cls = "lg-" + k; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(function () { el.classList.remove(cls); }, 1000); }
   var RF = ["spin", "boing", "wig", "flip"];
   D.addEventListener("click", function (e) {
     var t = e.target; if (!t || !t.closest) return;
@@ -158,7 +296,7 @@
       return;
     }
     if (t.closest("#refresh")) {
-      var b = $("refresh"), k = pick("rf", RF), cl = "rf-" + k;
+      var b = $("refresh"), k = wpick("rf", RF, function (x) { return "g_rf_" + x; }), cl = "rf-" + k;
       if (!RM) { b.classList.remove(cl); void b.offsetWidth; b.classList.add(cl); setTimeout(function () { b.classList.remove(cl); }, 700); }
       if (recent(taps.refresh, 4000) >= 7) { taps.refresh.length = 0; found("refresh7"); if (!RM) { var h1 = $("title"); h1.classList.add("dizzy"); setTimeout(function () { h1.classList.remove("dizzy"); }, 1600); say("Whoa, easy there 😵‍💫"); } }
       return;
@@ -191,5 +329,44 @@
   var h = new Date().getHours();
   if (h < 5) { var ti = $("title"); if (ti) ti.classList.add("owl"); found("owl"); }
 
-  window.FUN = { enterFx: enterFx, after: after, count: count, total: TOTAL, reduced: RM };
+  // ---------- more things to find ----------
+  var seenTabs = {};
+  D.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var rb = t.closest("#rail button"); if (rb) { seenTabs[rb.textContent] = 1; if (Object.keys(seenTabs).length >= 5) disc("tour"); }
+    if (t.closest("#stamp") && recent(taps.stamp || (taps.stamp = []), 2500) >= 5) { taps.stamp.length = 0; disc("stamp"); say("⏱️ Yes, it's still ticking."); }
+    if (t.closest("#gear") && recent(taps.gear || (taps.gear = []), 3000) >= 7) { taps.gear.length = 0; disc("gear"); var g = $("gear"); if (!RM) { g.classList.add("gear-go"); setTimeout(function () { g.classList.remove("gear-go"); }, 1400); } say("⚙️ Loose bolt found."); }
+  }, true);
+  addEventListener("hashchange", function () { if (/^#game\//.test(location.hash)) disc("dive"); });
+  addEventListener("offline", function () { disc("off"); });
+  var lm = window.matchMedia && matchMedia("(orientation: landscape) and (pointer: coarse) and (max-height: 520px)");
+  if (lm) { var lc = function () { if (lm.matches) disc("land"); }; if (lm.addEventListener) lm.addEventListener("change", lc); lc(); }
+  var typed = "";
+  D.addEventListener("keydown", function (e) {
+    if (!e.key || e.key.length !== 1 || (e.target && /input|textarea/i.test(e.target.tagName))) return;
+    typed = (typed + e.key.toLowerCase()).slice(-4);
+    if (typed === "goat") { disc("goat"); if (!RM) gConfetti(40, ["🐐"]); say("🐐 GOAT"); }
+  });
+  var hT = 0;
+  D.addEventListener("pointerdown", function (e) {
+    if (!e.target.closest || !e.target.closest("#title")) return;
+    clearTimeout(hT); hT = setTimeout(function () { disc("hold"); say("🧢 Your lucky number today: #" + (1 + rnd(99))); }, 1300);
+  });
+  ["pointerup", "pointercancel", "scroll"].forEach(function (n) { addEventListener(n, function () { clearTimeout(hT); }, { passive: true }); });
+  var bottomAt = 0;
+  addEventListener("scroll", function () {
+    var nb = innerHeight + scrollY >= D.documentElement.scrollHeight - 6;
+    if (nb) bottomAt = Date.now(); else if (scrollY < 40 && bottomAt && Date.now() - bottomAt < 2000) { bottomAt = 0; disc("whip"); }
+  }, { passive: true });
+  dates();
+
+  window.FUN = { CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
+    seen: function (id) { col.s[id] = 1; save(); },
+    play: function (id, host) {
+      var p = id.split("_"), k = p[1];
+      if (p[0] === "w" && WIN[k]) WIN[k](holder(host)); else if (p[0] === "l" && LOSE[k]) LOSE[k](holder(host));
+      else if (p[0] === "c") flyer(Object.keys(CAMN).filter(function (x) { return "c_" + CAMN[x] === id; })[0] || "🛸");
+      else if (p[0] === "b") { var em = Object.keys(BN).filter(function (x) { return "b_" + BN[x] === id; })[0]; var g = layer(), b = mk("fx-ball roll", "", ""), i2 = D.createElement("b"); i2.textContent = em; b.appendChild(i2); g.appendChild(b); gone(b, 3600); }
+    },
+    say: say, confetti: gConfetti, enterFx: enterFx, after: after, count: count, total: TOTAL, reduced: RM };
 })();
