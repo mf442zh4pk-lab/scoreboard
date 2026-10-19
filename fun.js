@@ -134,8 +134,10 @@
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
       var cid = q.length === 1 ? q[0][0] : null;
-      if (reveal(q)) return;
+      var quick = false; try { quick = localStorage.getItem("sb-rv") === "q"; } catch (e) {}
+      if (!quick && reveal(q)) return;
       var mt = Math.max.apply(null, q.map(tier)); if (mt === 1 && !RM) gConfetti(10, ["✨"]);
+      else if (mt >= 2 && quick) vib(30);
       say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); }, "r" + "CURELM".charAt(mt));
           }, newQ.some(function (c) { return tier(c) >= 3; }) ? 1100 : 450);
     var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50");
