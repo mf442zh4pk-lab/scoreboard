@@ -222,3 +222,67 @@ body.pm-open{overflow:hidden}
 .lb-sc{font:800 18px var(--hd);color:var(--pri);text-align:right}
 
 #toast.go{pointer-events:auto;cursor:pointer}
+
+#toast.go{animation:tpop .45s cubic-bezier(.2,1.4,.4,1)}
+#toast.rC{box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+#toast.rU{box-shadow:0 0 0 2px #4ade80,0 0 20px #4ade80aa}
+@keyframes tpop{0%{transform:translate(-50%,24px) scale(.9)}60%{transform:translate(-50%,-4px) scale(1.08)}100%{transform:translate(-50%,0) scale(1)}}
+body.rv-on .fxg{z-index:95}
+.rv{--rc:#38bdf8;position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;background:rgba(6,9,16,.62);opacity:0;transition:opacity .25s;overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.rv.in{opacity:1}
+.rv.rE{--rc:#a78bfa;background:rgba(6,6,20,.82)}
+.rv.rL{--rc:#ffb020;background:rgba(14,9,2,.9)}
+.rv.rM{--rc:#ff4d8d;background:rgba(3,1,10,.96)}
+.rv-bg{position:absolute;left:50%;top:44%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;opacity:0;pointer-events:none;display:none;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--rc) 55%,transparent) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(circle,#000 0,transparent 38%);mask:radial-gradient(circle,#000 0,transparent 38%);will-change:transform}
+.rv.t4 .rv-bg,.rv.t5 .rv-bg{display:block;animation:rvspin 26s linear infinite}
+.rv.go .rv-bg{opacity:.6;transition:opacity .7s}
+@keyframes rvspin{to{transform:rotate(360deg)}}
+.rv-st{position:absolute;left:0;top:0;width:2px;height:2px;border-radius:50%;opacity:0;animation:rvtw 2.6s ease-in-out infinite alternate}
+.rv.go .rv-st{opacity:.9;transition:opacity 1s}
+@keyframes rvtw{50%{opacity:.35}}
+.rv.rM::before{content:"";position:absolute;inset:-20%;opacity:0;pointer-events:none;background:radial-gradient(ellipse at 30% 40%,rgba(255,77,141,.38),transparent 50%),radial-gradient(ellipse at 72% 62%,rgba(56,189,248,.32),transparent 50%),radial-gradient(ellipse at 50% 18%,rgba(167,139,250,.38),transparent 50%);transition:opacity 1.2s}
+.rv.go.rM::before{opacity:1;animation:rvaur 9s ease-in-out infinite alternate}
+@keyframes rvaur{to{transform:rotate(14deg) scale(1.15)}}
+.rv-fl{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;display:none}
+.rv.t3 .rv-fl,.rv.t4 .rv-fl,.rv.t5 .rv-fl{display:block}
+.rv.rL .rv-fl{background:#fff2c2}
+.rv.go .rv-fl{animation:rvflash .75s ease-out}
+@keyframes rvflash{0%{opacity:.95}100%{opacity:0}}
+.rv-t{position:relative;text-align:center;opacity:0;transform:translateY(-12px);transition:opacity .4s,transform .4s}
+.rv.go .rv-t{opacity:1;transform:none;transition-delay:.15s}
+.rv-s{font:700 12px var(--bd);letter-spacing:.34em;color:#cbd5e1;margin-bottom:4px}
+.rv-w{font:800 clamp(34px,11vw,58px)/1 var(--hd);letter-spacing:.1em;color:var(--rc);text-shadow:0 0 24px color-mix(in srgb,var(--rc) 70%,transparent)}
+.rv-w i{display:inline-block;font-style:normal;opacity:0;transform:translateY(22px) scale(1.7)}
+.rv.go .rv-w i{animation:rvl .5s cubic-bezier(.2,1.4,.4,1) forwards;animation-delay:calc(var(--i) * 55ms + .2s)}
+@keyframes rvl{to{opacity:1;transform:none}}
+.rv.rL .rv-w i,.rv.rM .rv-w i{color:transparent;-webkit-background-clip:text;background-clip:text;text-shadow:none}
+.rv.rL .rv-w i{background-image:linear-gradient(180deg,#fff7c2,#ffb020 55%,#b45309)}
+.rv.rM .rv-w i{background-image:linear-gradient(90deg,#ff6ec7,#ffd200,#4ade80,#38bdf8,#a78bfa,#ff6ec7);background-size:600% 100%;background-position:calc(var(--i) * 18%) 0}
+.rv.rM .rv-w{animation:rvhr 3s linear infinite;filter:drop-shadow(0 0 14px #ff4d8d99)}
+.rv.rL .rv-w{filter:drop-shadow(0 0 14px #ffb020aa)}
+@keyframes rvhr{to{filter:drop-shadow(0 0 14px #ff4d8d99) hue-rotate(360deg)}}
+.rv-cw{animation:rvin .45s cubic-bezier(.2,1.3,.4,1) backwards}
+@keyframes rvin{from{opacity:0;transform:translateY(80px) scale(.7)}}
+.rv.go.t2 .rv-cw{animation:rvpop .4s}
+.rv.go.t3 .rv-cw{animation:rvpop .55s}
+.rv.go.t4 .rv-cw,.rv.go.t5 .rv-cw{animation:rvslam .65s cubic-bezier(.2,1.2,.3,1)}
+@keyframes rvpop{40%{transform:scale(1.12)}}
+@keyframes rvslam{from{transform:scale(1.4)}55%{transform:scale(.95)}to{transform:none}}
+.rv.shk .rv-ch{animation:rvbody .5s}
+@keyframes rvbody{10%{transform:translate(-9px,4px) rotate(-1deg)}30%{transform:translate(8px,-6px) rotate(1deg)}50%{transform:translate(-6px,3px)}70%{transform:translate(4px,-3px)}}
+.rv-ch.chg{animation:rvshk .12s linear infinite,rvchg var(--ch) ease-in forwards}
+@keyframes rvshk{25%{transform:translate(var(--sa),calc(var(--sa) * -.5)) rotate(-.8deg)}75%{transform:translate(calc(var(--sa) * -1),var(--sa)) rotate(.8deg)}}
+@keyframes rvchg{from{filter:drop-shadow(0 0 0 var(--rc)) brightness(1)}to{filter:drop-shadow(0 0 46px var(--rc)) brightness(1.5)}}
+.rv-flip{position:relative;width:min(70vw,290px);aspect-ratio:5/7;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,1.3,.4,1)}
+.rv.t5 .rv-flip{transition-duration:1s}
+.rv-flip.fl{transform:rotateY(180deg)}
+.rv-bk,.rv-flip .tc{position:absolute;inset:0;width:auto;height:auto;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.rv-flip .tc{transform:rotateY(180deg);animation:none;transition:none}
+.rv-bk{border-radius:20px;border:3px solid var(--rc);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--rc) 38%,#10141f) 0 10px,#10141f 10px 20px);display:grid;place-items:center;font:800 96px var(--hd);color:var(--rc);box-shadow:0 0 34px -4px var(--rc)}
+.rv.go .rv-flip .tc{box-shadow:0 0 46px -2px var(--rc),0 18px 40px -12px rgba(0,0,0,.6)}
+.rv.go.t5 .rv-flip .tc-em,.rv.go.t4 .rv-flip .tc-em{animation:tcfloat 3.2s ease-in-out infinite}
+.rv-c{display:flex;gap:8px;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .35s,transform .35s}
+.rv.ok .rv-c{opacity:1;transform:none;pointer-events:auto}
+.rv-m{font-size:12px;font-weight:700;color:#cbd5e1;opacity:0;transition:opacity .4s}
+.rv.ok .rv-m{opacity:1}
+@media(prefers-reduced-motion:reduce){.rv,.rv *,.rv::before,#toast.go{animation:none!important;transition:none!important}.rv-w i{opacity:1!important;transform:none!important}.rv .rv-t,.rv .rv-c,.rv .rv-m{opacity:1;transform:none}.rv-flip{transform:rotateY(180deg)}}
