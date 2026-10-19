@@ -152,6 +152,8 @@ th.l,td.l{text-align:left}
 .tgr{flex:none;font-weight:700;color:var(--live)}
 .tgr.win{color:var(--win)}
 .navbar{display:flex;justify-content:space-between;align-items:center}
+#prof{background:var(--card);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;font:800 17px var(--hd);cursor:pointer;line-height:1;padding:0}
+#prof.on{background:var(--pri);color:var(--card);border-color:var(--pri)}
 #gear{background:var(--card);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;line-height:1;padding:0}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--pri);color:var(--card);padding:10px 16px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:90vw}
 #toast.show{opacity:1;transform:translate(-50%,0)}
