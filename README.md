@@ -60,7 +60,19 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 
 ## Settings (`PREF` in `app.js`)
 
-Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `h24`, `haptic`, `splash`.
+Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `notify` (final-score notifications), `hideL` (leagues hidden from All), `h24`, `haptic`, `splash`.
+
+## Find a game and the portal
+
+`openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text). Picking a result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
+
+## Shared links
+
+Settings → "Copy share link" makes `?add=<base64 {t:[teams], p:[people]}>`. On load, `app.js` offers to add whatever in the link isn't followed yet, then cleans the URL.
+
+## Fun layer frequency
+
+`fun.js`: `TAPP` is the per-tap card chance; `holidayFx` runs once on the first arrival and then at most every four minutes (about a third of arrivals); win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
 
 ## Splash
 
