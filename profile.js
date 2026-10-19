@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var D = document, F = window.FUN, LS = localStorage;
-  var PK = ["sb-followed", "sb-theme", "sb-pins", "sb-tab", "sb-ysub", "sb-col"];   // data that belongs to a profile
+  var PK = ["sb-followed", "sb-pins", "sb-tab", "sb-ysub", "sb-col"];   // data that belongs to a profile
   var ITER = 120000;
   function el(t, c, x) { var e = D.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
   function btn(txt, cls, fn) { var b = el("button", cls || "pm-b", txt); b.type = "button"; if (fn) b.onclick = fn; return b; }
