@@ -1369,7 +1369,7 @@
       var q = inp.value.trim().toLowerCase(); st.q = inp.value; res.textContent = "";
       if (!q) { if (D0.activeElement === inp) drawRecent(res); return; }
       var n = drawHits(res, q, st.ctl, { nt: 6, heads: false });
-      if (!n && ESPN.peekSearch(q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
+      if (!n && ESPN.peekSearch(sportQ(q).q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
     st.ctl.redraw = function () { if (inp.isConnected) fill(); };
     inp.onfocus = function () { teamIndex().then(fill); if (!inp.value.trim()) fill(); };
@@ -2096,10 +2096,26 @@
       openTeam({ lk: lg.key, id: c.id, name: c.name, lg: c.lg, dl: lg.pending ? lg : null });
     }, function () { toast("Couldn’t reach the search"); });
   }
+  // Sport words ("boston college football", "bc hockey", "uconn womens") narrow the results instead of being searched
+  // for: ESPN's search finds nothing for "boston college football" but finds the team for "boston college".
+  // "college" stays in the query too (it's part of names like Boston College).
+  var SPW = [[/^football$/, /^football\//], [/^(basketball|hoops)$/, /^basketball\//], [/^hockey$/, /^hockey\//], [/^baseball$/, /^baseball\//], [/^(soccer|futbol)$/, /^soccer\//],
+    [/^(cfb|ncaaf)$/, /college-football/], [/^(cbb|ncaam|ncaab)$/, /mens-college-basketball/], [/^(ncaaw|wbb)$/, /womens-college-basketball/], [/^ncaa$/, /college/],
+    [/^(men|mens|men's|men’s)$/, /^(?!.*womens)/], [/^(women|womens|women's|women’s)$/, /womens|wnba|nwsl|wta|lpga/]];
+  function sportQ(q) {
+    var keep = [], tests = [];
+    q.split(/\s+/).filter(Boolean).forEach(function (w) { var m = SPW.filter(function (s) { return s[0].test(w); })[0]; if (m) tests.push(m[1]); else keep.push(w); });
+    if (q.split(/\s+/).some(function (w) { return w === "college"; })) tests.push(/college/);
+    if (!keep.length) return { q: q, ok: function () { return true; } };   // just a sport word: search it as typed
+    return { q: keep.join(" "), ok: function (path) { return tests.every(function (t) { return t.test(path || ""); }); } };
+  }
+  function pathOfTeam(t) { return ((t.dl || leagueOf(t.lk)) || {}).path || ""; }
   // Results for one query, drawn into res: teams, then athletes, with a quiet line while the wider search runs.
   // ctl holds the debounce timer and the query on screen, so a slow answer never paints over a newer one.
-  function drawHits(res, q, ctl, opts) {
-    var remote = ESPN.peekSearch(q), teams = mergeTeams(q, remote), people = remote ? remote.people.filter(function (r) { return !/friendly/.test(r.slug); }).map(personOf).slice(0, 6) : [];
+  function drawHits(res, q0, ctl, opts) {
+    var sq = sportQ(q0), q = sq.q;
+    var remote = ESPN.peekSearch(q), teams = mergeTeams(q, remote).filter(function (t) { return sq.ok(pathOfTeam(t)); });
+    var people = remote ? remote.people.filter(function (r) { return !/friendly/.test(r.slug) && sq.ok(r.sport + "/" + r.slug); }).map(personOf).slice(0, 6) : [];
     var n = opts.nt || 8, shownT = teams.slice(0, n);
     if (shownT.length) {
       if (opts.heads) res.appendChild(el("h4", "find-sh", "Teams"));
@@ -2407,7 +2423,7 @@
     var ex = railBtn("", "", "tab"); ex.hidden = true; lgs.appendChild(ex);
     var mb = el("button", "tab more-btn", "More"); mb.type = "button";
     mb.onclick = function () { S.more = !S.more; render(); };
-    lgs.appendChild(mb);
+    lgs.appendChild(mb); lgs.appendChild(findBar());
     rail.appendChild(main); rail.appendChild(lgs);
     RAIL = { ind: main.firstChild, ex: ex, mb: mb, btns: [].slice.call(rail.querySelectorAll("[data-k]")) };
   }
@@ -2481,53 +2497,100 @@
     if (FK) { var n = out.querySelector('[data-k="' + FK + '"]'); if (n) { try { n.focus({ preventScroll: true }); } catch (e) {} } }
   }
 
-  // ---------- Find a game: type-ahead over every loaded game, then a portal to it ----------
-  var FIND = null;
+  // ---------- Find a game: the search bar at the end of the league row ----------
+  // Typing searches every loaded game, plus teams and athletes from every sport (the same search as Find a team). For
+  // the best team matches it also pulls that team's schedule (one request, kept for its page) so a game that isn't
+  // loaded anywhere still turns up: live, next and last. Results drop down under the bar; tapping a game opens it.
+  var FIND = null, FINDQ = null, FG = {};
   function hay(x) {
     var g = x.g, lg = leagueOf(x.lk) || {};
     return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lg.key, g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
   }
-  function closeFind() { if (!FIND) return; var f = FIND; FIND = null; f.classList.remove("in"); document.body.classList.remove("find-on"); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220); }
+  // A team's schedule for Find, once per team per session; it also fills S.teams so its page opens without waiting.
+  function findSched(t) {
+    var k = t.lk + "_" + t.id;
+    if (FG[k]) return FG[k];
+    var T = S.teams[t.name]; if (T && T.done && !T.error && !T.missing && T.games && T.lk === t.lk) return (FG[k] = Promise.resolve(T));
+    FG[k] = ESPN.fetchTeamInfo(t.lk, t.id).then(function (i) {
+      i.lk = t.lk; i.id = t.id; i.done = true;
+      if (!S.teams[t.name] || !S.teams[t.name].done) S.teams[t.name] = i;
+      return i;
+    }, function () { return null; });   // a failed lookup stays failed for this session (no retry loop while typing)
+    return FG[k];
+  }
+  // Live first, then the next game, then the last result: the games someone searching for a team most likely wants.
+  function schedPicks(T) {
+    var gs = (T.games || []).slice().sort(function (a, b) { return Date.parse(a.t) - Date.parse(b.t); });
+    var live = gs.filter(function (g) { return g.s === "live"; }), up = gs.filter(function (g) { return g.s === "up"; }), fin = gs.filter(function (g) { return g.s === "final"; });
+    return live.concat(up.slice(0, live.length ? 0 : 1)).concat(fin.slice(-1));
+  }
+  function closeFind() {
+    if (!FIND) return; var f = FIND; FIND = null;
+    f.classList.remove("in"); document.body.classList.remove("find-on"); $("rail").classList.remove("finding");
+    if (FINDQ) { FINDQ.value = ""; FINDQ.dispatchEvent(new Event("input")); try { FINDQ.blur(); } catch (e) {} }
+    setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220);
+  }
+  function findBar() {
+    var w = el("div", "rfind"), inp = el("input", "rf-q"), x = el("button", "rf-x", "Cancel");
+    inp.type = "search"; inp.placeholder = "Find a game"; inp.autocomplete = "off"; inp.enterKeyHint = "search";
+    inp.setAttribute("aria-label", "Find a game, team or athlete"); x.type = "button";
+    x.addEventListener("pointerdown", function (e) { e.preventDefault(); });
+    x.onclick = closeFind;
+    inp.addEventListener("focus", openFind);
+    w.appendChild(clearable(inp)); w.appendChild(x); FINDQ = inp;
+    return w;
+  }
   function openFind() {
-    if (FIND) return;
-    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "Cancel"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026");
-    inp.type = "search"; inp.placeholder = "Find a game, team or athlete"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a game, team or athlete"); x.type = "button"; x.setAttribute("aria-label", "Close"); x.onclick = closeFind;
-    top.appendChild(clearable(inp)); top.appendChild(x); ov.appendChild(top); ov.appendChild(hint); ov.appendChild(res);
-    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {};
-    // The core-league index (instant, cached a week) loads with Find; ESPN search covers everything else as you type.
+    if (!FINDQ) return;
+    if (FIND) { try { FINDQ.focus(); } catch (e) {} return; }
+    var rail = $("rail"), inp = FINDQ, ov = el("div", "find rfp"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026 Add a sport to narrow it: \u201cboston college football\u201d.");
+    ov.appendChild(hint); ov.appendChild(res);
+    rail.classList.remove("hide"); rail.classList.add("finding");
+    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {}, st = 0;
     teamIndex().then(function () { if (FIND === ov) fill(); });
     ctl.redraw = function () { if (FIND === ov) fill(); };
+    function open(c, gx) { portal(c, gx); }
+    function gameCard(gx, grid) {
+      var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
+      c.onclick = function () { open(c, gx); };
+      c.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); open(c, gx); } };
+      grid.appendChild(c); cur.push({ c: c, x: gx });
+    }
     function fill() {
-      var q = inp.value.trim().toLowerCase(), toks = q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
+      var raw = inp.value.trim().toLowerCase(), sq = sportQ(raw), toks = sq.q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
       if (!toks.length) { hint.hidden = false; drawRecent(res); return; }
       hint.hidden = true;
-      var hits = all.filter(function (e) { return toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
+      var hits = all.filter(function (e) { return sq.ok((leagueOf(e.x.lk) || {}).path) && toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
       var rk = { live: 0, up: 1, final: 2 };
       hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - Date.now()) - Math.abs(Date.parse(b.x.g.t) - Date.now()); });
-      cur = hits.slice(0, 12).map(function (e) { return e.x; });
-      if (cur.length) {
-        res.appendChild(el("h4", "find-sh", "Games"));
-        var grid = el("div", "grid");
-        cur.forEach(function (gx) {
-          var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
-          c.onclick = function () { portal(c, gx); };
-          c.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); portal(c, gx); } };
-          grid.appendChild(c);
+      var seen = {}, grid = el("div", "grid");
+      hits.slice(0, 12).forEach(function (e) { seen[e.x.lk + "_" + e.x.g.id] = 1; gameCard(e.x, grid); });
+      // Games from the best team matches' own schedules, for teams whose games aren't loaded.
+      var tms = mergeTeams(sq.q, ESPN.peekSearch(sq.q)).filter(function (t) { return !t.dl && t.id && leagueOf(t.lk) && sq.ok(pathOfTeam(t)); }).slice(0, 2), waiting = false;
+      tms.forEach(function (t) {
+        var p = findSched(t), T = p && p.__v;
+        if (!T) { waiting = true; p.then(function (v) { p.__v = v || { games: [] }; if (FIND === ov && inp.value.trim().toLowerCase() === raw) fill(); }); return; }
+        schedPicks(T).forEach(function (g) {
+          var sg = schedGame(g, T, t.lk); if (!sg || seen[t.lk + "_" + sg.id]) return; seen[t.lk + "_" + sg.id] = 1;
+          var gx = { lk: t.lk, g: sg, ll: (leagueOf(t.lk) || {}).label || "" }; SG[t.lk + "_" + sg.id] = sg; gameCard(gx, grid);
         });
-        res.appendChild(grid);
-        if (hits.length > cur.length) res.appendChild(el("p", "find-h", "+" + (hits.length - cur.length) + " more \u00b7 keep typing"));
-      }
-      var n = drawHits(res, q, ctl, { nt: 8, heads: true });
-      if (!cur.length && !n && ESPN.peekSearch(q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
+      });
+      if (grid.firstChild) {
+        res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid);
+        if (hits.length > 12) res.appendChild(el("p", "find-h", "+" + (hits.length - 12) + " more \u00b7 keep typing"));
+      } else if (waiting) res.appendChild(el("p", "find-h find-wait", "Looking up their schedule\u2026"));
+      var n = drawHits(res, raw, ctl, { nt: 8, heads: true });
+      if (!grid.firstChild && !n && !waiting && ESPN.peekSearch(sq.q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
-    inp.oninput = fill;
+    inp.oninput = function () { if (FIND === ov) fill(); };
     inp.onkeydown = function (e) {
-      if (e.key === "Enter") { var c = res.querySelector(".card"), r = res.querySelector(".find-tm"); if (c && cur.length) { e.preventDefault(); portal(c, cur[0]); } else if (r) { e.preventDefault(); r.onclick(); } }
+      if (e.key === "Enter") { e.preventDefault(); if (cur.length) open(cur[0].c, cur[0].x); else { var r = res.querySelector(".find-tm"); if (r) r.onclick(); } }
       if (e.key === "Escape") { e.preventDefault(); closeFind(); }
     };
     fill();
     document.body.appendChild(ov); FIND = ov; document.body.classList.add("find-on");
-    requestAnimationFrame(function () { ov.classList.add("in"); try { inp.focus(); } catch (e) {} });
+    var place = function () { ov.style.top = Math.max(0, rail.getBoundingClientRect().bottom) + "px"; };
+    place(); requestAnimationFrame(function () { place(); ov.classList.add("in"); });
   }
   // The black-hole portal: the chosen card spirals into a vortex, the vortex swallows the screen, the game page emerges from it.
   var NOVT = false;
@@ -2556,7 +2619,6 @@
   function morePanel() {
     var box = el("div", "more"), inp = el("input", "msearch"), res = el("div", "mres"), cur = [];
     inp.type = "search"; inp.placeholder = "Search leagues (soccer, UFC, college\u2026)"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Search leagues");
-    var fb = el("button", "findbtn", "\u2315 Find a game or team"); fb.type = "button"; fb.onclick = openFind; box.appendChild(fb);
     function fill() {
       var q = inp.value.trim().toLowerCase(), groups = {}, order = []; cur = []; res.textContent = "";
       LG.forEach(function (l) {
@@ -2752,7 +2814,7 @@
     if (e.key === "r" && !S.loading) load(true); else if (e.key === "p") openProf(); else if (e.key === "t") window.scrollTo({ top: 0, behavior: "smooth" });
     else if (e.key === "1") goTab("pinned"); else if (e.key === "2") goTab("yesterday"); else if (e.key === "3") goTab("teams");
     else if (e.key === "/") { e.preventDefault(); if (!S.more) { S.more = true; S.view = null; S.settings = false; clearHash(); render(); } }
-    else if (e.key === "f") { e.preventDefault(); openFind(); }
+    else if (e.key === "f") { e.preventDefault(); if (S.view) closeGame(); if (S.settings) { S.settings = false; render(); } var n = 0; (function tf() { if (FINDQ && FINDQ.offsetParent) FINDQ.focus(); else if (n++ < 30) setTimeout(tf, 50); })(); }
   });
   // Swipe in from the left edge of a game page to go back (home-screen apps have no browser gesture).
   (function () {
