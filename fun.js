@@ -76,7 +76,7 @@
     ["dbl","x","C","👆","Double Tap","Tap tap.","Double-tap a score."],
     ["cameo","x","C","🎪","Special Guest","Someone dropped by.","Wait for a visitor."],
     ["bottom","x","C","⬇️","Rock Bottom","You scrolled all the way down.","Scroll to the very bottom."],
-    ["stamp","x","C","⏱️","Clock Watcher","The little timestamp has feelings too.","Tap the time stamp a few times."],
+    ["stamp","x","C","⏱️","Clock Watcher","The little status light has feelings too.","Tap the little status light a few times."],
     ["tour","x","C","🧭","Tour Guide","You visited five different tabs.","Visit lots of tabs in one go."],
     ["dive","x","C","🤿","Deep Dive","Opened a game's full details.","Open a game."],
     ["title12","x","U","🏆","Trophy Shower","Twelve taps earns a parade.","Tap the title a lot."],
@@ -397,7 +397,7 @@
   D.addEventListener("click", function (e) {
     var t = e.target; if (!t || !t.closest) return;
     var rb = t.closest("#rail button"); if (rb) { seenTabs[rb.textContent] = 1; if (Object.keys(seenTabs).length >= 5) disc("tour"); }
-    if (t.closest("#stamp") && recent(taps.stamp || (taps.stamp = []), 2500) >= 5) { taps.stamp.length = 0; disc("stamp"); say("⏱️ Yes, it's still ticking."); }
+    if (t.closest("#refresh") && recent(taps.stamp || (taps.stamp = []), 2500) >= 5) { taps.stamp.length = 0; disc("stamp"); say("⏱️ Yes, it's still ticking."); }
     if (t.closest("#gear") && recent(taps.gear || (taps.gear = []), 3000) >= 7) { taps.gear.length = 0; disc("gear"); var g = $("gear"); if (!RM) { g.classList.add("gear-go"); setTimeout(function () { g.classList.remove("gear-go"); }, 1400); } say("⚙️ Loose bolt found."); }
   }, true);
   addEventListener("hashchange", function () { if (/^#game\//.test(location.hash)) disc("dive"); });
