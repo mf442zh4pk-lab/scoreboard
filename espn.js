@@ -88,12 +88,33 @@
         var stt = c.status || {};
         return { w: (c.type && (c.type.abbreviation || c.type.text)) || "", n: cs.map(cname), r: cs.map(rec), win: win, s: evState(c), m: m, rd: stt.period || 0, tm: stt.displayClock || "", live: stt.type && stt.type.shortDetail || "", ft: !!stt.featured };
       }).reverse();
+    } else if (lg.kind === "golf") {
+      var c0 = comps[0] || {}, gst = c0.status || ev.status || {}, rows = [];
+      (c0.competitors || []).forEach(function (z) {
+        var ls = (z.linescores || []).filter(function (l) { return l && l.period != null; }), last = ls[ls.length - 1], hl = last && last.linescores ? last.linescores.length : 0;
+        var rd = ls.map(function (l) { var v = l.value != null ? Number(l.value) : null; return v != null && isFinite(v) ? v : null; });
+        rows.push({ n: cname(z), o: z.order || 999, sc: z.score != null ? String(z.score) : "", r: rd, rp: ls.map(function (l) { return l.displayValue != null ? String(l.displayValue) : ""; }), th: hl > 0 && hl < 18 ? hl : 0, fl: (z.athlete && z.athlete.flag && z.athlete.flag.alt) || "" });
+      });
+      rows.sort(function (p, q) { return p.o - q.o; });
+      rows.forEach(function (r, i) {
+        var f = i; while (f > 0 && rows[f - 1].sc === r.sc) f--;
+        var e = i; while (e < rows.length - 1 && rows[e + 1].sc === r.sc) e++;
+        r.p = (e > f ? "T" : "") + (f + 1);
+      });
+      x.rows = rows.map(function (r) { return [r.n, r.p, r.sc, r.r, r.rp, r.th, r.fl]; });
+      x.rnd = gst.period || 0; x.det = (gst.type && (gst.type.detail || gst.type.shortDetail)) || "";
+      x.end = ev.endDate || "";
     } else {
       x.sess = comps.map(function (c) {
         var s = evState(c);
         return { n: (c.type && (c.type.abbreviation || c.type.text)) || "Race", s: s, t: c.date, rows: s === "pre" ? [] : byOrder(c).map(function (z, i) { return [z.order || i + 1, cname(z)]; }) };
       });
     }
+    var pp = {};
+    if (x.fights) x.fights.forEach(function (f) { f.n.forEach(function (n) { if (n && n !== "–") pp[n] = 1; }); });
+    if (x.sess) x.sess.forEach(function (z) { z.rows.forEach(function (r) { pp[r[1]] = 1; }); });
+    if (x.rows) x.rows.forEach(function (r) { pp[r[0]] = 1; });
+    g.pp = Object.keys(pp);
     g.x = x;
     return g;
   }
@@ -280,6 +301,44 @@
     return { head: head, secs: secs };
   }
 
+  // "Get caught up" for a game in progress: where it stands, how each period went, how the lead has moved, the latest scores.
+  function catchOf(d, away, home, leaders, lg, st) {
+    var A = away.team, H = home.team, as = Number(away.score), hs = Number(home.score), secs = [];
+    var det = (st.type && (st.type.detail || st.type.shortDetail)) || "In progress", tie = as === hs, ld = as > hs ? A : H;
+    var head = det + ": " + (tie ? A.displayName + " and " + H.displayName + " are tied " + as + "-" + hs + "." : ld.displayName + " lead " + Math.max(as, hs) + "-" + Math.min(as, hs) + ".");
+    var unit = /hockey/.test(lg.path) ? "P" : /baseball/.test(lg.path) ? "Inn " : /soccer/.test(lg.path) ? "H" : "Q";
+    var la = away.linescores || [], lh = home.linescores || [], n = Math.max(la.length, lh.length), parts = [];
+    var val = function (ls, k) { var z = ls[k]; if (!z) return null; var v = Number(z.displayValue != null ? z.displayValue : z.value); return isFinite(v) ? v : null; };
+    for (var i = 0; i < n; i++) { var a = val(la, i), h = val(lh, i); if (a != null && h != null) parts.push(unit + (i + 1) + " " + A.abbreviation + " " + a + ", " + H.abbreviation + " " + h); }
+    if (parts.length) secs.push({ h: "Period by period", p: parts.join(" · ") });
+    var sp = (d.scoringPlays || []).filter(function (p) { return isFinite(Number(p.awayScore)) && isFinite(Number(p.homeScore)); });
+    if (sp.length > 1) {
+      var cur = 0, ch = 0, ties = 0, mA = 0, mH = 0;
+      sp.forEach(function (p) {
+        var m = Number(p.homeScore) - Number(p.awayScore), sd = m === 0 ? 0 : m > 0 ? 1 : -1;
+        if (sd === 0) ties++;
+        if (sd !== 0 && cur !== 0 && sd !== cur) ch++;
+        if (sd !== 0) cur = sd;
+        if (m > mH) mH = m; if (-m > mA) mA = -m;
+      });
+      var ln = [];
+      if (ch === 0 && (mA === 0 || mH === 0)) ln.push((mA ? A : mH ? H : ld).displayName + " has led from the first score.");
+      else ln.push("The lead has changed hands " + ch + (ch === 1 ? " time" : " times") + (ties ? " and the score has been tied " + ties + (ties === 1 ? " time." : " times.") : "."));
+      if (mA || mH) ln.push("Biggest leads: " + (mA ? A.abbreviation + " by " + mA : "") + (mA && mH ? ", " : "") + (mH ? H.abbreviation + " by " + mH : "") + ".");
+      secs.push({ h: "How it has gone", p: ln.join(" ") });
+    }
+    var last = sp.length ? sp : (d.plays || []).filter(function (p) { return p && p.text; });
+    last = last.slice(-3).reverse().map(function (p) {
+      var pn = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "", ck = p.clock && p.clock.displayValue ? p.clock.displayValue : "";
+      return (p.text || p.shortText || "") + ([pn, ck].filter(Boolean).length ? " (" + [pn, ck].filter(Boolean).join(" ") + ")" : "");
+    }).filter(Boolean);
+    if (last.length) secs.push({ h: sp.length ? "Latest scoring" : "Latest plays", p: last.join(" \u2022 ") });
+    var by = {}, order = [];
+    leaders.forEach(function (l) { if (!by[l.team]) { by[l.team] = []; order.push(l.team); } if (by[l.team].length < 2) by[l.team].push(l.name + " " + l.line + (l.cat ? " (" + l.cat.replace(/ Leader$/i, "") + ")" : "")); });
+    if (order.length) secs.push({ h: "Standouts so far", p: order.map(function (t) { return t + ": " + by[t].join("; ") + "."; }).join(" ") });
+    return { head: head, secs: secs };
+  }
+
   // Box score, player tables, plays and a matchup preview (or, once final, a recap) for one game.
   function fetchGameRaw(lk, id) {
     var lg = labelOf(lk);
@@ -352,6 +411,7 @@
       });
 
       // Finished games: a written recap from ESPN's own recap blurb, the scoring flow and the game leaders.
+      if (comp && comp.status && comp.status.type && comp.status.type.state === "in" && away && home) { try { out.catch = catchOf(d, away, home, out.leaders, lg, comp.status); } catch (e) {} }
       if (comp && comp.status && comp.status.type && comp.status.type.completed && away && home) out.recap = recapOf(d, away, home, out.leaders, lg);
 
       // Season series line ("BOS leads 2-1") and the win-probability curve (home team, 0-100, thinned to about 90 points).
