@@ -1325,9 +1325,6 @@
       if (window.FUN) requestAnimationFrame(function () { FUN.after(out); }); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500);
     }
     else if (!RT) out.classList.remove("enter");
-    var about = "Following: " + C.followed.join(", ") + ".";
-    if (C.noFeed.length) about += " " + C.noFeed.join(", ") + " " + (C.noFeed.length > 1 ? "are" : "is") + " on the list, but there is no data feed for " + (C.noFeed.length > 1 ? "them" : "it") + " yet.";
-    $("about").textContent = about;
 
     if (!S.ready) { out.appendChild(notice("Scores will show up here", "Live games, finals and what is next for your teams load in a moment. Pull down to refresh if nothing appears.")); return; }
     if (S.settings) { renderSettings(out); return; }
@@ -1393,14 +1390,14 @@
   }
   function stampTick() {
     var s = $("stamp"), d = $("dot");
-    if (!S.last) { s.textContent = S.loading ? "Loading scores" : "No scores yet"; d.className = "dot"; $("refresh").title = s.textContent; return; }
+    if (!S.last) { s.textContent = ""; $("refresh").title = S.loading ? "Loading scores" : "No scores yet"; d.className = "dot"; return; }
     [].forEach.call(document.querySelectorAll("[data-cd]"), function (n) {
       var t = countdown(n.getAttribute("data-cd"), !!n.getAttribute("data-long"));
       n.textContent = t ? " · " + t : "";
     });
     var m = Math.max(0, Math.round((Date.now() - S.last) / 60000));
-    s.textContent = "Updated " + (m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " hr ago");
-    d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = s.textContent;
+    s.textContent = m < 1 ? "now" : m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d";
+    d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = "Updated " + (m < 1 ? "just now" : s.textContent + " ago");
     var bad = S.failed.map(function (k) { return leagueOf(k).label; });
     $("foot").textContent = (bad.length ? "Could not load: " + bad.join(", ") + ". " : "") +
       "Scores refresh by themselves every minute while a game is live. Pull down, or tap the status light, any time for the latest.";
@@ -1494,7 +1491,7 @@
       }
       if (firstLoad) syncFromHash();
     }).catch(function () {
-      $("stamp").textContent = "Could not reach the score server"; $("dot").className = "dot stale";
+      $("stamp").textContent = "off"; $("refresh").title = "Could not reach the score server"; $("dot").className = "dot stale";
     }).then(function () {
       S.loading = false; btn.disabled = false; btn.removeAttribute("aria-busy"); stampTick();
       document.body.classList.remove("ld");
@@ -1636,5 +1633,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=52").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=53").catch(function () {}); } catch (e) {} });
 })();
