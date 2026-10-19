@@ -2537,6 +2537,8 @@
     x.addEventListener("pointerdown", function (e) { e.preventDefault(); });
     x.onclick = closeFind;
     inp.addEventListener("focus", openFind);
+    inp.addEventListener("click", function () { if (!FIND) openFind(); });   // focus can be skipped (window not focused, already focused)
+    inp.addEventListener("input", function () { if (!FIND && inp.value) openFind(); });
     w.appendChild(clearable(inp)); w.appendChild(x); FINDQ = inp;
     return w;
   }
