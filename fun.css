@@ -210,3 +210,13 @@ body.pm-open{overflow:hidden}
 #gear.gear-go{animation:gearGo 1.3s ease}
 @media(prefers-reduced-motion:reduce){.tc,.tc-em,.tc-foil,.pm-sheet,.pm,.tcd{animation:none!important;transition:none!important}}
 .tc-n{color:var(--fg)}
+/* leaderboard */
+.lb-me{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.lb-list{display:flex;flex-direction:column;gap:6px}
+.lb-row{display:grid;grid-template-columns:38px 1fr auto 52px;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.lb-row.me{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
+.lb-row.top1{border-color:#ffb020}
+.lb-rk{font:800 16px var(--hd);color:var(--mute);text-align:center}
+.lb-nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-cd{font-size:12px;color:var(--mute)}
+.lb-sc{font:800 18px var(--hd);color:var(--pri);text-align:right}
