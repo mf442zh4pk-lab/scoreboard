@@ -599,8 +599,24 @@
     var s = (e.stats || []).filter(function (z) { return z.name === name || z.type === name; })[0];
     return s ? s.displayValue : null;
   }
+  // Where a team sits in the whole league: every entry across every group, once per team, ranked by win% (points per game
+  // for the points leagues). {pos, n} so the team page can say "top quarter" or "bottom tenth".
+  function leagueRank(groups, tid, usePts) {
+    var seen = {}, all = [];
+    groups.forEach(function (g) { g.entries.forEach(function (e) {
+      var id = String(e.team.id); if (seen[id]) return; seen[id] = 1;
+      var w = parseFloat(stat(e, "wins")), l = parseFloat(stat(e, "losses")), t = parseFloat(stat(e, "ties") || stat(e, "otLosses") || 0) || 0, gp = parseFloat(stat(e, "gamesPlayed")) || (w + l + t);
+      var sc = usePts ? (gp ? parseFloat(stat(e, "points")) / gp : NaN) : parseFloat(stat(e, "winPercent"));
+      if (!isFinite(sc) && gp) sc = (w + 0.5 * t) / gp;
+      if (isFinite(sc)) all.push([id, sc]);
+    }); });
+    if (all.length < 4) return null;
+    all.sort(function (a, b) { return b[1] - a[1]; });
+    var pos = -1; all.forEach(function (r, i) { if (r[0] === String(tid)) pos = i + 1; });
+    return pos > 0 ? { pos: pos, n: all.length } : null;
+  }
   function findStanding(j, tid, usePts) {
-    var groups = walk(j, []);
+    var groups = walk(j, []), lr = leagueRank(groups, tid, usePts);
     for (var gi = 0; gi < groups.length; gi++) {
       var es = groups[gi].entries, idx = -1;
       es.forEach(function (e, i) { if (String(e.team.id) === String(tid)) idx = i; });
@@ -614,9 +630,9 @@
         var sd = seedOf(x);
         var rec = (stat(x, "overall") || (stat(x, "wins") + "-" + stat(x, "losses"))).split(",")[0];
         var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
-        return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", lg: logoOf(x.team), me: i === idx };
+        return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", lg: logoOf(x.team), me: i === idx, id: String(x.team.id), nm: x.team.displayName };
       }).sort(function (p, q) { return p.rank - q.rank; });
-      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT" };
+      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT", lr: lr, gb: stat(e, "gamesBehind") };
     }
     return null;
   }
@@ -638,9 +654,17 @@
     }).filter(Boolean);
   }
   // Standing (rank, record, streak) and schedule for one team.
+  var stC = {};   // one standings feed per league, kept five minutes, so hopping between teams costs one request
+  function standingsOf(lg) {
+    var e = stC[lg.key];
+    if (e && Date.now() - e.at < 300000) return e.p;
+    e = { at: Date.now(), p: getJson(V2 + "/" + lg.path + "/standings") }; stC[lg.key] = e;
+    e.p.catch(function () { if (stC[lg.key] === e) delete stC[lg.key]; });
+    return e.p;
+  }
   function fetchTeamInfo(lk, tid) {
     var lg = labelOf(lk);
-    var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
+    var st = standingsOf(lg).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
     var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule", me = null;
     // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
     var sc = getJson(url).then(function (j) { var t = j.team || {}; me = [t.displayName || "", t.abbreviation || "", logoOf(t) || (t.logo || ""), String(t.id || tid)]; return parseSchedule(j); }, function () { return []; }).then(function (gs) {
