@@ -742,16 +742,16 @@ td.chg{animation:cellf 1.6s ease-out}
 /* tags under the score line (primetime time, close margin) */
 .qs .qstag{grid-column:1 / -1;display:flex;gap:6px;margin-top:-2px}
 .qstag i{font:800 9.5px/1 var(--bd);letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:4px 8px;font-style:normal}
-.qstag i.tpm{background:var(--pri);color:#fff}
+.qstag i.tpm{background:var(--warn);color:#1a1408}
 .qstag i.tcl{background:color-mix(in srgb,var(--ter) 18%,transparent);color:var(--ter);border:1px solid color-mix(in srgb,var(--ter) 55%,transparent)}
 /* primetime: a solid slate frame, night-tinted fill, slate corner notch */
-.qs.prime{border:2px solid var(--pri);background:linear-gradient(90deg,color-mix(in srgb,var(--pri) 12%,var(--card)),var(--card) 60%);box-shadow:0 6px 18px -10px color-mix(in srgb,var(--pri) 80%,transparent)}
-.qs.prime::before{content:"";position:absolute;left:-2px;top:-2px;width:0;height:0;border-style:solid;border-width:14px 14px 0 0;border-color:var(--pri) transparent transparent transparent;border-top-left-radius:9px}
-.qs.prime .qsf em{color:var(--pri)}
+.qs.prime{border:2px solid var(--warn);background:linear-gradient(90deg,color-mix(in srgb,var(--warn) 14%,var(--card)),var(--card) 60%);box-shadow:0 6px 18px -10px color-mix(in srgb,var(--warn) 85%,transparent)}
+.qs.prime::before{content:"";position:absolute;left:-2px;top:-2px;width:0;height:0;border-style:solid;border-width:14px 14px 0 0;border-color:var(--warn) transparent transparent transparent;border-top-left-radius:9px}
+.qs.prime .qsf em{color:var(--warn)}
 /* close game: a floating lavender ring set off from the card, breathing twice, then a halo */
 .qs.close{border:1px solid color-mix(in srgb,var(--ter) 45%,var(--line));outline:2px solid var(--ter);outline-offset:3px;margin:3px 0}
 .qs.close::after{content:"";position:absolute;inset:-6px;border-radius:14px;border:2px solid var(--ter);opacity:0;animation:qscl 1.6s var(--ease) .2s 2;pointer-events:none}
 @keyframes qscl{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
 /* both: slate frame inside, lavender ring outside */
-.qs.prime.close{border:2px solid var(--pri);outline:2px solid var(--ter);outline-offset:3px}
+.qs.prime.close{border:2px solid var(--warn);outline:2px solid var(--ter);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){.qs.close::after{animation:none}}
