@@ -840,3 +840,9 @@ input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-sea
 .tq-x:active{transform:translateY(-50%) scale(.9)}
 .find-top .tq{flex:1}
 .pm-stk .tq{margin:0 0 8px}.pm-stk .tq>.pm-q{margin:0}
+/* My teams: a loading team holds roughly a loaded card's height, so nothing jumps when it fills in */
+.recap.ld{min-height:260px}
+.tsk{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.tsk .sk-b{height:120px;border-radius:10px;background:linear-gradient(90deg,var(--pri-soft) 25%,color-mix(in srgb,var(--pri-soft) 45%,var(--card)) 50%,var(--pri-soft) 75%);background-size:200% 100%;animation:shim 1.2s linear infinite}
+@media (prefers-reduced-motion:reduce){.tsk .sk-b{animation:none}}
+.tsk .sk-l.w70{width:70%}
