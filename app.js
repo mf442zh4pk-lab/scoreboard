@@ -73,8 +73,19 @@
   }
   // A search box with its own clear button (×), shown only while there's text. Clearing fires "input", so every
   // box's own handler redraws as if the text had been deleted by hand; the keyboard stays up.
-  function clearable(inp) {
-    var w = el("span", "tq"), x = el("button", "tq-x", "\u00d7");
+  // Every search box: a drawn magnifier, our own centered × (only with text), and a <form role=search> so the phone's
+  // Search/Go key always arrives (iOS sends it as a submit). On a touch screen, Enter/Search just puts the keyboard
+  // away so the results are in view; with a real keyboard, the box's own Enter handler runs (open the top result).
+  // inForm: the box already sits in a form (the people box), so no second one.
+  var TOUCH = false; try { TOUCH = matchMedia("(hover: none), (pointer: coarse)").matches; } catch (e) {}
+  function clearable(inp, inForm) {
+    var w = el(inForm ? "span" : "form", "tq ic"), x = el("button", "tq-x");
+    w.appendChild(el("span", "tq-i"));
+    if (!inForm) {
+      w.setAttribute("role", "search"); w.noValidate = true; w.setAttribute("action", "#");
+      w.addEventListener("submit", function (e) { e.preventDefault(); if (TOUCH) inp.blur(); });
+      w.addEventListener("keydown", function (e) { if (e.key === "Enter" && TOUCH && e.target === inp) { e.preventDefault(); e.stopPropagation(); inp.blur(); } }, true);
+    }
     x.type = "button"; x.tabIndex = -1; x.setAttribute("aria-label", "Clear search");
     var sync = function () { w.classList.toggle("has", !!inp.value); };
     inp.addEventListener("input", sync);
@@ -1302,7 +1313,7 @@
       var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q.toLowerCase(); })[0] || q;
       if (!fpHas(hit)) setFp(C.fp.concat([hit])); else toast("Already following " + hit + ".");
     };
-    f.appendChild(clearable(inp)); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+    f.appendChild(clearable(inp, true)); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
     return box;
   }
   function peopleStatus() {
@@ -2531,10 +2542,26 @@
   // Typing searches every loaded game, plus teams and athletes from every sport (the same search as Find a team). For
   // the best team matches it also pulls that team's schedule (one request, kept for its page) so a game that isn't
   // loaded anywhere still turns up: live, next and last. Results drop down under the bar; tapping a game opens it.
-  var FIND = null, FINDQ = null, FG = {}, COARSE = false; try { COARSE = matchMedia("(pointer: coarse)").matches; } catch (e) {}
+  var FIND = null, FINDQ = null, FG = {};
+  // What a league answers to besides its label: its sport, and what people call it ("golf", "fights", "grand prix").
+  var LGW = { mma: "mma fight fights fighting", racing: "racing race races motorsport", golf: "golf", tennis: "tennis", soccer: "soccer futbol",
+    f1: "formula one formula 1 grand prix gp", nascar: "cup stock car", pga: "golf", lpga: "womens golf", eur: "european tour dp world",
+    epl: "prem english", ucl: "champions league", ncaafb: "college football cfb ncaaf", ncaamb: "college basketball cbb ncaam march madness",
+    ncaawb: "womens college basketball ncaaw", wnba: "womens basketball", nwsl: "womens soccer" };
+  function lgWords(lg) {
+    if (!lg) return "";
+    if (lg._w == null) { var sp = (lg.path || "").split("/")[0]; lg._w = wordsOf([lg.label, lg.key, sp, LGW[lg.key] || "", LGW[sp] || ""].join(" ")); }
+    return lg._w;
+  }
+  // Leagues whose words start with every typed word: "golf" → PGA, LPGA, DP World; "f1", "ufc", "prem", "college foot".
+  function leagueHits(raw) {
+    var toks = wordsOf(raw).trim().split(" ").filter(Boolean); if (!toks.length || raw.length < 2) return [];
+    // Short words must be a whole word ("f1", "gp", "ufc"); three letters on, the start of one is enough.
+    return LG.filter(function (l) { var w = lgWords(l) + " "; return toks.every(function (t) { return w.indexOf(" " + t + (t.length < 3 ? " " : "")) >= 0; }); });
+  }
   function hay(x) {
     var g = x.g, lg = leagueOf(x.lk) || {};
-    return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lg.key, g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
+    return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lgWords(lg), g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
   }
   // A team's schedule for Find, once per team per session; it also fills S.teams so its page opens without waiting.
   // A team's games for Find: what's on hand (a team page already loaded, or an earlier lookup) comes back at once;
@@ -2553,8 +2580,22 @@
     var live = gs.filter(function (g) { return g.s === "live"; }), up = gs.filter(function (g) { return g.s === "up"; }), fin = gs.filter(function (g) { return g.s === "final"; });
     return live.concat(up.slice(0, live.length ? 0 : 1)).concat(fin.slice(-1));
   }
+  // A league in Find: what's on there now (live count, or when the next event is), tap to open its tab.
+  function leagueRow(l) {
+    var r = el("div", "find-tm click lg-row"), gs = S.games[l.key] || [], st = S.lgState[l.key];
+    var live = gs.filter(function (g) { return g.s === "live"; }).length, nx = gs.filter(function (g) { return g.s === "up"; }).sort(byTime)[0];
+    r.appendChild(el("span", "ab", (l.key.length <= 4 ? l.key : l.label.split(/\s+/).map(function (w) { return w.charAt(0); }).join("")).slice(0, 4).toUpperCase()));
+    var w = el("span", "find-tw"); w.appendChild(el("b", null, l.label));
+    w.appendChild(el("small", live ? "lv-t" : null, live ? "\u25CF " + live + " live now" : nx ? "Next: " + (nx.n ? nx.n + " \u00b7 " : "") + when(nx.t) : st === "loading" ? "Loading events\u2026" : st === "done" || !l.lazy ? "Nothing scheduled in the next few days" : "Tap for the schedule"));
+    r.appendChild(w); r.appendChild(el("span", "find-go", "\u203a"));
+    r.tabIndex = 0; r.setAttribute("role", "button");
+    var go = function () { closeFind(); pickLeague(l); };
+    r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } };
+    return r;
+  }
   function closeFind() {
     if (!FIND) return; var f = FIND; FIND = null;
+    if (f._kb && window.visualViewport) visualViewport.removeEventListener("resize", f._kb);
     f.classList.remove("in"); document.body.classList.remove("find-on"); $("rail").classList.remove("finding");
     if (FINDQ) { FINDQ.value = ""; FINDQ.dispatchEvent(new Event("input")); try { FINDQ.blur(); } catch (e) {} }
     setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220);
@@ -2629,17 +2670,27 @@
           Promise.all(pend.map(function (t) { findSched(t, true); return FG[t.lk + "_" + t.id].p; })).then(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw) fill(); });
         }, 350);
       }
+      // Leagues the words name: a row each (tap for its tab), and a league that isn't loaded yet loads in the background
+      // (one request; its events then show up as games above, via _fresh).
+      var lgs = leagueHits(raw).slice(0, 4);
+      if (lgs.length) {
+        res.appendChild(el("h4", "find-sh", lgs.length > 1 ? "Leagues" : "League"));
+        var lw = el("div", "find-tms"); lgs.forEach(function (l) { lw.appendChild(leagueRow(l)); }); res.appendChild(lw);
+        clearTimeout(ctl.lt);
+        var cold = lgs.filter(function (l) { return l.lazy && !S.lgState[l.key]; }).slice(0, 3);
+        if (cold.length) ctl.lt = setTimeout(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw) cold.forEach(function (l) { loadLeague(l.key); }); }, 350);
+      }
       if (grid.firstChild) {
         res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid);
         if (hits.length > 12) res.appendChild(el("p", "find-h", "+" + (hits.length - 12) + " more \u00b7 keep typing"));
       } else if (waiting) res.appendChild(el("p", "find-h find-wait", "Looking up their schedule\u2026"));
       var n = drawHits(res, raw, ctl, { nt: 8, heads: true });
-      if (!grid.firstChild && !n && !waiting && ctl.done) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
+      if (!grid.firstChild && !n && !lgs.length && !waiting && ctl.done) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
     inp.oninput = function () { if (FIND === ov) fill(); };
     inp.onkeydown = function (e) {
       // Enter opens the top result on a keyboard; on a phone the Search key just tucks the keyboard away to show the list.
-      if (e.key === "Enter") { e.preventDefault(); if (COARSE) { inp.blur(); return; } if (cur.length) open(cur[0].c, cur[0].x); else { var r = res.querySelector(".find-tm"); if (r) r.onclick(); } }
+      if (e.key === "Enter") { e.preventDefault(); if (TOUCH) { inp.blur(); return; } if (cur.length) open(cur[0].c, cur[0].x); else { var r = res.querySelector(".find-tm"); if (r) r.onclick(); } }
       if (e.key === "Escape") { e.preventDefault(); closeFind(); }
     };
     fill();
@@ -2649,6 +2700,9 @@
     ov.addEventListener("touchstart", function () { tch = true; sy0 = ov.scrollTop; }, { passive: true });
     ov.addEventListener("touchend", function () { tch = false; }, { passive: true });
     ov.addEventListener("scroll", function () { if (tch && D0.activeElement === inp && Math.abs(ov.scrollTop - sy0) > 24) inp.blur(); }, { passive: true });
+    // With the phone keyboard up, the list can still scroll its last result into view (padding = keyboard height).
+    var vv = window.visualViewport;
+    if (vv) { ov._kb = function () { ov.style.paddingBottom = Math.max(20, Math.round(innerHeight - vv.height - vv.offsetTop) + 20) + "px"; }; vv.addEventListener("resize", ov._kb); }
     document.body.appendChild(ov); FIND = ov; document.body.classList.add("find-on");
     var place = function () { ov.style.top = Math.max(0, rail.getBoundingClientRect().bottom) + "px"; };
     place(); requestAnimationFrame(function () { place(); ov.classList.add("in"); });
