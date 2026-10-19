@@ -824,11 +824,8 @@ input,select,textarea{font-size:max(16px,1em)}
 @supports (-webkit-touch-callout:none){input,select,textarea{font-size:max(16px,1em)!important}}
 /* Search boxes: one clear button (×) of our own instead of each browser's */
 .tq{position:relative;display:flex;flex:1;min-width:0}
-.tq>input{flex:1;width:100%;min-width:0;padding-right:42px!important;box-sizing:border-box}
+.tq>input{flex:1;width:100%;min-width:0;box-sizing:border-box}
 input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
-.tq-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:50%;background:var(--pri-soft);color:var(--pri);font:400 20px/1 var(--bd);padding:0;cursor:pointer;display:none;place-items:center;-webkit-tap-highlight-color:transparent}
-.tq.has .tq-x{display:grid}
-.tq-x:active{transform:translateY(-50%) scale(.9)}
 .find-top .tq{flex:1}
 .pm-stk .tq{margin:0 0 8px}.pm-stk .tq>.pm-q{margin:0}
 /* My teams: a loading team holds roughly a loaded card's height, so nothing jumps when it fills in */
@@ -841,14 +838,10 @@ input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-sea
    under it. The input stays 16px so a phone never zooms; only the placeholder is small. */
 .rail-lg{column-gap:13px}
 .rfind{margin-left:auto;flex:1 1 108px;min-width:108px;max-width:220px;display:flex;align-items:center;gap:10px}
-.rfind .tq::before{content:"\2315";position:absolute;left:10px;top:50%;transform:translateY(-52%);color:var(--mute);font-size:15px;pointer-events:none}
 .rf-q{height:32px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--fg);font:500 16px var(--bd);padding:0 10px 0 27px;outline:none;-webkit-appearance:none;appearance:none;transition:border-color var(--t2) var(--ease)}
 .rf-q::placeholder{font-size:13px;color:var(--mute)}
 .rf-q::-webkit-search-cancel-button{display:none}
 .rf-q:focus{border-color:var(--ter)}
-.rfind .tq-x{width:24px;height:24px;font-size:17px;right:4px}
-.rfind .tq>input{padding-right:32px!important}
-.rfind .tq:not(.has)>input{padding-right:8px!important}
 .rf-x{display:none;flex:none;border:0;background:none;color:var(--pri);font:600 15px var(--bd);padding:0 2px;cursor:pointer}
 .rail.finding .rail-main,.rail.finding .rail-lg>.tab{display:none}
 .rail.finding .rail-lg{margin-top:0;padding-top:0;border-top:0}
@@ -884,3 +877,30 @@ body.onb-on{overflow:hidden}
 .onb-f{display:flex;gap:8px;padding-top:4px}
 .onb-f button{flex:1;min-height:44px;text-align:center;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:700 15px var(--bd);cursor:pointer}
 .onb-f button.pri{flex:2;background:linear-gradient(135deg,var(--pri),var(--ter));border-color:transparent;color:var(--bg)}
+/* Search boxes: one drawn magnifier and one drawn ×, both centered exactly (font glyphs sat off-center and
+   differ by phone). The × circle is inset evenly from the box's top, bottom and right edge (--xi). */
+.tq{margin:0;--xs:28px;--xi:7px}
+.tq-i{position:absolute;left:13px;top:50%;width:16px;height:16px;margin-top:-8px;background:var(--mute);pointer-events:none;z-index:1;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.6 15.6 20.5 20.5'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.6 15.6 20.5 20.5'/%3E%3C/svg%3E") center/contain no-repeat}
+.tq:focus-within .tq-i{background:var(--ter)}
+.tq.ic>input{padding-left:38px!important}
+.tq-x{position:absolute;right:var(--xi);top:50%;width:var(--xs);height:var(--xs);margin-top:calc(var(--xs) / -2);border:0;border-radius:50%;background:var(--pri-soft);color:var(--fg);padding:0;font-size:0;cursor:pointer;display:none;-webkit-tap-highlight-color:transparent;transition:transform var(--t1) var(--ease),background var(--t1) var(--ease)}
+.tq-x::before,.tq-x::after{content:"";position:absolute;left:50%;top:50%;width:42%;height:2px;margin:-1px 0 0 -21%;border-radius:2px;background:currentColor;transform:rotate(45deg)}
+.tq-x::after{transform:rotate(-45deg)}
+.tq.has .tq-x{display:block}
+.tq-x:active{transform:scale(.88);background:var(--line)}
+.tq>input{padding-right:calc(var(--xs) + var(--xi) + 8px)!important}
+.tq:not(.has)>input{padding-right:12px!important}
+/* the bar in the league row: 32px tall collapsed, 40px open */
+.rfind .tq{--xs:22px;--xi:5px}
+.rfind .tq-i{left:10px;width:13px;height:13px;margin-top:-6.5px}
+.rfind .tq.ic>input{padding-left:28px!important}
+.rfind .tq:not(.has)>input{padding-right:6px!important}
+.rail.finding .rfind .tq{--xs:26px;--xi:7px}
+.rail.finding .rfind .tq-i{left:13px;width:16px;height:16px;margin-top:-8px}
+.rail.finding .rfind .tq.ic>input{padding-left:36px!important}
+.pm-stk .tq-i{left:2px}.pm-stk .tq.ic>.pm-q{padding-left:26px!important}
+.onb-b .tq{--xi:8px}
+.find-tw small.lv-t{color:var(--live);font-weight:600}
+.tq>.msearch{margin:0}.more .tq{margin:8px 0 2px}
