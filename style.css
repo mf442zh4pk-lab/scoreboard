@@ -458,3 +458,9 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .enter .fgd i,.enter .tdots i{animation:dotp .35s calc(var(--i,0)*45ms + .2s) backwards}
 .card.click:active,.story.click:active,.recap[role=button]:active{transform:scale(.985)}
 .rh{flex-wrap:wrap}
+
+#who{display:flex;align-items:center;gap:7px;margin:-6px 0 8px 50px;padding:0;border:0;background:none;font:700 11px/1 var(--bd);letter-spacing:.24em;text-transform:uppercase;color:var(--mute);cursor:pointer;white-space:nowrap}
+#who[hidden]{display:none}
+#who::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--line);flex:none;margin-left:3px}
+#who.on::before{background:var(--win);box-shadow:0 0 0 3px color-mix(in srgb,var(--win) 22%,transparent)}
+#who:hover{color:var(--ter)}
