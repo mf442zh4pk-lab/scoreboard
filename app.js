@@ -88,6 +88,9 @@
   function isFollowed(g) { return C.followed.indexOf(g.h[0]) >= 0 || C.followed.indexOf(g.a[0]) >= 0 || (C.fp.length > 0 && !!g.pp && fpIn(g).length > 0); }
   var LGM = {}; LG.forEach(function (l) { LGM[l.key] = l; });   // key → league, looked up constantly while rendering
   function leagueOf(lk) { return LGM[lk]; }
+  var DYN = {}; try { DYN = JSON.parse(localStorage.getItem("sb-dyn") || "{}") || {}; } catch (e) {}
+  Object.keys(DYN).forEach(function (k) { if (DYN[k] && DYN[k][0]) addLeague(k, DYN[k][0], DYN[k][1]); });
+  try { localStorage.removeItem("sb-tm2"); localStorage.removeItem("sb-teams2"); } catch (e) {}   // the old every-league team sweep
   function allGames() {
     var out = [];
     LG.forEach(function (l) { S.games[l.key].forEach(function (g) { out.push({ g: g, lk: l.key, ll: l.label }); }); });
@@ -1011,18 +1014,21 @@
   // ---------- my teams (record, standing, schedule) ----------
   function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   // lk and id are known when the team came from the Find index; otherwise the name is looked up in the team lists.
-  function loadTeam(name, lk, id) {
-    if (S.teams[name] && !S.teams[name].stale) return;
+  var LT = {};   // teams with a request in flight (a stale copy on screen re-renders often; it must not refetch each time)
+  function loadTeam(name, lk, id, fresh) {
+    if ((S.teams[name] && !S.teams[name].stale && !fresh) || LT[name]) return;
+    if (!lk && TID[name]) { lk = TID[name].lk; id = TID[name].id; }
+    LT[name] = 1;
     // Show the last saved copy right away; the fresh one replaces it when it arrives.
-    S.teams[name] = TC[name] ? Object.assign({ done: true, stale: true }, TC[name]) : { loading: true };
+    if (!S.teams[name] || !S.teams[name].done) S.teams[name] = TC[name] ? Object.assign({ done: true, stale: true }, TC[name]) : { loading: true };   // what's on screen stays until the new copy lands
     (lk && id ? Promise.resolve({ lk: lk, id: id }) : ESPN.findTeam(name)).then(function (f) {
       if (!f) return { missing: true };
-      return ESPN.fetchTeamInfo(f.lk, f.id).then(function (i) { i.lk = f.lk; i.id = f.id; return i; });
+      return ESPN.fetchTeamInfo(f.lk, f.id, fresh).then(function (i) { i.lk = f.lk; i.id = f.id; return i; });
     }).then(function (i) {
       S.teams[name] = Object.assign({ done: true }, i);
       if (!i.missing && C.followed.indexOf(name) >= 0) { TC[name] = i; try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {} }   // only your teams are kept on disk
     }, function () { if (!S.teams[name] || !S.teams[name].stale) S.teams[name] = { done: true, error: true }; else S.teams[name].stale = false; })
-      .then(function () { if ((S.tab === "teams" && !S.view) || (S.view && S.view.team)) { if (!S.settings) renderSoon(); } });
+      .then(function () { delete LT[name]; if ((S.tab === "teams" && !S.view) || (S.view && S.view.team)) { if (!S.settings) renderSoon(); } });
   }
   // Turns a schedule entry into the game shape the detail page uses, when the schedule carried both teams' details.
   function schedGame(g, T, lk) {
@@ -1346,31 +1352,30 @@
     }
     return a;
   }
-  // Find a team (My teams): the same index Find uses; the results open the team page.
-  var TFQ = "", TFM = false, TFF = false;
-  function teamFinder() {
-    var box = el("div", "tfind"), inp = el("input", "tf-q"), res = el("div", "tf-res");
-    inp.type = "search"; inp.placeholder = "Find any team \u00b7 schedule, standing, form"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a team"); inp.value = TFQ;
+  // Find a team (My teams, Settings): the index plus the every-sport search; rows open the page, the star follows.
+  var TF = {}, TFF = "";
+  function teamFinder(key, ph) {
+    var st = TF[key] = TF[key] || { q: "", ctl: {} }, box = el("div", "tfind"), inp = el("input", "tf-q"), res = el("div", "tf-res");
+    inp.type = "search"; inp.placeholder = ph || "Find any team or athlete"; inp.autocomplete = "off"; inp.setAttribute("aria-label", ph || "Find a team or athlete"); inp.value = st.q; inp.setAttribute("data-tf", key);
     function fill() {
-      var q = inp.value.trim().toLowerCase(); TFQ = inp.value; res.textContent = "";
-      if (!q) return;
-      var th = teamHits(q, TFM), cur = th.slice(0, 6);
-      if (!cur.length) res.appendChild(el("p", "find-h", TEAMS ? "No teams match \u201c" + inp.value.trim() + "\u201d." : "Loading the team list\u2026"));
-      cur.forEach(function (t) { res.appendChild(teamRow(t)); });
-      if (th.length > cur.length) res.appendChild(el("p", "find-h", "+" + (th.length - cur.length) + " more \u00b7 keep typing"));
-      if (!TFM && TEAMS) res.appendChild(moreBtn(function () { TFM = true; fill(); }));
+      var q = inp.value.trim().toLowerCase(); st.q = inp.value; res.textContent = "";
+      if (!q) { if (D0.activeElement === inp) drawRecent(res); return; }
+      var n = drawHits(res, q, st.ctl, { nt: 6, heads: false });
+      if (!n && ESPN.peekSearch(q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
-    inp.onfocus = function () { teamIndex(false).then(function () { if (inp.value.trim()) fill(); }); };
+    st.ctl.redraw = function () { if (inp.isConnected) fill(); };
+    inp.onfocus = function () { teamIndex().then(fill); if (!inp.value.trim()) fill(); };
+    inp.onblur = function () { setTimeout(function () { if (!inp.value.trim() && D0.activeElement !== inp && inp.isConnected) res.textContent = ""; }, 150); };
     inp.oninput = fill;
     inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); var r = res.querySelector(".find-tm"); if (r) r.onclick(); } if (e.key === "Escape") { inp.value = ""; fill(); inp.blur(); } };
     box.appendChild(inp); box.appendChild(res);
-    if (TFQ) { teamIndex(false).then(fill); fill(); }
-    if (TFF) { TFF = false; requestAnimationFrame(function () { try { inp.focus(); } catch (e) {} }); }
+    if (st.q) { teamIndex().then(fill); fill(); }
+    if (TFF === key) { TFF = ""; requestAnimationFrame(function () { try { inp.focus({ preventScroll: true }); } catch (e) {} }); }
     return box;
   }
   function renderTeams(out) {
     var heatRows = [], heatSlot = el("div"), ps = peopleStatus(); if (ps) out.appendChild(ps);
-    out.appendChild(teamFinder()); out.appendChild(heatSlot);
+    out.appendChild(teamFinder("teams", "Find any team or athlete")); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) { gr.appendChild(teamBlock(name, heatRows)); });
     var hc = heatCheck(heatRows); if (hc) heatSlot.appendChild(hc);
@@ -1378,11 +1383,21 @@
   }
 
   // ---------- settings ----------
-  function setFollowed(list) {
+  // lk: reload just that league (a team was followed there); false: no reload (an unfollow); omitted: full reload.
+  // Team pages don't depend on who you follow, so their data stays; only the saved copies follow the list.
+  function setFollowed(list, lk) {
     C.followed = list;
     try { localStorage.setItem("sb-followed", JSON.stringify(list)); } catch (e) {}
-    S.teams = {}; S.yesterday = buildYesterday(new Date()); loadLeaders(); render(); load(true);
+    var tc = false;
+    Object.keys(TC).forEach(function (n) { if (list.indexOf(n) < 0) { delete TC[n]; tc = true; } });
+    list.forEach(function (n) { var T = S.teams[n]; if (!TC[n] && T && T.done && !T.missing && !T.error && T.games) { TC[n] = tcOf(T); tc = true; } });
+    if (tc) try { localStorage.setItem("sb-tcache", JSON.stringify(TC)); } catch (e) {}
+    S.yesterday = buildYesterday(new Date()); loadLeaders(); render();
+    if (lk === false) return;
+    if (lk) { var lg = leagueOf(lk); if (lg && lg.lazy && S.lgState[lk] !== "done") loadLeague(lk); else load(true, [lk]); }
+    else load(true);
   }
+  function tcOf(T) { var o = {}; Object.keys(T).forEach(function (k) { if (k !== "done" && k !== "stale") o[k] = T[k]; }); return o; }
   function renderSettings(out) {
     var box = el("div", "set");
     box.appendChild(el("h3", null, "Teams you follow"));
@@ -1390,30 +1405,11 @@
     C.followed.forEach(function (n) {
       var li = el("li"); li.appendChild(el("span", null, n));
       var x = el("button", null, "Remove"); x.type = "button";
-      x.onclick = function () { setFollowed(C.followed.filter(function (q) { return q !== n; })); };
+      x.onclick = function () { var T = S.teams[n] || TC[n] || {}; setFollowed(C.followed.filter(function (q) { return q !== n; }), false); dynTidy(T.lk); };
       li.appendChild(x); ul.appendChild(li);
     });
     box.appendChild(ul);
-    var names = {};
-    allGames().forEach(function (x) { names[x.g.h[0]] = 1; names[x.g.a[0]] = 1; });
-    var f = el("form", "add"), inp = el("input"), dl = el("datalist"), add = el("button", null, "Add");
-    inp.placeholder = "Add a team (start typing)"; inp.setAttribute("list", "teamnames"); inp.setAttribute("aria-label", "Team name");
-    dl.id = "teamnames"; add.type = "submit";
-    function fill() { dl.textContent = ""; Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); }); }
-    fill();
-    var addNames = function (v) { Object.keys(v).forEach(function (k) { v[k].forEach(function (t) { names[t.name] = 1; }); }); fill(); };
-    ESPN.fetchTeams().then(addNames); ESPN.fetchTeams(true).then(addNames);
-    f.onsubmit = function (e) {
-      e.preventDefault();
-      var q = inp.value.trim().toLowerCase();
-      var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q; })[0];
-      if (!hit) { toast("Pick a team from the suggestions so the name matches ESPN."); return; }
-      if (C.followed.indexOf(hit) < 0) {
-        setFollowed(C.followed.concat([hit]));
-        ESPN.findTeam(hit).then(function (f) { var fl = f && leagueOf(f.lk); if (fl && fl.lazy) { addEager(f.lk); loadLeague(f.lk); } });
-      }
-    };
-    f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+    box.appendChild(teamFinder("set", "Add a team: search any league"));
     box.appendChild(el("h3", null, "People you follow"));
     var pb = peopleBox(); pb.classList.add("inset"); box.appendChild(pb);
     box.appendChild(el("h3", null, "Share your teams"));
@@ -1475,7 +1471,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.9 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 2.0 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
@@ -1715,7 +1711,13 @@
   // One row of a leaderboard or running order: position, name (with a follow star), right-hand figure, small print.
   function prow(pos, name, right, small) {
     var r = el("div", "pr" + (fpHas(name) ? " fol" : ""));
-    r.appendChild(el("span", "pp", String(pos))); var nm = el("span", "pn"); nm.appendChild(el("span", null, name));
+    r.appendChild(el("span", "pp", String(pos))); var nm = el("span", "pn"), nl = el("span", null, name); nm.appendChild(nl);
+    var vx = S.view && S.view.x;
+    if (vx && name && name !== "\u2013") {   // the name opens their athlete page (events from the same league)
+      nl.className = "pn-l"; nl.tabIndex = 0; nl.setAttribute("role", "link");
+      nl.onclick = function () { openPerson({ lk: vx.lk, id: "0", name: name, sport: ((leagueOf(vx.lk) || {}).path || "").split("/")[0], ind: true, ll: (leagueOf(vx.lk) || {}).label || "" }); };
+      nl.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); nl.onclick(); } };
+    }
     if (small) nm.appendChild(el("small", null, small));
     r.appendChild(nm); r.appendChild(el("span", "ps", right || "")); r.appendChild(starBtn(name)); return r;
   }
@@ -1982,54 +1984,231 @@
     if (sc && v.ps) sc.scrollTop = v.ps;
   }
 
-  // ---------- team page (#team/<league>/<id>): any team from the Find index, loaded only when opened ----------
-  var TEAMS = null, TEAMS2 = null;   // the Find index: core leagues, then the extra leagues once asked for
+  // ---------- search: teams and athletes from every sport ----------
+  // Two sources, merged: the core-league index (instant, cached a week) and ESPN's own search (one ~1KB request per
+  // query, debounced, cached ten minutes), which reaches every league and every athlete ESPN covers.
+  var TEAMS = null;
+  function teamIndex() {
+    if (TEAMS) return Promise.resolve();
+    return ESPN.fetchTeams(false).then(function (v) {
+      var out = [];
+      Object.keys(v).forEach(function (lk) { var lg = leagueOf(lk); if (!lg) return; v[lk].forEach(function (t) { out.push({ lk: lk, id: t.id, name: t.name, ab: t.ab || "", lg: t.lg || "", ll: lg.label, h: (t.name + " " + (t.ab || "") + " " + lg.label + " " + lk).toLowerCase() }); }); });
+      TEAMS = out;
+    }, function () {});
+  }
+  // Teams in the index matching every word of the query, your teams first, then names that start with it.
+  function teamHits(q) {
+    var toks = q.split(/\s+/).filter(Boolean); if (!toks.length || !TEAMS) return [];
+    var th = TEAMS.filter(function (t) { return toks.every(function (k) { return t.h.indexOf(k) >= 0; }); });
+    th.sort(function (a, b) { return (C.followed.indexOf(b.name) >= 0 ? 1 : 0) - (C.followed.indexOf(a.name) >= 0 ? 1 : 0) || (b.h.indexOf(q) === 0 ? 1 : 0) - (a.h.indexOf(q) === 0 ? 1 : 0) || a.name.localeCompare(b.name); });
+    return th;
+  }
+  // A search hit's league: one the app knows, or a new one built from ESPN's path (registered when you open or follow it).
+  var IND = { mma: 1, golf: 1, racing: 1, tennis: 1 };   // sports whose athletes compete alone
+  function pathLeague(path) { for (var i = 0; i < LG.length; i++) if (LG[i].path === path) return LG[i]; return null; }
+  function leagueFor(sport, slug, label) {
+    if (sport === "mma" && !slug) slug = "ufc";
+    if (!sport || !slug) return null;
+    var path = sport + "/" + slug;
+    return pathLeague(path) || { key: dynKey(path), path: path, label: label || slug.toUpperCase(), pending: true };
+  }
+  function mergeTeams(q, remote) {
+    var out = teamHits(q).slice(0, 8), seen = {};
+    out.forEach(function (t) { seen[t.lk + "_" + t.id] = 1; });
+    (remote ? remote.teams : []).forEach(function (r) {
+      var lg = leagueFor(r.sport, r.slug, r.ll); if (!lg) return;
+      var k = lg.key + "_" + r.id; if (seen[k]) return; seen[k] = 1;
+      out.push({ lk: lg.key, id: r.id, name: r.name, ab: "", lg: r.lg, ll: lg.pending ? r.ll : lg.label, dl: lg.pending ? lg : null });
+    });
+    return out;
+  }
+  // An athlete hit. Fighters, golfers, drivers and players of individual sports get their own page; anyone on a team
+  // opens that team's page.
+  function personOf(r) {
+    var ind = !!IND[r.sport], lg = ind ? leagueFor(r.sport, r.slug) : null;
+    if (lg && (lg.pending || !lg.kind)) lg = null;   // only the event leagues the app loads carry their results
+    return { name: r.name, id: r.id, sport: r.sport, ind: ind, lk: lg ? lg.key : "", img: r.img, web: r.web, team: ind ? "" : r.sub, slug: r.slug, d: r.d,
+      ll: ind ? (lg ? lg.label : (r.d && r.d !== r.sport.toUpperCase() ? r.d : r.sport.charAt(0).toUpperCase() + r.sport.slice(1))) : [r.d, r.sub].filter(Boolean).join(" · ") };
+  }
+  function followTeam(t, on) {
+    if (on == null) on = C.followed.indexOf(t.name) < 0;
+    buzz(6);
+    if (!on) { setFollowed(C.followed.filter(function (q) { return q !== t.name; }), false); dynTidy(t.lk); toast("Unfollowed " + t.name); return; }
+    var lg = t.dl ? addLeague(t.dl.key, t.dl.path, t.dl.label) : leagueOf(t.lk);
+    if (lg && lg.dyn) { DYN[lg.key] = [lg.path, lg.label]; try { localStorage.setItem("sb-dyn", JSON.stringify(DYN)); } catch (e) {} }
+    if (lg && lg.lazy) addEager(lg.key);
+    if (t.id) TID[t.name] = { lk: t.lk, id: t.id };
+    setFollowed(C.followed.concat([t.name]), t.lk);
+    toast("Following " + t.name);
+  }
+  var TID = {};   // league and id for teams followed this session, so their pages load without a lookup
+  function starTeam(t) {
+    var on = C.followed.indexOf(t.name) >= 0, b = el("button", "fstar" + (on ? " on" : ""), on ? "★" : "☆");
+    b.type = "button"; b.setAttribute("aria-label", (on ? "Unfollow " : "Follow ") + t.name); b.title = on ? "Following" : "Follow";
+    b.onclick = function (e) { e.stopPropagation(); followTeam(t); };
+    return b;
+  }
   function teamRow(t) {
-    var r = el("div", "find-tm click"), lb = el("span", "ab" + (t.lg && PREF.logos ? " lg" : ""));
-    if (t.lg && PREF.logos) lb.appendChild(logoImg(t.lg, t.ab)); else lb.textContent = t.ab || t.name.slice(0, 3).toUpperCase();
-    r.appendChild(lb); var w = el("span", "find-tw"); w.appendChild(el("b", null, t.name)); w.appendChild(el("small", null, t.ll + (C.followed.indexOf(t.name) >= 0 ? " \u00b7 following" : ""))); r.appendChild(w);
-    r.appendChild(el("span", "find-go", "\u203A")); r.tabIndex = 0; r.setAttribute("role", "button");
+    var r = el("div", "find-tm click"), lb = el("span", "ab" + (t.lg && PREF.logos ? " lg" : "")), ab = t.ab || t.name.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).map(function (w) { return w.charAt(0); }).join("").slice(0, 3).toUpperCase();
+    if (t.lg && PREF.logos) lb.appendChild(logoImg(t.lg, ab)); else lb.textContent = ab;
+    r.appendChild(lb); var w = el("span", "find-tw"); w.appendChild(el("b", null, t.name)); w.appendChild(el("small", null, t.ll || "")); r.appendChild(w);
+    r.appendChild(starTeam(t)); r.tabIndex = 0; r.setAttribute("role", "button");
     var go = function () { if (FIND) closeFind(); openTeam(t); };
     r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } };
     return r;
   }
-  // Teams matching every word of the query, your teams first, then names that start with it.
-  function teamHits(q, more) {
-    var toks = q.split(/\s+/).filter(Boolean); if (!toks.length) return [];
-    var tl = (TEAMS || []).concat(more && TEAMS2 !== "loading" ? TEAMS2 || [] : []);
-    var th = tl.filter(function (t) { return toks.every(function (k) { return t.h.indexOf(k) >= 0; }); });
-    th.sort(function (a, b) { return (C.followed.indexOf(b.name) >= 0 ? 1 : 0) - (C.followed.indexOf(a.name) >= 0 ? 1 : 0) || (b.h.indexOf(q) === 0 ? 1 : 0) - (a.h.indexOf(q) === 0 ? 1 : 0) || a.name.localeCompare(b.name); });
-    return th;
+  function headshot(p, cls) {
+    var w = el("span", "hs" + (cls ? " " + cls : "")), ini = p.name.split(/\s+/).map(function (x) { return x.charAt(0); }).join("").slice(0, 2).toUpperCase();
+    var src = p.img || (p.id && p.id !== "0" && HSP[p.sport] ? "https://a.espncdn.com/i/headshots/" + HSP[p.sport] + "/players/full/" + p.id + ".png" : "");
+    if (src && PREF.logos) {
+      var i = new Image(); i.alt = ""; i.decoding = "async"; i.loading = "lazy"; i.src = src.replace(/^https:\/\/a\.espncdn\.com(\/i\/headshots\/.+)$/, "https://a.espncdn.com/combiner/i?img=$1&w=96&h=70");
+      i.onerror = function () { w.textContent = ini; }; w.appendChild(i);
+    } else w.textContent = ini;
+    return w;
   }
-  function moreBtn(onDone) {
-    var mb = el("button", "find-more", TEAMS2 === "loading" ? "Loading every league\u2026" : "Search every league"); mb.type = "button"; mb.disabled = TEAMS2 === "loading";
-    mb.onclick = function () { mb.disabled = true; mb.textContent = "Loading every league\u2026"; teamIndex(true).then(onDone); };
-    return mb;
+  var HSP = { mma: "mma", golf: "golf", racing: "rpm", tennis: "tennis" };
+  function personRow(p) {
+    var r = el("div", "find-tm click pr-row");
+    r.appendChild(headshot(p)); var w = el("span", "find-tw"); w.appendChild(el("b", null, p.name)); w.appendChild(el("small", null, p.ll)); r.appendChild(w);
+    if (p.ind) r.appendChild(starBtn(p.name)); else r.appendChild(el("span", "find-go", "›"));
+    r.tabIndex = 0; r.setAttribute("role", "button");
+    var go = function () { if (FIND) closeFind(); if (p.ind) openPerson(p); else openPlayerTeam(p); };
+    r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } };
+    return r;
   }
-  function teamIndex(lazy) {
-    if (lazy ? TEAMS2 && TEAMS2 !== "loading" : TEAMS) return Promise.resolve();
-    if (lazy) TEAMS2 = "loading";
-    return ESPN.fetchTeams(lazy).then(function (v) {
-      var out = [];
-      Object.keys(v).forEach(function (lk) { var lg = leagueOf(lk); if (!lg) return; v[lk].forEach(function (t) { out.push({ lk: lk, id: t.id, name: t.name, ab: t.ab || "", lg: t.lg || "", ll: lg.label, h: (t.name + " " + (t.ab || "") + " " + lg.label + " " + lk).toLowerCase() }); }); });
-      if (lazy) TEAMS2 = out; else TEAMS = out;
-    }, function () { if (lazy) TEAMS2 = null; });
+  // A team-sport player opens their team: the index first, then one search for the team's name.
+  function openPlayerTeam(p) {
+    var lg0 = leagueFor(p.sport, p.slug), hit = (TEAMS || []).filter(function (t) { return t.name === p.team && (!lg0 || t.lk === lg0.key); })[0];
+    if (hit) { openTeam(hit); return; }
+    if (!p.team) { toast("No team listed for " + p.name); return; }
+    ESPN.search(p.team).then(function (r) {
+      var c = r.teams.filter(function (t) { return t.name === p.team && t.sport === p.sport; })[0] || r.teams.filter(function (t) { return t.name === p.team; })[0], lg = c && leagueFor(c.sport, c.slug, c.ll);
+      if (!lg) { toast("Couldn’t find " + p.team); return; }
+      openTeam({ lk: lg.key, id: c.id, name: c.name, lg: c.lg, dl: lg.pending ? lg : null });
+    }, function () { toast("Couldn’t reach the search"); });
   }
-  function openTeam(t) { buzz(4); S.sy = window.pageYOffset; S.pushed = true; S.tn = t; location.hash = "team/" + t.lk + "/" + t.id; }
+  // Results for one query, drawn into res: teams, then athletes, with a quiet line while the wider search runs.
+  // ctl holds the debounce timer and the query on screen, so a slow answer never paints over a newer one.
+  function drawHits(res, q, ctl, opts) {
+    var remote = ESPN.peekSearch(q), teams = mergeTeams(q, remote), people = remote ? remote.people.map(personOf).slice(0, 6) : [];
+    var n = opts.nt || 8, shownT = teams.slice(0, n);
+    if (shownT.length) {
+      if (opts.heads) res.appendChild(el("h4", "find-sh", "Teams"));
+      var tw = el("div", "find-tms"); shownT.forEach(function (t) { tw.appendChild(teamRow(t)); }); res.appendChild(tw);
+    }
+    if (people.length) {
+      res.appendChild(el("h4", "find-sh", "Athletes"));
+      var pw = el("div", "find-tms"); people.forEach(function (p) { pw.appendChild(personRow(p)); }); res.appendChild(pw);
+    }
+    if (!remote && q.length >= 2) {
+      res.appendChild(el("p", "find-h find-wait", "Searching every sport…"));
+      clearTimeout(ctl.t); ctl.q = q;
+      ctl.t = setTimeout(function () { ESPN.search(q).then(function () { if (ctl.q === q && ctl.redraw) ctl.redraw(); }, function () { if (ctl.q === q) { var w = res.querySelector(".find-wait"); if (w) w.textContent = "Couldn’t search every sport right now."; } }); }, 220);
+    }
+    return shownT.length + people.length;
+  }
+  // Recently opened teams and athletes (shown when a search box is empty). Kept small: eight entries.
+  var REC = []; try { REC = JSON.parse(localStorage.getItem("sb-recent") || "[]") || []; } catch (e) {}
+  function remember(it) {
+    REC = [it].concat(REC.filter(function (r) { return !(r.k === it.k && r.lk === it.lk && String(r.id) === String(it.id) && r.name === it.name); })).slice(0, 8);
+    try { localStorage.setItem("sb-recent", JSON.stringify(REC)); } catch (e) {}
+  }
+  function drawRecent(res) {
+    if (!REC.length) return 0;
+    res.appendChild(el("h4", "find-sh", "Recent"));
+    var w = el("div", "find-tms");
+    REC.slice(0, 6).forEach(function (r) { w.appendChild(r.k === "p" ? personRow(r) : teamRow(r)); });
+    res.appendChild(w); return REC.length;
+  }
+
+  // ---------- leagues added through search (outside config.js) ----------
+  // Stored as {key: [path, label]} and added to the league list at boot, then loaded like any other extra league.
+  // The key spells out ESPN's path with letters and digits only, so a shared link to one still opens.
+  function dynKey(path) { return "x" + path.toLowerCase().replace(/9/g, "99").replace(/\//g, "9s").replace(/\./g, "9d").replace(/-/g, "9h").replace(/_/g, "9u").replace(/[^a-z0-9]/g, ""); }
+  function dynPath(k) { return k.slice(1).replace(/9(9|s|d|h|u)/g, function (m, c) { return { "9": "9", s: "/", d: ".", h: "-", u: "_" }[c]; }); }
+  function addLeague(key, path, label) {
+    if (LGM[key]) return LGM[key];
+    var l = { key: key, label: label || (path.split("/")[1] || path).toUpperCase(), path: path, lazy: true, dyn: true, grp: "Added", soccer: /^soccer\//.test(path) };
+    LG.push(l); LGM[key] = l; S.games[key] = []; return l;
+  }
+  function dynTidy(lk) {   // unfollowing the last team in an added league stops loading it
+    var lg = leagueOf(lk); if (!lg || !lg.dyn) return;
+    var still = C.followed.some(function (n) { var T = S.teams[n] || TC[n] || TID[n]; return T && T.lk === lk; });
+    if (still) return;
+    delete DYN[lk]; try { localStorage.setItem("sb-dyn", JSON.stringify(DYN)); } catch (e) {}
+    var i = EAGER.indexOf(lk); if (i >= 0) { EAGER.splice(i, 1); try { localStorage.setItem("sb-eager", JSON.stringify(EAGER)); } catch (e) {} }
+  }
+
+  // ---------- team page (#team/<league>/<id>) and athlete page (#who/<league>/<id>/<name>) ----------
+  function openTeam(t) {
+    if (t.dl) addLeague(t.dl.key, t.dl.path, t.dl.label);
+    remember({ k: "t", lk: t.lk, id: String(t.id), name: t.name, ab: t.ab || "", lg: t.lg || "", ll: t.ll || (leagueOf(t.lk) || {}).label || "" });
+    buzz(4); if (S.view && S.view.x) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset;
+    S.pushed = true; S.tn = t; location.hash = "team/" + t.lk + "/" + t.id;
+  }
   function openTeamRoute(lk, id) {
     var key = "t_" + lk + "_" + id;
     if (S.view && S.view.key === key) return;
-    var lg = leagueOf(lk); if (!lg) { S.view = null; render(); return; }
+    var lg = leagueOf(lk) || (/^x[a-z0-9]+$/.test(lk) ? addLeague(lk, dynPath(lk)) : null);
+    if (!lg) { S.view = null; render(); return; }
     var t = S.tn && S.tn.lk === lk && String(S.tn.id) === String(id) ? S.tn : { lk: lk, id: id, name: "" };
     S.tn = null;
-    if (!t.name) {   // a reload or shared link: find the name in the team index (fetched if needed)
-      var tk = TC && Object.keys(TC).filter(function (n) { return TC[n].lk === lk && String(TC[n].id) === String(id); })[0];
+    if (!t.name) {   // a reload or a shared link: a followed team's saved copy, else the schedule feed names the team
+      var tk = Object.keys(TC).filter(function (n) { return TC[n].lk === lk && String(TC[n].id) === String(id); })[0];
       if (tk) t.name = tk;
-      else ESPN.fetchTeams(!!lg.lazy).then(function (v) { var hit = (v[lk] || []).filter(function (q) { return String(q.id) === String(id); })[0]; if (hit && S.view && S.view.key === key) { S.view.team.name = hit.name; S.view.team.ab = hit.ab; S.view.team.lg = hit.lg; render(); } });
+      else ESPN.fetchTeamInfo(lk, id).then(function (i) {
+        var nm = i && i.me && i.me[0];
+        if (!S.view || S.view.key !== key) return;
+        if (!nm) { S.view.team.err = 1; render(); return; }
+        if (!S.teams[nm] || !S.teams[nm].done || S.teams[nm].stale) S.teams[nm] = Object.assign({ done: true, lk: lk, id: id }, i);
+        S.view.team.name = nm; S.view.team.ab = i.me[1]; S.view.team.lg = i.me[2]; render();
+      }, function () { if (S.view && S.view.key === key) { S.view.team.err = 1; render(); } });
     }
     var back = S.view && S.view.x ? S.sy1 || 0 : 0;   // coming back from one of its games: return to the same spot
+    if (S.settings) { S.vset = true; S.settings = false; } S.more = false;   // opened from Settings: Back returns there
     S.view = { team: t, key: key }; S.sy1 = 0;
     swap(function () { render(); window.scrollTo(0, back); }); emit("view", null);
+  }
+  function openPerson(p) {
+    remember({ k: "p", lk: p.lk || "", id: String(p.id || "0"), name: p.name, img: p.img || "", sport: p.sport || "", ind: true, ll: p.ll || "", web: p.web || "" });
+    buzz(4); if (!S.view) S.sy = window.pageYOffset;
+    S.pushed = true; S.pn = p; location.hash = "who/" + (p.lk || "na") + "/" + (p.id || "0") + "/" + encodeURIComponent(p.name);
+  }
+  function openPersonRoute(lk, id, nm) {
+    var key = "p_" + lk + "_" + id + "_" + nm;
+    if (S.view && S.view.key === key) return;
+    var p = S.pn && S.pn.name === nm ? S.pn : { lk: lk === "na" ? "" : lk, id: id, name: nm, ind: true };
+    S.pn = null;
+    var lg = p.lk ? leagueOf(p.lk) : null; if (lg && lg.lazy) loadLeague(lg.key);
+    if (lg && !p.sport) p.sport = lg.path.split("/")[0];
+    var back = S.view && S.view.x ? S.sy1 || 0 : 0;
+    if (S.settings) { S.vset = true; S.settings = false; } S.more = false;
+    S.view = { person: p, key: key }; S.sy1 = 0;
+    swap(function () { render(); window.scrollTo(0, back); }); emit("view", null);
+  }
+  function renderPerson(out) {
+    var p = S.view.person, lg = p.lk ? leagueOf(p.lk) : null;
+    var back = el("button", "back", "‹ Back"); back.type = "button"; back.onclick = closeGame;
+    var nav = el("div", "navbar"); nav.appendChild(back); nav.appendChild(el("span", "mini-sc", p.name)); out.appendChild(nav);
+    var hd = el("div", "tph"); hd.appendChild(headshot(p, "big"));
+    var tw = el("div", "tpw"); tw.appendChild(el("h2", null, p.name));
+    tw.appendChild(el("p", "tps", lg ? lg.label : p.ll || ""));
+    var bar = el("div", "tpacts"), on = fpHas(p.name), fb = el("button", "tpf" + (on ? " on" : ""), on ? "★ Following" : "☆ Follow"); fb.type = "button";
+    fb.onclick = function () { buzz(6); togglePerson(p.name); toast((fpHas(p.name) ? "Following " : "Unfollowed ") + p.name); };
+    bar.appendChild(fb);
+    if (p.web) { var a = el("a", "tpx", "ESPN profile ↗"); a.href = p.web; a.target = "_blank"; a.rel = "noopener"; bar.appendChild(a); }
+    tw.appendChild(bar); hd.appendChild(tw); out.appendChild(hd);
+    if (!lg) { out.appendChild(notice("No live data for this sport here yet", "Following still works: their name gets the highlight wherever it shows up.")); return; }
+    var nm = p.name.toLowerCase(), st = S.lgState[lg.key];
+    var mine = S.games[lg.key].filter(function (g) { return (g.pp || []).some(function (n) { return n.toLowerCase() === nm; }); }).map(function (g) { return { g: g, lk: lg.key, ll: lg.label }; });
+    var rk = { live: 0, up: 1, final: 2 };
+    mine.sort(function (a, b) { return rk[a.g.s] - rk[b.g.s] || (a.g.s === "final" ? byTime(b.g, a.g) : byTime(a.g, b.g)); });
+    if (!mine.length) {
+      out.appendChild(lg.lazy && st !== "done" && st !== "failed" ? skel(1) : notice("Nothing on the " + lg.label + " calendar with " + p.name, "Covers the last week and the next two. Follow to catch the next one."));
+      return;
+    }
+    var sec0 = el("section", "grp"); sec0.appendChild(el("h2", null, mine.length > 1 ? "Events" : "Event"));
+    sec0.appendChild(gridOf(mine, "", true)); out.appendChild(sec0);
   }
   // ---------- the team page: status in words, where they sit in the league, top performers, standings, schedule ----------
   var TLD = {};   // top performers per team, from its latest finished game (in memory only)
@@ -2096,7 +2275,7 @@
     var t = S.view.team, lk = t.lk, lg = leagueOf(lk) || {};
     var back = el("button", "back", "‹ Back"); back.type = "button"; back.onclick = closeGame;
     var nav = el("div", "navbar"); nav.appendChild(back); nav.appendChild(el("span", "mini-sc", t.name || lg.label || "")); out.appendChild(nav);
-    if (!t.name) { out.appendChild(skel(2)); return; }
+    if (!t.name) { out.appendChild(t.err ? notice("Couldn\u2019t find that team", "The link may be from a league this app doesn\u2019t carry.") : skel(2)); return; }
     loadTeam(t.name, lk, t.id);
     var T = S.teams[t.name] || {}, me = T.me || [t.name, t.ab || "", t.lg || "", t.id];
     // Header: logo, name, league, record and standing line, follow button.
@@ -2107,12 +2286,12 @@
     var sub = [lg.label]; if (T.standing) { sub.push(T.standing.record); sub.push(ordinal(T.standing.rank) + " in " + T.standing.group); if (T.standing.streak) sub.push("streak " + T.standing.streak); }
     tw.appendChild(el("p", "tps", sub.filter(Boolean).join(" · ")));
     var fol = C.followed.indexOf(t.name) >= 0, fb = el("button", "tpf" + (fol ? " on" : ""), fol ? "★ Following" : "☆ Follow"); fb.type = "button";
-    fb.onclick = function () {
-      buzz(6);
-      if (C.followed.indexOf(t.name) >= 0) { setFollowed(C.followed.filter(function (q) { return q !== t.name; })); toast("Unfollowed " + t.name); }
-      else { setFollowed(C.followed.concat([t.name])); if (lg.lazy) { addEager(lk); loadLeague(lk); } toast("Following " + t.name); }
-    };
-    tw.appendChild(fb); hd.appendChild(tw); out.appendChild(hd);
+    fb.onclick = function () { followTeam({ lk: lk, id: t.id, name: t.name }); };
+    var acts = el("div", "tpacts"); acts.appendChild(fb);
+    var shb = el("button", "tpx", "Share"); shb.type = "button";
+    shb.onclick = function () { var u = location.href; if (navigator.share) navigator.share({ title: t.name, url: u }).catch(function () {}); else copyText(u, "Link copied"); };
+    acts.appendChild(shb);
+    tw.appendChild(acts); hd.appendChild(tw); out.appendChild(hd);
     if (!T.done) { out.appendChild(skel(2)); return; }
     if (T.missing || T.error) { out.appendChild(notice("Couldn’t load " + t.name, "Pull down to try again.")); return; }
     var gs = T.games || [], ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime), fin = gs.filter(function (g) { return g.s === "final"; }).sort(function (x, y) { return byTime(y, x); });
@@ -2139,7 +2318,7 @@
 
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
-  function openGame(x) { buzz(4); if (S.view && S.view.team) S.sy1 = window.pageYOffset; else S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
+  function openGame(x) { buzz(4); if (S.view && (S.view.team || S.view.person)) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
   function closeGame() {
     if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); syncFromHash(); }
   }
@@ -2147,8 +2326,10 @@
   function syncFromHash() {
     var tm = /^#team\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
     if (tm) { openTeamRoute(tm[1], tm[2]); return; }
+    var pm = /^#who\/([a-z0-9]+)\/(\d+)\/(.+)$/.exec(location.hash);
+    if (pm) { var pn = pm[3]; try { pn = decodeURIComponent(pn); } catch (e) {} openPersonRoute(pm[1], pm[2], pn); return; }
     var m = /^#game\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
-    if (!m) { if (S.view) { swap(function () { S.view = null; render(); window.scrollTo(0, S.sy || 0); S.sy = 0; emit("view", null); }); } return; }
+    if (!m) { if (S.view) { swap(function () { S.view = null; if (S.vset) { S.vset = false; S.settings = true; } render(); window.scrollTo(0, S.sy || 0); S.sy = 0; emit("view", null); }); } return; }
     if (!S.ready) return;
     var key = m[1] + "_" + m[2];
     if (S.view && S.view.key === key) return;
@@ -2229,7 +2410,7 @@
     updateRail();
     var all = allGames(), fol = all.filter(function (x) { return isFollowed(x.g); });
     var out = $("out"); IMGN = 0;
-    TFF = !!(D0.activeElement && D0.activeElement.classList && D0.activeElement.classList.contains("tf-q"));
+    TFF = (D0.activeElement && D0.activeElement.getAttribute && D0.activeElement.getAttribute("data-tf")) || "";
     // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
     var vk = [S.tab, S.ysub, S.view ? S.view.key : "", S.settings ? 1 : 0, S.more ? 1 : 0].join("|");
     // A quiet refresh of a list keeps every card that didn't change (no logo reload, no flicker) and keeps your focus.
@@ -2248,7 +2429,7 @@
 
     if (!S.ready) { out.appendChild(skel(4, true)); emit("render", out); return; }
     if (S.settings) { renderSettings(out); emit("render", out); return; }
-    if (S.view) { if (S.view.team) renderTeamPage(out); else renderDetail(out); emit("render", out); return; }
+    if (S.view) { if (S.view.team) renderTeamPage(out); else if (S.view.person) renderPerson(out); else renderDetail(out); emit("render", out); return; }
     if (S.more) out.appendChild(morePanel());
     if (S.tab === "yesterday") { renderYesterday(out); emit("render", out); return; }
     if (S.tab === "teams") { renderTeams(out); emit("render", out); return; }
@@ -2292,24 +2473,23 @@
   function closeFind() { if (!FIND) return; var f = FIND; FIND = null; f.classList.remove("in"); document.body.classList.remove("find-on"); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220); }
   function openFind() {
     if (FIND) return;
-    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "\u2715"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team, league or player, or \u201clive\u201d, \u201ctoday\u201d\u2026 Teams open their schedule and results.");
-    inp.type = "search"; inp.placeholder = "Find a game or team"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a game or team"); x.type = "button"; x.setAttribute("aria-label", "Close"); x.onclick = closeFind;
+    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "\u2715"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026");
+    inp.type = "search"; inp.placeholder = "Find a game, team or athlete"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a game, team or athlete"); x.type = "button"; x.setAttribute("aria-label", "Close"); x.onclick = closeFind;
     top.appendChild(inp); top.appendChild(x); ov.appendChild(top); ov.appendChild(hint); ov.appendChild(res);
-    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], curT = [], more = false;
-    // Every team in the core leagues (one cached index, refreshed weekly) so a team is found even when none of its games are loaded.
-    teamIndex(false).then(function () { if (FIND === ov && inp.value.trim()) fill(); });
+    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {};
+    // The core-league index (instant, cached a week) loads with Find; ESPN search covers everything else as you type.
+    teamIndex().then(function () { if (FIND === ov) fill(); });
+    ctl.redraw = function () { if (FIND === ov) fill(); };
     function fill() {
-      var q = inp.value.trim().toLowerCase(), toks = q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = []; curT = [];
-      if (!toks.length) { hint.hidden = false; return; }
+      var q = inp.value.trim().toLowerCase(), toks = q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
+      if (!toks.length) { hint.hidden = false; drawRecent(res); return; }
       hint.hidden = true;
       var hits = all.filter(function (e) { return toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
       var rk = { live: 0, up: 1, final: 2 };
       hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - Date.now()) - Math.abs(Date.parse(b.x.g.t) - Date.now()); });
       cur = hits.slice(0, 12).map(function (e) { return e.x; });
-      var th = teamHits(q, more);
-      curT = th.slice(0, 8);
-      if (!cur.length && !curT.length) res.appendChild(el("p", "find-h", TEAMS ? "No games or teams match \u201c" + inp.value.trim() + "\u201d." : "Nothing in the loaded games matches \u201c" + inp.value.trim() + "\u201d\u2026"));
       if (cur.length) {
+        res.appendChild(el("h4", "find-sh", "Games"));
         var grid = el("div", "grid");
         cur.forEach(function (gx) {
           var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
@@ -2320,16 +2500,15 @@
         res.appendChild(grid);
         if (hits.length > cur.length) res.appendChild(el("p", "find-h", "+" + (hits.length - cur.length) + " more \u00b7 keep typing"));
       }
-      if (curT.length) {
-        res.appendChild(el("h4", "find-sh", cur.length ? "Teams" : "Teams \u00b7 schedule and results"));
-        var tw = el("div", "find-tms"); curT.forEach(function (t) { tw.appendChild(teamRow(t)); }); res.appendChild(tw);
-        if (th.length > curT.length) res.appendChild(el("p", "find-h", "+" + (th.length - curT.length) + " more teams \u00b7 keep typing"));
-      }
-      // The extra leagues' teams (soccer, college, lacrosse\u2026) load only when asked, and stay cached for a week.
-      if (!more && TEAMS) res.appendChild(moreBtn(function () { more = true; if (FIND === ov) fill(); }));
+      var n = drawHits(res, q, ctl, { nt: 8, heads: true });
+      if (!cur.length && !n && ESPN.peekSearch(q)) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
     inp.oninput = fill;
-    inp.onkeydown = function (e) { if (e.key === "Enter" && (cur.length || curT.length)) { e.preventDefault(); var c = res.querySelector(".card"); if (c) portal(c, cur[0]); else { closeFind(); openTeam(curT[0]); } } if (e.key === "Escape") { e.preventDefault(); closeFind(); } };
+    inp.onkeydown = function (e) {
+      if (e.key === "Enter") { var c = res.querySelector(".card"), r = res.querySelector(".find-tm"); if (c && cur.length) { e.preventDefault(); portal(c, cur[0]); } else if (r) { e.preventDefault(); r.onclick(); } }
+      if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+    };
+    fill();
     document.body.appendChild(ov); FIND = ov; document.body.classList.add("find-on");
     requestAnimationFrame(function () { ov.classList.add("in"); try { inp.focus(); } catch (e) {} });
   }
@@ -2420,7 +2599,7 @@
     for (var i = -1; i <= C.daysAhead; i++) offs.push(i);
     var fin = function (ok, r) {
       if (ok) { keepY(key, r.byLeague[key]); S.games[key] = trim(r.byLeague[key]); S.lgState[key] = "done"; saveCache(); emit("data", key); } else S.lgState[key] = "failed";
-      if (!S.view && !S.settings) renderSoon();
+      if (!S.settings && (!S.view || S.view.person)) renderSoon();
     };
     ESPN.fetchScores(offs, [key]).then(function (r) { fin(r.failed.indexOf(key) < 0, r); }, function () { fin(false); });
     if (!S.view && !S.settings) render();
@@ -2439,7 +2618,7 @@
     return Object.keys(o);
   }
   function load(full, only) {
-    if (S.loading) return;
+    if (S.loading) { var q0 = S.again; S.again = !q0 ? [full, only] : [q0[0] || full, q0[1] && only ? q0[1].concat(only) : null]; return; }
     S.loading = true;
     var spT = !S.ready ? setTimeout(function () { if (!S.ready) splash(0, true); }, 350) : 0;
     var btn = $("refresh"); btn.disabled = true; btn.setAttribute("aria-busy", "true"); stampTick();
@@ -2447,6 +2626,7 @@
     var offsets = [];
     for (var i = -1; i <= (full ? C.daysAhead : 0); i++) offsets.push(i);
     if (only && !only.length) only = null;
+    var userFull = full && !only;   // a refresh of everything (pull, the button, a long absence), not a single league
     if (!only) only = wantLeagues();
     var cl = leagueOf(S.tab);
     if (cl && cl.lazy && S.lgState[cl.key] === "failed") { S.lgState[cl.key] = ""; loadLeague(cl.key); }
@@ -2454,7 +2634,7 @@
       var before = JSON.stringify([S.games, S.yesterday]);
       var prev = {};
       allGames().forEach(function (x) { if (isFollowed(x.g)) prev[x.g.id] = x.g; });
-      if (full) S.teams = {};
+      if (userFull) Object.keys(S.teams).forEach(function (n) { if (S.teams[n].done) S.teams[n].stale = true; });   // refetched as they're shown; nothing blanks
       LG.forEach(function (l) {
         if (only && only.indexOf(l.key) < 0) return;       // quick refresh: leave leagues with nothing live alone
         if (r.failed.indexOf(l.key) >= 0) return;          // keep the last good data for a league that errored
@@ -2489,7 +2669,8 @@
       var changed = JSON.stringify([S.games, S.yesterday]) !== before;
       if (changed || firstLoad) saveCache();
 
-      if (S.view && S.view.team) { /* a team page: nothing in the lists to sync */ }
+      if (S.view && S.view.team) { if (full && S.view.team.name) loadTeam(S.view.team.name, S.view.team.lk, S.view.team.id, true); }   // pull to refresh on a team page refreshes the team
+      else if (S.view && S.view.person) { if (changed) render(); }
       else if (S.view) {
         var v = S.view, nx = allGames().filter(function (q) { return q.lk === v.x.lk && q.g.id === v.x.g.id; })[0];
         if (nx) {
@@ -2508,6 +2689,7 @@
       S.loading = false; btn.disabled = false; btn.removeAttribute("aria-busy"); stampTick();
       document.body.classList.remove("ld"); clearTimeout(spT); splashOff();
       if (window.ptrDone) window.ptrDone();
+      if (S.again) { var ag = S.again; S.again = null; setTimeout(function () { load(ag[0], ag[1]); }, 0); }
     });
   }
   function anyLive() { return allGames().some(function (x) { return x.g.s === "live"; }); }
