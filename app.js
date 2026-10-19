@@ -19,6 +19,13 @@
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
   try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news") S.ysub = sy; } catch (e) {}
   try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
+  // People you follow (fighters, drivers, golfers), matched by name against each event's entrants.
+  C.fp = []; try { var sfp = JSON.parse(localStorage.getItem("sb-fp") || "[]"); if (sfp && sfp.length) C.fp = sfp; } catch (e) {}
+  var FPS = {};
+  function fpIdx() { FPS = {}; C.fp.forEach(function (n) { FPS[String(n).toLowerCase()] = 1; }); }
+  fpIdx();
+  function fpHas(n) { return !!FPS[String(n).toLowerCase()]; }
+  function fpIn(g) { return C.fp.length && g.pp ? g.pp.filter(fpHas) : []; }
   function applyTheme() {
     var t = "auto";
     try { t = localStorage.getItem("sb-theme") || "auto"; } catch (e) {}
@@ -44,7 +51,7 @@
     if (t[6]) s.appendChild(el("span", "rk", String(t[6])));
     s.appendChild(document.createTextNode(t[0])); return s;
   }
-  function isFollowed(g) { return C.followed.indexOf(g.h[0]) >= 0 || C.followed.indexOf(g.a[0]) >= 0; }
+  function isFollowed(g) { return C.followed.indexOf(g.h[0]) >= 0 || C.followed.indexOf(g.a[0]) >= 0 || (C.fp.length > 0 && !!g.pp && fpIn(g).length > 0); }
   function leagueOf(lk) { return LG.filter(function (l) { return l.key === lk; })[0]; }
   function allGames() {
     var out = [];
@@ -88,7 +95,7 @@
     var yk = ESPN.dayKey(new Date(Date.now() - DAY)), lg = leagueOf(lk), now = Date.now();
     S.yf[lk] = list.filter(function (g) {
       if (g.s !== "final") return false;
-      if (lg && lg.kind === "race") return now - new Date(g.t) < 3 * DAY;
+      if (lg && (lg.kind === "race" || lg.kind === "golf")) return now - new Date(g.t) < 4 * DAY;
       return ESPN.dayKey(new Date(g.t)) === yk;
     }).sort(function (p, q) { return byTime(q, p); }).slice(0, 80);
   }
@@ -160,7 +167,8 @@
   function evCard(x) {
     var g = x.g, c = el("div", "card"), top = el("div", "top"), P = g.x || {};
     top.appendChild(el("span", "pill " + g.s, g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t)));
-    top.appendChild(el("span", "tag", x.ll));
+    var fi = isFollowed(g); if (fi) c.className += " followed";
+    top.appendChild(fi ? el("span", "tag fol", "Following · " + x.ll) : el("span", "tag", x.ll));
     c.appendChild(top);
     c.appendChild(el("div", "evt", g.h[0]));
     var row = function (name, rec, right, lose) {
@@ -177,6 +185,15 @@
         c.appendChild(el("div", "evs", "Main event · " + info));
       }
       if (P.fights && P.fights.length > 1) c.appendChild(el("div", "evs", "+" + (P.fights.length - 1) + " more fights" + (P.venue ? " · " + P.venue : "")));
+    } else if (g.ev === "golf") {
+      var GR = P.rows || [], gdone = {};
+      if (!GR.length) c.appendChild(el("div", "evs", (g.s === "up" ? "Starts " + when(g.t) : "Field not posted yet") + (P.venue ? " \u00b7 " + P.venue : "")));
+      else {
+        var gline = function (r, lose) { var th = r[5] ? "thru " + r[5] : ""; gdone[r[0]] = 1; return row(r[0], [r[1], th].filter(Boolean).join(" \u00b7 "), r[2], lose); };
+        GR.slice(0, 3).forEach(function (r) { c.appendChild(gline(r)); });
+        GR.filter(function (r) { return !gdone[r[0]] && fpHas(r[0]); }).slice(0, 3).forEach(function (r) { c.appendChild(gline(r)); });
+        c.appendChild(el("div", "evs", (g.s === "live" ? g.c || "Live" : g.s === "final" ? "Final" : "") + (P.venue ? (g.s === "up" ? "" : " \u00b7 ") + P.venue : "")));
+      }
     } else {
       var ses = P.sess || [], race = ses.filter(function (s) { return /^race$/i.test(s.n); })[0] || ses[ses.length - 1];
       if (g.s !== "up" && race && race.rows.length) race.rows.slice(0, 3).forEach(function (r) { c.appendChild(row(r[1], "", String(r[0]), false)); });
@@ -185,6 +202,7 @@
         c.appendChild(el("div", "evs", (nx ? "Next: " + sessName(nx.n) + " · " + when(nx.t) : "") + (P.venue ? (nx ? " · " : "") + P.venue : "")));
       }
     }
+    if (fi && g.ev !== "golf") { var fl = fpIn(g).slice(0, 3); if (fl.length) c.appendChild(el("div", "evs fpl", "\u2605 " + fl.join(", "))); }
     return c;
   }
   var SESS = { FP1: "Practice 1", FP2: "Practice 2", FP3: "Practice 3", SS: "Sprint qualifying", SR: "Sprint race", Qual: "Qualifying", Race: "Race" };
@@ -455,9 +473,9 @@
     LG.forEach(function (l) {
       (S.yf[l.key] || S.games[l.key] || []).forEach(function (g) {
         if (g.s !== "final") return;
-        if (l.kind === "race" ? Date.now() - new Date(g.t) > 3 * DAY : ESPN.dayKey(new Date(g.t)) !== yk) return;
+        if (l.kind === "race" || l.kind === "golf" ? Date.now() - new Date(g.t) > 4 * DAY : ESPN.dayKey(new Date(g.t)) !== yk) return;
         var x = { g: g, lk: l.key, ll: l.label, lg: l };
-        if (g.ev) { x.heat = l.kind === "mma" ? 75 : 80; out.push(x); return; }
+        if (g.ev) { x.heat = (l.kind === "mma" ? 75 : l.kind === "golf" ? 70 : 80) + (isFollowed(g) ? 120 : 0); out.push(x); return; }
         if (g.h[2] == null || g.a[2] == null) return;
         x.diff = Math.abs(g.h[2] - g.a[2]); x.tot = g.h[2] + g.a[2];
         var t = l.soccer ? 1 : (TIGHT[l.key] || 2);
@@ -477,6 +495,7 @@
     if (g.ev) {
       var P = g.x || {};
       if (g.ev === "mma") { var f = (P.fights || [])[0]; return f && f.win >= 0 ? f.n[f.win] + " wins the main event" + (f.m ? " by " + f.m : "") : g.h[0]; }
+      if (g.ev === "golf") { var gr = (P.rows || [])[0]; return gr ? gr[0] + " wins the " + g.h[0] + " (" + gr[2] + ")" : g.h[0]; }
       var rc = (P.sess || []).filter(function (s) { return /^race$/i.test(s.n); })[0], w = rc && rc.rows[0];
       return w ? w[1] + " wins the " + g.h[0] : g.h[0];
     }
@@ -542,6 +561,7 @@
     } else {
       var f = (g.x && g.x.fights || [])[0];
       if (g.ev === "mma" && f) c.appendChild(el("p", "st-p", g.h[0] + ". " + f.n.join(" vs ") + (g.x.fights.length > 1 ? " and " + (g.x.fights.length - 1) + " more fights." : "")));
+      else if (g.ev === "golf" && g.x.rows && g.x.rows[0]) c.appendChild(el("p", "st-p", g.h[0] + ". " + g.x.rows[0][0] + " " + g.x.rows[0][2] + (g.x.rows[1] ? ", then " + g.x.rows[1][0] + " (" + g.x.rows[1][2] + ")." : ".")));
       else if (g.x && g.x.venue) c.appendChild(el("p", "st-p", g.x.venue));
     }
     var nb = narrBlock(x, function (n) { if (n.h) h.textContent = n.h; }, lead ? 320 : 220); if (nb) c.appendChild(nb);
@@ -926,8 +946,53 @@
     if (cold.length) box.appendChild(el("p", "hcold", "No active streak: " + cold.map(function (r) { return r.name + (r.s.cur.t === "L" && r.s.cur.n > 1 ? " (L" + r.s.cur.n + ")" : ""); }).join(", ")));
     return box;
   }
+  // Where a followed person stands right now: live event first, else the next one coming up, else the latest result.
+  function personLine(n) {
+    var ln = n.toLowerCase(), best = null, rk = { live: 0, up: 1, final: 2 };
+    allGames().forEach(function (x) {
+      var g = x.g; if (!g.ev || !g.pp || !g.pp.some(function (q) { return q.toLowerCase() === ln; })) return;
+      if (!best || rk[g.s] < rk[best.g.s] || (rk[g.s] === rk[best.g.s] && (g.s === "final" ? Date.parse(g.t) > Date.parse(best.g.t) : Date.parse(g.t) < Date.parse(best.g.t)))) best = x;
+    });
+    if (!best) return "Not in an event right now";
+    var g = best.g, P = g.x || {}, d = "";
+    if (g.ev === "golf") { var r = (P.rows || []).filter(function (q) { return q[0].toLowerCase() === ln; })[0]; d = r ? (g.s === "up" ? "in the field" : r[1] + " at " + r[2] + (r[5] && g.s === "live" ? " thru " + r[5] : "")) : ""; }
+    else if (g.ev === "mma") {
+      var f = (P.fights || []).filter(function (q) { return q.n.some(function (m) { return m.toLowerCase() === ln; }); })[0];
+      if (f) { var me = f.n.map(function (m) { return m.toLowerCase(); }).indexOf(ln), op = f.n[1 - me]; d = f.s === "post" ? (f.win < 0 ? "no result vs " + op : (f.win === me ? "won" : "lost") + " vs " + op + (f.m ? " by " + f.m : "")) : "vs " + op + (f.s === "in" ? " (live)" : ""); }
+    } else {
+      var ses = (P.sess || []).filter(function (z) { return z.s !== "pre"; }).sort(function (a, b) { return Date.parse(b.t) - Date.parse(a.t); })[0];
+      var rr = ses && ses.rows.filter(function (q) { return q[1].toLowerCase() === ln; })[0]; d = rr ? "P" + rr[0] + " in " + sessName(ses.n) : "entered";
+    }
+    return g.h[0] + (g.s === "up" ? " · " + when(g.t) : "") + (d ? " · " + d : "");
+  }
+  function peopleBox() {
+    var box = el("section", "ppl");
+    box.appendChild(el("h3", null, "People you follow"));
+    if (C.fp.length) {
+      C.fp.forEach(function (n) {
+        var r = el("div", "pr fol"); r.appendChild(el("span", "pp", "★"));
+        var nm = el("span", "pn"); nm.appendChild(el("span", null, n)); nm.appendChild(el("small", null, personLine(n))); r.appendChild(nm);
+        var x = el("button", "pdel", "Remove"); x.type = "button"; x.onclick = function () { togglePerson(n); }; r.appendChild(x); box.appendChild(r);
+      });
+    } else box.appendChild(el("p", "hcold", "Follow fighters, drivers and golfers. Tap the star next to a name on any UFC, F1, NASCAR or golf page, or add one here."));
+    var names = {};
+    allGames().forEach(function (x) { (x.g.pp || []).forEach(function (n) { names[n] = 1; }); });
+    var f = el("form", "add"), inp = el("input"), dl = el("datalist"), add = el("button", null, "Add");
+    inp.placeholder = "Add a fighter, driver or golfer"; inp.setAttribute("list", "pplnames"); inp.setAttribute("aria-label", "Person name"); inp.autocomplete = "off";
+    dl.id = "pplnames"; add.type = "submit";
+    Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); });
+    inp.addEventListener("focus", function () { LG.forEach(function (l) { if (l.kind && S.lgState[l.key] !== "done" && S.lgState[l.key] !== "loading") loadLeague(l.key); }); }, { once: true });
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var q = inp.value.trim(); if (!q) return;
+      var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q.toLowerCase(); })[0] || q;
+      if (!fpHas(hit)) setFp(C.fp.concat([hit])); else toast("Already following " + hit + ".");
+    };
+    f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+    return box;
+  }
   function renderTeams(out) {
-    var heatRows = [], heatSlot = el("div"); out.appendChild(heatSlot);
+    var heatRows = [], heatSlot = el("div"); out.appendChild(peopleBox()); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) {
       loadTeam(name);
@@ -1042,8 +1107,8 @@
   function scoreLine(x0) {
     var x = x0 || S.view.x, g = x.g, pa = (leagueOf(x.lk) || {}).path || "", em = /^football/.test(pa) ? "🏈" : /^basketball/.test(pa) ? "🏀" : /^hockey/.test(pa) ? "🏒" : /^baseball/.test(pa) ? "⚾" : /^australian/.test(pa) ? "🏉" : /^soccer/.test(pa) ? "⚽" : /^volleyball/.test(pa) ? "🏐" : /^lacrosse/.test(pa) ? "🥍" : /^field-hockey/.test(pa) ? "🏑" : "";
     if (g.ev) {
-      var top = g.ev === "mma" ? (g.x.fights[0] && g.x.fights[0].win >= 0 ? g.x.fights[0].n[g.x.fights[0].win] + " won the main event" : "") : (((g.x.sess.filter(function (s) { return /^race$/i.test(s.n); })[0] || { rows: [] }).rows[0] || [])[1] || "");
-      var etx = (g.ev === "mma" ? "🥊 " : "🏁 ") + g.h[0] + " · " + (g.s === "final" ? "Final" + (top ? " · " + (g.ev === "mma" ? top : "Winner: " + top) : "") : g.s === "live" ? g.c || "Live" : when(g.t));
+      var top = g.ev === "mma" ? (g.x.fights[0] && g.x.fights[0].win >= 0 ? g.x.fights[0].n[g.x.fights[0].win] + " won the main event" : "") : g.ev === "golf" ? (((g.x.rows || [])[0] || [])[0] || "") : (((g.x.sess.filter(function (s) { return /^race$/i.test(s.n); })[0] || { rows: [] }).rows[0] || [])[1] || "");
+      var etx = (g.ev === "mma" ? "🥊 " : g.ev === "golf" ? "⛳ " : "🏁 ") + g.h[0] + " · " + (g.s === "final" ? "Final" + (top ? " · " + (g.ev === "mma" ? top : "Winner: " + top) : "") : g.s === "live" ? g.c || "Live" : when(g.t));
       return etx;
       return;
     }
@@ -1154,9 +1219,70 @@
     return t;
   }
   // Detail for an event sport: every fight on the card, or every session of the race weekend with its results.
+  // ---------- following people (fighters, drivers, golfers) ----------
+  function setFp(list) {
+    var added = list.length > C.fp.length;
+    C.fp = list; fpIdx();
+    try { localStorage.setItem("sb-fp", JSON.stringify(list)); } catch (e) {}
+    if (added) LG.forEach(function (l) { if (l.kind) { addEager(l.key); loadLeague(l.key); } });
+    S.yesterday = buildYesterday(new Date());
+    render();
+  }
+  function togglePerson(n) { setFp(fpHas(n) ? C.fp.filter(function (q) { return q.toLowerCase() !== String(n).toLowerCase(); }) : C.fp.concat([n])); }
+  function starBtn(name) {
+    var on = fpHas(name), b = el("button", "fstar" + (on ? " on" : ""), on ? "★" : "☆");
+    b.type = "button"; b.setAttribute("aria-label", (on ? "Unfollow " : "Follow ") + name); b.title = on ? "Following" : "Follow";
+    b.onclick = function (e) { e.stopPropagation(); if (navigator.vibrate) try { navigator.vibrate(8); } catch (z) {} togglePerson(name); };
+    return b;
+  }
+  // One row of a leaderboard or running order: position, name (with a follow star), right-hand figure, small print.
+  function prow(pos, name, right, small) {
+    var r = el("div", "pr" + (fpHas(name) ? " fol" : ""));
+    r.appendChild(el("span", "pp", String(pos))); var nm = el("span", "pn"); nm.appendChild(el("span", null, name));
+    if (small) nm.appendChild(el("small", null, small));
+    r.appendChild(nm); r.appendChild(el("span", "ps", right || "")); r.appendChild(starBtn(name)); return r;
+  }
+  function parOf(s) { return s === "E" ? 0 : Number(s); }
+  // What has happened so far in an event that is under way.
+  function evCatch(g) {
+    var P = g.x || {}, w = el("div", "sum"), me = fpIn(g), n = 0;
+    var add = function (h, t) { if (!t) return; n++; var d = el("div", "nar"); d.appendChild(el("h4", null, h)); d.appendChild(el("p", null, t)); w.appendChild(d); };
+    if (g.ev === "mma") {
+      var fs = (P.fights || []).slice().reverse(), dn = fs.filter(function (f) { return f.s === "post"; }), nw = fs.filter(function (f) { return f.s === "in"; }), lf = fs.filter(function (f) { return f.s === "pre"; });
+      w.appendChild(el("p", null, dn.length + " of " + fs.length + " fights are finished" + (nw.length ? " and one is under way." : ".")));
+      add("Results so far", dn.map(function (f) { return f.win >= 0 ? f.n[f.win] + " def. " + f.n[1 - f.win] + (f.m ? " by " + f.m : "") + (f.rd ? " (R" + f.rd + (f.tm ? " " + f.tm : "") + ")" : "") : f.n.join(" vs ") + ", no result"; }).join(" • "));
+      add("In the cage now", nw.map(function (f) { return f.n.join(" vs ") + (f.live ? " · " + f.live : ""); }).join(" • "));
+      var mn = (P.fights || [])[0];
+      add("Still to come", lf.length ? lf.length + " more fight" + (lf.length > 1 ? "s" : "") + (mn && mn.s === "pre" ? ", including the main event: " + mn.n.join(" vs ") : "") + "." : "");
+      add("Your fighters", me.map(function (nm) {
+        var f = fs.filter(function (q) { return q.n.indexOf(nm) >= 0; })[0]; if (!f) return "";
+        return nm + (f.s === "post" ? (f.win >= 0 ? (f.n[f.win] === nm ? " won" : " lost") + (f.m ? " by " + f.m : "") : " fought to no result") : f.s === "in" ? " is fighting now" : " is still to fight");
+      }).filter(Boolean).join(" • "));
+    } else if (g.ev === "golf") {
+      var R = P.rows || [];
+      w.appendChild(el("p", null, (P.det || g.c || "In progress") + (R[0] ? ". " + R[0][0] + " leads at " + R[0][2] + "." : ".")));
+      add("At the top", R.slice(0, 5).map(function (r) { return r[1] + " " + r[0] + " (" + r[2] + ")"; }).join(" • "));
+      if (R[0]) { var ld = parOf(R[0][2]), wi = R.filter(function (r) { var v = parOf(r[2]); return isFinite(v) && v - ld <= 2; }).length; add("The chase", wi > 1 ? wi + " players are within two shots of the lead." : "Nobody is within two shots of the lead."); }
+      var best = null; R.forEach(function (r) { r[3].forEach(function (v, i) { if (v != null && v >= 55 && (!best || v < best.v)) best = { v: v, i: i, n: r[0] }; }); });
+      if (best) add("Low round", best.n + " shot " + best.v + " in round " + (best.i + 1) + ".");
+      add("Your golfers", me.map(function (nm) { var r = R.filter(function (q) { return q[0] === nm; })[0]; return r ? nm + " is " + r[1] + " at " + r[2] + (r[5] ? " through " + r[5] : "") : ""; }).filter(Boolean).join(" • "));
+    } else {
+      var ss = (P.sess || []).slice().sort(function (a, b) { return Date.parse(a.t) - Date.parse(b.t); }), lv = ss.filter(function (z) { return z.s === "in"; })[0];
+      var dd = ss.filter(function (z) { return z.s === "post"; }), nx = ss.filter(function (z) { return z.s === "pre"; });
+      w.appendChild(el("p", null, g.c || (lv ? sessName(lv.n) + " is on track." : "Weekend under way.")));
+      add("Already run", dd.map(function (z) { return sessName(z.n) + ": " + (z.rows.slice(0, 3).map(function (r) { return r[1]; }).join(", ") || "no times"); }).join(" • "));
+      if (lv) add(sessName(lv.n) + " right now", lv.rows.slice(0, 5).map(function (r) { return r[0] + ". " + r[1]; }).join(", "));
+      add("Still to come", nx.map(function (z) { return sessName(z.n) + " " + when(z.t); }).join(" • "));
+      var cur = lv || dd[dd.length - 1];
+      add("Your drivers", cur ? me.map(function (nm) { var r = cur.rows.filter(function (q) { return q[1] === nm; })[0]; return r ? nm + " is P" + r[0] + " in " + sessName(cur.n) : ""; }).filter(Boolean).join(" • ") : "");
+    }
+    return n ? w : null;
+  }
   function renderEvent(out, g) {
     var P = g.x || {};
     if (P.venue) out.appendChild(el("p", "rb", P.venue));
+    var cw = g.s === "live" ? evCatch(g) : null;
+    if (cw) out.appendChild(sec("Get caught up", cw, true, false));
     if (g.ev === "mma") {
       var fs = P.fights || [], main = fs.filter(function (f) { return f.ft; }), prel = fs.filter(function (f) { return !f.ft; });
       if (!main.length) { main = fs; prel = []; }
@@ -1170,6 +1296,7 @@
           var nm = el("div", "fn"), who = function (i, w) {
             var s = el("span"); s.appendChild(el("b", w ? "fwin" : "", f.n[i] || "–"));
             if (f.r[i]) s.appendChild(document.createTextNode(" (" + f.r[i] + ")"));
+            if (f.n[i] && f.n[i] !== "–") s.appendChild(starBtn(f.n[i]));
             return s;
           }, o = done ? [f.win, 1 - f.win] : [0, 1];
           nm.appendChild(who(o[0], done)); nm.appendChild(document.createTextNode(done ? " def. " : " vs ")); nm.appendChild(who(o[1], false));
@@ -1180,11 +1307,26 @@
       if (!fs.length) out.appendChild(el("p", "rmsg", "The fight card has not been announced yet."));
       if (main.length) out.appendChild(sec("Main card", mk(main), true, false));
       if (prel.length) out.appendChild(sec("Prelims", mk(prel), g.s === "up", false));
+    } else if (g.ev === "golf") {
+      var R = P.rows || [];
+      if (P.det && g.s !== "final") out.appendChild(el("p", "rb", P.det));
+      if (!R.length) { out.appendChild(el("p", "rmsg", "The field has not been posted yet.")); return; }
+      var gl = function (rows) {
+        var w = el("div", "plist");
+        rows.forEach(function (r) { w.appendChild(prow(r[1], r[0], r[2], [r[3].filter(function (v) { return v != null; }).join(" · "), r[5] ? "thru " + r[5] : ""].filter(Boolean).join("  ·  "))); });
+        return w;
+      };
+      var mine = R.filter(function (r) { return fpHas(r[0]); });
+      if (mine.length) out.appendChild(sec("Your golfers", gl(mine), true, true));
+      out.appendChild(sec(g.s === "up" ? "Field" : "Leaderboard", gl(R.slice(0, 25)), true, false));
+      if (R.length > 25) out.appendChild(sec("Rest of the field · " + (R.length - 25), gl(R.slice(25)), false, false));
     } else {
       var ses = (P.sess || []).slice().reverse();
       ses.forEach(function (s, i) {
         var title = sessName(s.n) + " · " + (s.s === "post" ? "Final" : s.s === "in" ? "Live" : when(s.t));
-        var body = s.rows.length ? tbl({ cols: ["Pos", "Driver"], rows: s.rows }) : el("p", "rb", "Starts " + when(s.t) + ".");
+        var body;
+        if (s.rows.length) { body = el("div", "plist"); s.rows.forEach(function (r) { body.appendChild(prow(r[0], r[1], "", "")); }); }
+        else body = el("p", "rb", "Starts " + when(s.t) + ".");
         out.appendChild(sec(title, body, i === 0 || s.s === "in", false));
       });
     }
@@ -1271,6 +1413,11 @@
     [tier("Primary stats", prim, true), tier("Secondary stats", secd, g.s === "live")].forEach(function (t) { if (t) list.push(t); });
     if (!up && !rc) list.push(preview);
 
+    if (g.s === "live" && d.catch) {
+      var cw = el("div", "sum"); cw.appendChild(el("p", null, d.catch.head));
+      d.catch.secs.forEach(function (n) { var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); cw.appendChild(w); });
+      list.unshift(sec("Get caught up", cw, true, false));
+    }
     var bar = el("div", "allbar");
     var b1 = el("button", null, "Expand all"), b2 = el("button", null, "Collapse all");
     b1.type = b2.type = "button";
@@ -1673,5 +1820,5 @@
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=62").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=63").catch(function () {}); } catch (e) {} });
 })();
