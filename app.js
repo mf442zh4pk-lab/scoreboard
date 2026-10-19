@@ -1626,11 +1626,12 @@
   $("prof").onclick = function () { openProf(); };
   try { // header button shows the signed-in profile's initial
     var pa = localStorage.getItem("sb-active"), pp = pa && JSON.parse(localStorage.getItem("sb-profiles") || "{}")[pa];
-    if (pp) { $("prof").textContent = pp.n.charAt(0).toUpperCase(); $("prof").className = "on"; }
+    if (pp) { $("prof").textContent = pp.n.charAt(0).toUpperCase(); $("prof").className = "on"; $("who").textContent = pp.n; $("who").hidden = false; $("who").className = localStorage.getItem("sb-lb") ? "on" : ""; }
+    $("who").onclick = function () { openProf(); };
   } catch (e) {}
   window.addEventListener("load", function () {
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=58").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=59").catch(function () {}); } catch (e) {} });
 })();
