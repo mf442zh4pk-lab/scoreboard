@@ -20,6 +20,27 @@
       return crypto.subtle.deriveBits({ name: "PBKDF2", salt: unb64(salt), iterations: it, hash: "SHA-256" }, k, 256);
     }).then(b64);
   }
+  // Everything in a collection besides the cards (i), seen flags (s) and visit days (d): stats counters, pack meters,
+  // packs owed, the favorite. Both merges used to drop these, which zeroed the stats page on every sync. Counters keep
+  // the higher value (a sync never inflates), dates keep the earliest first visit and latest top-up, and the favorite
+  // and the in-progress meters follow the copy given first (this device).
+  function kd(k) { var p = String(k || "").split("-"); return p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]).getTime() : 0; }
+  function mergeExtra(o, a, b) {
+    [a, b].forEach(function (c) {
+      if (!c) return;
+      Object.keys(c).forEach(function (k) {
+        if (k === "i" || k === "s" || k === "d") return;
+        var v = c[k], x = o[k];
+        if (x == null) { o[k] = v; return; }
+        if (typeof v === "number" && typeof x === "number") o[k] = Math.max(x, v);
+        else if (k === "d0") { if (kd(v) && kd(v) < kd(x)) o[k] = v; }
+        else if (k === "ld") { if (kd(v) > kd(x)) o[k] = v; }
+        else if (k === "ue") { if (v && x && (kd(v.d) > kd(x.d) || (v.d === x.d && v.n > x.n))) o[k] = v; }
+        else if (Array.isArray(v) && Array.isArray(x)) { if (v.length > x.length) o[k] = v; }
+      });
+    });
+    return o;
+  }
   function mergeCol(a, b) {                       // union of two collections: earliest find, summed counts
     var o = { i: {}, s: {}, d: [] };
     [a, b].forEach(function (c) {
@@ -28,7 +49,7 @@
       for (var k2 in (c.s || {})) o.s[k2] = 1;
       (c.d || []).forEach(function (d) { if (o.d.indexOf(d) < 0) o.d.push(d); });
     });
-    o.d = o.d.slice(-60); return o;
+    o.d = o.d.slice(-60); return mergeExtra(o, a, b);
   }
   function parse(x) { try { return JSON.parse(x); } catch (e) { return null; } }
   function applyBlob(blob) { PK.forEach(function (k) { s(k, blob && blob[k] != null ? blob[k] : null); }); }
@@ -125,7 +146,7 @@
       for (var k2 in (c.s || {})) o.s[k2] = 1;
       (c.d || []).forEach(function (d) { if (o.d.indexOf(d) < 0) o.d.push(d); });
     });
-    o.d.sort(); o.d = o.d.slice(-60); return o;
+    o.d.sort(function (x, y) { return kd(x) - kd(y); }); o.d = o.d.slice(-60); return mergeExtra(o, a, b);
   }
   function saveGet(o) {
     return fetch(DOC + "/saves/" + o.uid, { headers: { Authorization: "Bearer " + o.it } }).then(function (r) {
@@ -298,14 +319,14 @@
       if (!firstC || e[0] < firstC[0]) firstC = [e[0], c]; if (!lastC || e[0] > lastC[0]) lastC = [e[0], c];
       if (c.h) holo++;
     });
-    var sc = myScore(), fol = 0, ppl = 0; try { fol = (JSON.parse(g("sb-followed") || "[]") || []).length; ppl = (JSON.parse(g("sb-fp") || "[]") || []).length; } catch (e) {}
+    var sc = myScore(), cf = (window.SB && SB.config) || {}, fol = (cf.followed || []).length, ppl = (cf.fp || []).length;
     var wd = [0, 0, 0, 0, 0, 0, 0]; days.forEach(function (k) { wd[new Date(F.keyDate(k)).getDay()]++; });
     var favD = wd.indexOf(Math.max.apply(null, wd)), DN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     var hd = el("div", "pm-who"); hd.appendChild(el("span", "pm-av", p ? p.n.charAt(0).toUpperCase() : "★"));
     var w = el("div"); w.appendChild(el("div", "pm-name", p ? p.n : "This device")); w.appendChild(el("div", "pm-sub", since ? (p ? "Profile made " : "First visit ") + fmt(since) : "No visits logged yet")); hd.appendChild(w); body.appendChild(hd);
     function grid(title, tiles) {
       body.appendChild(el("h3", "ac-h", title)); var gr = el("div", "ac-grid");
-      tiles.forEach(function (t) { if (t && t.nodeType) { gr.appendChild(t); return; } if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
+      tiles.forEach(function (t) { if (!t) return; if (t.nodeType) { gr.appendChild(t); return; } if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
       body.appendChild(gr);
     }
     grid("Account", [
@@ -341,7 +362,7 @@
     body.appendChild(rr);
     grid("Scoreboard", [
       [col.gv || 0, (col.gv === 1 ? "game" : "games") + " opened"],
-      [col.tp || 0, "taps"],
+      [col.tp || 0, col.tp === 1 ? "tap" : "taps"],
       [fol, fol === 1 ? "team followed" : "teams followed"],
       [ppl || null, ppl === 1 ? "person followed" : "people followed"],
     ]);
