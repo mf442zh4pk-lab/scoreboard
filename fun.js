@@ -224,7 +224,9 @@
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
       var cid = q.length === 1 ? q[0][0] : null;
-      var quick = false; try { quick = localStorage.getItem("sb-rv") === "q"; } catch (e) {}
+      var rvm = "f"; try { rvm = localStorage.getItem("sb-rv") || "f"; } catch (e) {}
+      if (rvm === "0") return;                      // pop-ups off: the cards are in the log with a NEW badge, nothing else
+      var quick = rvm === "q";
       if (!quick && reveal(q)) return;
       var mt = Math.max.apply(null, q.map(tier)); if (mt === 1 && !RM) gConfetti(10, ["✨"]);
       else if (mt >= 2 && quick) vib(30);
@@ -253,6 +255,7 @@
   }
   var LOGO = {}; try { LOGO = JSON.parse(localStorage.getItem("sb-lg") || "{}") || {}; } catch (e) {}
   function teamDrop(lk, g) {                     // opening a game only remembers each team's logo for when its card turns up
+    if (g) { col.gv = (col.gv || 0) + 1; save(); }   // ...and counts it for the account stats
     if (!g || !TCAT[lk]) return; var ch = false;
     [g.h, g.a].forEach(function (s) {
       if (!s) return; var id = TK[lk + "|" + slug(s[0])]; if (!id) return;
@@ -267,7 +270,7 @@
   function wchoice(arr, wf) { var tot = 0, ws = arr.map(function (c) { var w = wf(c); tot += w; return w; }), r = Math.random() * tot, i = 0; while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; } return arr[i]; }
   function tapRoll() {
     var n = Date.now(); if (n - lastTap < TAPGAP) return; lastTap = n;
-    earn(1, "use");
+    col.tp = (col.tp || 0) + 1; earn(1, "use");
     if (D.body.classList.contains("rv-on") || Math.random() >= TAPP) return;
     var left = CAT.filter(function (c) { return !col.i[c[0]] && !AUTO[c[0]]; }); if (!left.length) return;
     var hol = left.filter(function (c) { return c.h && hActive(c.h); }), gen = left.filter(function (c) { return !c.h; }), c;
@@ -351,7 +354,15 @@
     h.push(c); if (h.length > 2) h.shift(); disc(idf(c)); return c;
   }
   // days visited
-  (function () { var d = new Date(), k = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); if (col.d.indexOf(k) < 0) { col.d.push(k); if (col.d.length > 60) col.d.shift(); save(); } })();
+  (function () {
+    var d = new Date(), k = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    if (!col.d0 && col.d.length) col.d0 = col.d[0];
+    if (col.d.indexOf(k) < 0) {
+      col.dn = (col.dn || col.d.length) + 1; col.d.push(k); if (!col.d0) col.d0 = k;
+      if (col.d.length > 60) col.d.shift();
+      col.ls = Math.max(col.ls || 0, streakDays(col.d)); save();
+    } else if (!col.ls) { col.ls = streakDays(col.d); save(); }
+  })();
 
   // ---------- global layer ----------
   var G = null;
@@ -631,6 +642,13 @@
   // ---------- card packs: a hidden credit meter fills from using the app (and a daily top-up); every full meter is a pack ----------
   // A holiday meter fills alongside it while a holiday window is on, and pays out a holiday pack from that holiday's cards.
   var COST = 100, DAYCAP = 100, PKO = null, pendingMs = [];
+  // Days in a row ending on the most recent day in the list (the list holds "Y-M-D" keys, oldest first).
+  function streakDays(list) {
+    if (!list.length) return 0; var n = 1, prev = keyDate(list[list.length - 1]);
+    for (var i = list.length - 2; i >= 0; i--) { var dd = keyDate(list[i]); if (prev - dd === 864e5) { n++; prev = dd; } else break; }
+    return n;
+  }
+  function keyDate(k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).getTime(); }
   function dkey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
   function pk0() { if (col.cr == null) col.cr = 0; if (col.hc == null) col.hc = 0; if (col.pk == null) col.pk = 0; if (!col.hk) col.hk = []; }
   function holNow() {                             // the active holiday closest to today (any holiday, not only the animated ones)
@@ -651,7 +669,8 @@
     while (col.cr >= COST) { col.cr -= COST; col.pk++; gotR = true; }
     while (hk && col.hc >= COST) { col.hc -= COST; col.hk.push(hk); gotH = true; }
     save(); badge();
-    if (gotR || gotH) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
+    var pop = true; try { pop = localStorage.getItem("sb-pk") !== "0"; } catch (e) {}
+    if ((gotR || gotH) && pop) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
   }
   var PKP = null;
   function packPop(r, hk) {
@@ -683,7 +702,7 @@
   function openPacks() {
     pk0(); if (PKO) return;
     var hk = null; if (col.pk > 0) col.pk--; else if (col.hk.length) hk = col.hk.shift(); else { say("No packs right now. Keep using the app, a new one comes every day."); return; }
-    var cards = drawPack(hk), news = cards.map(grant); save(); badge();
+    var cards = drawPack(hk), news = cards.map(grant); col.po = (col.po || 0) + 1; save(); badge();
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     packShow(hk, cards, news);
   }
@@ -752,7 +771,7 @@
   setTimeout(function () { pk0(); earn(0, "daily"); badge(); }, 1200);
   dates();
 
-  window.FUN = { packs: packs, openPacks: openPacks, art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { packs: packs, openPacks: openPacks, streak: streakDays, keyDate: keyDate, art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
