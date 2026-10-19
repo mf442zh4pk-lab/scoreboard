@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#4a5d7e">
+<meta name="theme-color" content="#121722">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Scoreboard">
@@ -19,13 +19,13 @@ var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL
 <link rel="dns-prefetch" href="https://a.espncdn.com">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Hanken+Grotesk:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Hanken+Grotesk:wght@400;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="style.css?v=88">
+<link rel="stylesheet" href="style.css?v=89">
 <style>
 /* Splash: paints before anything else loads, plays one second of the M doing sports, then hands off to the app. */
-#sp{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:#eef1f6;transition:opacity .28s ease,visibility .28s;-webkit-user-select:none;user-select:none}
+#sp{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:#121722;transition:opacity .28s ease,visibility .28s;-webkit-user-select:none;user-select:none}
 #sp.off{opacity:0;visibility:hidden;pointer-events:none}
 #sp .m{width:92px;height:92px;border-radius:26px;box-shadow:0 14px 30px -12px rgba(45,58,85,.7);animation:spm 1s cubic-bezier(.3,.7,.3,1) both;transform-origin:50% 100%}
-#sp .sh{width:70px;height:10px;border-radius:50%;background:rgba(45,58,85,.22);margin-top:-18px;animation:spsh 1s cubic-bezier(.3,.7,.3,1) both}
+#sp .sh{width:70px;height:10px;border-radius:50%;background:rgba(0,0,0,.45);margin-top:-18px;animation:spsh 1s cubic-bezier(.3,.7,.3,1) both}
 #sp{perspective:700px}#sp .w{position:absolute;left:50%;top:50%;margin:-62px 0 0 -15px;font-size:30px;opacity:0;animation:spw 1s linear both;will-change:transform,opacity}
 #sp .w.b{animation-delay:0s}#sp .w.f{animation-delay:.25s}#sp .w.h{animation-delay:.5s}#sp .w.s{animation-delay:.75s}
 #sp .t{font:700 12px/1 system-ui,sans-serif;letter-spacing:.34em;text-transform:uppercase;color:#9b8cd9;animation:spt .6s .2s ease both}
@@ -33,16 +33,13 @@ var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL
 @keyframes spsh{0%{transform:scale(.6);opacity:.3}12%{transform:scale(1.1);opacity:1}22%{transform:scale(.75);opacity:.5}30%{transform:scale(1.05);opacity:1}54%{transform:scale(.7);opacity:.5}62%{transform:translateX(-46px) scale(.9)}74%{transform:translateX(42px) scale(.9)}100%{transform:scale(1);opacity:.9}}
 @keyframes spw{0%{opacity:0;transform:translate(0,30px) scale(.4)}25%{opacity:1;transform:translate(0,-40px) scale(1)}45%{opacity:0;transform:translate(60px,-80px) scale(.6)}100%{opacity:0}}
 @keyframes spt{from{opacity:0;letter-spacing:.6em}to{opacity:1}}
-@media (prefers-color-scheme:dark){#sp{background:#121722}#sp .sh{background:rgba(0,0,0,.45)}}
-:root[data-theme="dark"] #sp{background:#121722}
-:root[data-theme="light"] #sp{background:#eef1f6}
 @media (prefers-reduced-motion:reduce){#sp .m,#sp .sh,#sp .w,#sp .t{animation:none}#sp .w{display:none}}
 </style>
 </head>
 <body>
 <div id="sp" aria-hidden="true"><svg class="m" viewBox="0 0 512 512"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b7095"/><stop offset="1" stop-color="#2d3a55"/></linearGradient><linearGradient id="sh2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c4b9f2"/><stop offset="1" stop-color="#9b8cd9"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#sg)"/><path d="M126 214C64 214 40 164 46 92c28 48 62 58 136 58v64z" fill="url(#sh2)"/><path d="M386 214c62 0 86-50 80-122-28 48-62 58-136 58v64z" fill="url(#sh2)"/><path d="M122 410V198h60l74 110 74-110h60v212h-56V292l-56 80h-44l-56-80v118z" fill="#eef1f6"/></svg><div class="sh"></div><span class="w b">🏀</span><span class="w f">🏈</span><span class="w h">🏒</span><span class="w s">⚾</span><div class="t">Scoreboard</div></div>
 <script>
-(function(){var s=document.getElementById("sp"),off=false;try{off=localStorage.getItem("sb-splash")==="0";var t=localStorage.getItem("sb-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}
+(function(){var s=document.getElementById("sp"),off=false;try{off=localStorage.getItem("sb-splash")==="0"}catch(e){}
 var hide=function(){s.classList.add("off")};
 if(off||location.hash){hide();return}var rm=false;try{rm=matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){}setTimeout(hide,rm?350:1000)})();
 </script>
@@ -59,8 +56,8 @@ if(off||location.hash){hide();return}var rm=false;try{rm=matchMedia("(prefers-re
 <div id="ptr" aria-hidden="true"><span class="ring"></span><span class="pl">Pull to refresh</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <noscript>This scoreboard needs JavaScript.</noscript>
-<script src="config.js?v=88"></script>
-<script src="espn.js?v=88"></script>
-<script src="app.js?v=88"></script>
+<script src="config.js?v=89"></script>
+<script src="espn.js?v=89"></script>
+<script src="app.js?v=89"></script>
 </body>
 </html>
