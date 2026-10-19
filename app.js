@@ -1012,7 +1012,8 @@
     var rs = el("button", null, "Back to default teams"); rs.type = "button";
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
-    if (window.FUN) { box.appendChild(el("h3", null, "Secrets")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " found. Hint: poke things. Tap the title, the logos, the footer, Refresh. Scroll to the very bottom. Try a classic cheat code.")); }
+    if (window.FUN) { box.appendChild(el("h3", null, "Collection Log")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " cards found. Hint: poke things, visit at odd hours, try a classic cheat code."));
+      var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb); }
     out.appendChild(box);
   }
 
@@ -1594,12 +1595,30 @@
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
   // The fun layer (random celebrations, easter eggs) loads after everything else, when the browser is idle.
   var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
+  var funQ = [], funLoading = false;
+  function addScript(src, cb) { var s = document.createElement("script"); s.src = src + "?" + FV; s.async = true; s.onload = cb; document.head.appendChild(s); }
+  function ensureFun(cb) {
+    if (window.FUN) { cb(); return; }
+    funQ.push(cb); if (funLoading) return; funLoading = true;
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "fun.css?" + FV; document.head.appendChild(l);
+    addScript("fun.js", function () { var q = funQ; funQ = []; q.forEach(function (f) { f(); }); });
+  }
+  function openProf(v) {
+    ensureFun(function () {
+      if (window.PROF) { PROF.open(v); return; }
+      addScript("profile.js", function () { PROF.open(v); });
+    });
+  }
+  $("prof").onclick = function () { openProf(); };
+  try { // header button shows the signed-in profile's initial
+    var pa = localStorage.getItem("sb-active"), pp = pa && JSON.parse(localStorage.getItem("sb-profiles") || "{}")[pa];
+    if (pp) { $("prof").textContent = pp.n.charAt(0).toUpperCase(); $("prof").className = "on"; }
+  } catch (e) {}
+  if (/^#xfer=/.test(location.hash)) openProf();
+  window.addEventListener("hashchange", function () { if (/^#xfer=/.test(location.hash)) openProf(); });
   window.addEventListener("load", function () {
-    var go = function () {
-      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "fun.css?" + FV; document.head.appendChild(l);
-      var s = document.createElement("script"); s.src = "fun.js?" + FV; s.async = true; document.head.appendChild(s);
-    };
+    var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=45").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=46").catch(function () {}); } catch (e) {} });
 })();
