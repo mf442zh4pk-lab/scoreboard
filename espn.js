@@ -154,6 +154,7 @@
         });
         return;
       }
+      // Team sports only answer one day per request (a dates=A-B range comes back empty), so it stays one call per day.
       days.forEach(function (d) {
         jobs.push({
           lk: lg.key,
