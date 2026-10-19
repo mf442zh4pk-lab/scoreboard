@@ -40,13 +40,22 @@
     if (!validName(name)) return Promise.reject("Username: 3 to 16 letters, numbers, _ . -");
     if (P[l]) return Promise.reject("That username is taken on this device.");
     if (pw.length < 6) return Promise.reject("Password needs at least 6 characters.");
-    var salt = b64(crypto.getRandomValues(new Uint8Array(16)));
-    return hashPw(pw, salt, ITER).then(function (h) {
-      P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() };
-      putProfiles(P); s("sb-active", l);
-      F.disc("mack");
-      lbJoin.changed = false;
-      return Promise.race([lbJoin(name, pw, true, true), new Promise(function (r) { setTimeout(r, 2500); })]).then(function () { if (lbJoin.changed) location.reload(); });
+    // Claim the name online first: one person per name, everywhere (case-insensitive).
+    return lbAuth("create", name, pw).catch(function (e) {
+      e = String(e);
+      if (/EMAIL_EXISTS/.test(e)) throw "That username is taken. If it's yours, use Log in.";
+      if (/WEAK_PASSWORD/.test(e)) throw "Password needs at least 6 characters.";
+      if (/TOO_MANY/.test(e)) throw "Too many tries. Wait a few minutes.";
+      throw "Couldn't reach the server to claim that name. Check your connection and try again.";
+    }).then(function () {
+      var salt = b64(crypto.getRandomValues(new Uint8Array(16)));
+      return hashPw(pw, salt, ITER).then(function (h) {
+        P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() };
+        putProfiles(P); s("sb-active", l);
+        F.disc("mack");
+        lbCache = null;
+        return Promise.race([lbSync(true).then(function () { return savePush(true); }).catch(function () {}), new Promise(function (r) { setTimeout(r, 2500); })]);
+      });
     });
   }
   function login(name, pw) {
@@ -316,7 +325,7 @@
       };
       pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       form.appendChild(go);
-      if (mode === "create") form.appendChild(el("p", "pm-note", "Username: letters, numbers, _ . - (3 to 16). Password 6+. Your current teams, settings and cards become this profile's starting point, and it joins the online leaderboard."));
+      if (mode === "create") form.appendChild(el("p", "pm-note", "Username: letters, numbers, _ . - (3 to 16), and it's yours alone: no two people can have the same name. Password 6+. Your current teams, settings and cards become this profile's starting point, and it joins the online leaderboard."));
       if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Log in with an existing account, or create one."));
     }
     bl.onclick = function () { mode = "login"; draw(); }; bc.onclick = function () { mode = "create"; draw(); };
@@ -384,6 +393,7 @@
         b.appendChild(el("span", "tcm-n", c[4]));
         b.appendChild(el("i", "tcm-r", RAR(c[2])));
         if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
+        if (got && col.i[c[0]][1] > 1) b.appendChild(el("span", "tcm-x", "\u00d7" + col.i[c[0]][1]));
         b.onclick = function () { detail(c, sub ? vl : null, lb); };
         grid.appendChild(b);
       });
@@ -412,7 +422,7 @@
     var rb = el("div", "tc-rar"); rb.appendChild(el("i", null, c[2])); rb.appendChild(D.createTextNode(F.RAR[c[2]])); card.appendChild(rb);
     card.appendChild(el("p", "tc-d", got ? c[5] : "Not found yet."));
     if (got) {
-      var e = col.i[c[0]]; card.appendChild(el("p", "tc-f", "First found " + new Date(e[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + (e[1] > 1 ? " · seen ×" + e[1] : "")));
+      var e = col.i[c[0]]; card.appendChild(el("p", "tc-f", "First found " + new Date(e[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + (e[1] > 1 ? " \u00b7 \u00d7" + e[1] + " (" + (e[1] - 1) + (e[1] > 2 ? " dupes)" : " dupe)") : "")));
     } else card.appendChild(el("p", "tc-f", "How to find it: " + c[6]));
     card.appendChild(el("span", "tc-foil"));
     if (!F.reduced) {
