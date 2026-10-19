@@ -115,6 +115,8 @@
   function when(iso) {
     var d = new Date(iso);
     if (isNaN(d)) return "";
+    // ESPN dates some events (golf tournaments) with no start time, which reads as exactly midnight: show the day only.
+    if (!d.getHours() && !d.getMinutes()) return ESPN.dayKey(d) === ESPN.dayKey(new Date()) ? "Today" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
     var t = d.toLocaleTimeString(undefined, { hour: PREF.h24 ? "2-digit" : "numeric", minute: "2-digit", hour12: !PREF.h24 });
     if (ESPN.dayKey(d) === ESPN.dayKey(new Date())) return t;
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + t;
@@ -2154,6 +2156,12 @@
     var st = searchState(q0), sq = st.sq, q = st.q;
     var remote = st.r, teams = mergeTeams(q, remote).filter(function (t) { return sq.ok(pathOfTeam(t)); });
     var people = remote ? remote.people.filter(function (r) { return !/friendly/.test(r.slug) && sq.ok(r.sport + "/" + r.slug); }).map(personOf).slice(0, 6) : [];
+    // When the words name a league ("f1", "golf"), ESPN's loose matches (an athlete for "f1") are noise: keep only hits
+    // that actually carry the words.
+    if (opts.strict) {
+      var sw = wordsOf(q).trim().split(" ").filter(Boolean), carries = function (x) { var w = wordsOf(x) + " "; return sw.every(function (t) { return w.indexOf(" " + t) >= 0; }); };
+      teams = teams.filter(function (t) { return carries(t.name + " " + (t.ll || "")); }); people = people.filter(function (p) { return carries(p.name + " " + (p.ll || "")); });
+    }
     var n = opts.nt || 8, shownT = teams.slice(0, n);
     if (shownT.length) {
       if (opts.heads) res.appendChild(el("h4", "find-sh", "Teams"));
@@ -2684,7 +2692,7 @@
         res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid);
         if (hits.length > 12) res.appendChild(el("p", "find-h", "+" + (hits.length - 12) + " more \u00b7 keep typing"));
       } else if (waiting) res.appendChild(el("p", "find-h find-wait", "Looking up their schedule\u2026"));
-      var n = drawHits(res, raw, ctl, { nt: 8, heads: true });
+      var n = drawHits(res, raw, ctl, { nt: 8, heads: true, strict: lgs.length > 0 });
       if (!grid.firstChild && !n && !lgs.length && !waiting && ctl.done) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
     }
     inp.oninput = function () { if (FIND === ov) fill(); };
