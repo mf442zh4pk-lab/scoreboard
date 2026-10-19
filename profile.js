@@ -323,6 +323,7 @@
   function vLog(body, arg) {
     var col = F.col(), found = F.count(), t = F.total;
     summary(body);
+    (function () { var u = F.upcoming(), t = []; if (u.on.length) t.push("Dropping now: " + u.on.map(function (x) { return x.name + " (until " + x.end + ")"; }).join(", ") + "."); if (u.next) t.push("Next release: " + u.next.name + ", " + u.next.start + " to " + u.next.end + "."); if (t.length) body.appendChild(el("p", "pm-note pm-hol", "🎉 " + t.join(" "))); })();
     var chips = el("div", "pm-chips"), grid = el("div", "pm-grid");
     function fresh() { return F.CAT.filter(function (c) { return col.i[c[0]] && !col.s[c[0]]; }); }
     var nw = fresh(); if (filter === "new" && !nw.length) filter = "all";
