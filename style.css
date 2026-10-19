@@ -720,3 +720,9 @@ body.find-on{overflow:hidden}
 td.chg{animation:cellf 1.6s ease-out}
 @keyframes cellf{0%{background:color-mix(in srgb,var(--ter) 45%,transparent);font-weight:800}60%{background:color-mix(in srgb,var(--ter) 25%,transparent)}100%{background:transparent}}
 .play.new{animation:cellf 2s ease-out}
+/* v70: week top performances */
+.agr.pf{cursor:pointer;align-items:baseline;flex-wrap:wrap}
+.agr.pf .agt{width:78px;flex:none;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ter)}
+.agr.pf b{flex:none}
+.agr.pf .ago{flex:1 1 100%;padding-left:86px;font-size:12px;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agr.pf:hover b{color:var(--ter)}
