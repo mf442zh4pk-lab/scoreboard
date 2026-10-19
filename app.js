@@ -1617,6 +1617,7 @@
       addScript("profile.js", function () { PROF.open(v); });
     });
   }
+  try { if (localStorage.getItem("sb-active") && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   window.SB_LOAD = function (cb) { ensureFun(function () { if (window.PROF) cb(); else addScript("profile.js", cb); }); };
   $("prof").onclick = function () { openProf(); };
   try { // header button shows the signed-in profile's initial
@@ -1629,5 +1630,5 @@
     var go = function () { ensureFun(function () {}); };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=50").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=51").catch(function () {}); } catch (e) {} });
 })();
