@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=67` → `?v=68` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=69` → `?v=70` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. The service worker picks up the new version on the next open.
 
 ## Motion system
@@ -66,6 +66,14 @@ Defaults live in the `PREF` object; whatever the person changes is saved under `
 
 `openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text). Picking a result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
 
+## Tomorrow (Yesterday → Tomorrow)
+
+`renderTomorrow` in `app.js` summarizes the next 30 days for followed teams from the schedules already saved on the phone (`sb-tcache`): counts, home/away, busiest day, longest gap, a 30-day strip per team, followed-vs-followed games, then the agenda a week at a time. No extra requests.
+
+## Live watch
+
+A live game's page opens with `livePanel` (`app.js`): the status with a pulsing dot, the current win probability and its direction, and per sport the live situation ESPN sends with the scoreboard (`g.q`, normalized in `espn.js`): a virtual field for football (ball spot from `possessionText`, drive direction, down and distance, red zone, timeouts) and a diamond with outs and the count for baseball, plus the last play. Cells in "By period" and "Team stats" that changed since the previous render pulse (`flashCells`), and so does a new top entry in Plays. While a live game is open the app polls every 20s.
+
 ## Shared links
 
 Settings → "Copy share link" makes `?add=<base64 {t:[teams], p:[people]}>`. On load, `app.js` offers to add whatever in the link isn't followed yet, then cleans the URL.
@@ -82,6 +90,14 @@ Hidden meters in `sb-col` (`cr` regular credits, `hc` holiday credits, `pk` pack
 
 Inline in `index.html` (markup, CSS and a few lines of script) so it paints before anything else loads. One second, then it fades over the already-rendered app. Skipped on deep links, when the Splash setting is off, and shortened under reduced motion.
 
+## Account stats
+
+Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps. Profile age comes from the profile's `c` timestamp.
+
+## Pop-ups
+
+Settings → "New card reveal" (Full show / Quick toast / Off, `sb-rv`) and "Card pack pop-ups" (On / Off, `sb-pk`). Off never loses anything: cards land in the log with a NEW badge and packs wait behind the gold dot.
+
 ## Data keys (localStorage)
 
-`sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`, `sb-hf` (last holiday burst).
+`sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`, `sb-hf` (last holiday burst), `sb-rv` / `sb-pk` (pop-up settings).
