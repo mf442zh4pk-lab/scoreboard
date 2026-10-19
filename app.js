@@ -539,7 +539,13 @@
       var a = el("span", "qst" + (aw ? " w" : "")); a.appendChild(el("i", null, (g.a[6] ? g.a[6] + " " : "") + g.a[1])); a.appendChild(el("u", null, String(g.a[2]))); row.appendChild(a);
       row.appendChild(el("span", "qsat", "@"));
       var h = el("span", "qst" + (aw ? "" : " w")); h.appendChild(el("i", null, (g.h[6] ? g.h[6] + " " : "") + g.h[1])); h.appendChild(el("u", null, String(g.h[2]))); row.appendChild(h);
-      var f = el("span", "qsf"); f.appendChild(el("em", null, (r.lk === "ncaafb" ? "CFB" : r.ll) + (pm ? " \u00b7 " + st.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 }) : ""))); f.appendChild(el("b", null, g.o ? "F/OT" : "F")); row.appendChild(f);
+      var f = el("span", "qsf"); f.appendChild(el("em", null, r.lk === "ncaafb" ? "CFB" : r.ll)); f.appendChild(el("b", null, g.o ? "F/OT" : "F")); row.appendChild(f);
+      if (pm || close) {
+        var tg = el("span", "qstag");
+        if (pm) tg.appendChild(el("i", "tpm", "\u263D " + st.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 })));
+        if (close) tg.appendChild(el("i", "tcl", (g.o ? "OT \u00b7 " : "") + "by " + Math.abs(g.h[2] - g.a[2])));
+        row.appendChild(tg);
+      }
       var go = function () { openGame({ lk: r.lk, g: g }); };
       row.onclick = go; row.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
       body.appendChild(row);
@@ -1910,6 +1916,7 @@
     var key = m[1] + "_" + m[2];
     if (S.view && S.view.key === key) return;
     var x = allGames().filter(function (q) { return q.lk === m[1] && q.g.id === m[2]; })[0];
+    if (!x) { var yl = (S.yf[m[1]] || []).filter(function (g) { return g.id === m[2]; })[0], lg0 = leagueOf(m[1]); if (yl && lg0) x = { g: yl, lk: m[1], ll: lg0.label }; }   // yesterday's finals live in S.yf once trimmed from the list
     if (!x) { S.view = null; render(); return; }
     S.view = { x: x, key: key, d: ESPN.peekGame(m[1], m[2]), n: undefined };
     if (window.FUN && FUN.team) FUN.team(x.lk, x.g);
