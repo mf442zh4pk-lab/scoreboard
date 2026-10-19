@@ -212,6 +212,8 @@
     if (old) { for (var ok in old) if (IDX[ok] && !col.i[ok]) col.i[ok] = [Date.now(), 1]; localStorage.removeItem("sb-fun"); }
   } catch (e) {}
   if (!col.s) col.s = {}; if (!col.d) col.d = [];
+  col.d.sort(function (a, b) { return keyDate(a) - keyDate(b); });   // days in date order (an old sync saved them sorted as text)
+  if (col.d0 && col.d.length && keyDate(col.d[0]) < keyDate(col.d0)) col.d0 = col.d[0];
   var saveT = 0;
   function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
