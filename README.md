@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=87` → `?v=88` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=88` → `?v=89` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -84,6 +84,10 @@ About a minute into first use with no profile signed in (`sb-active`), `app.js` 
 
 Three sub-tabs. **Yesterday**: your teams' results, the quick Scoreboard (`quickScores`: every big-four final from yesterday plus college football games with a ranked team, ordered by `qsHeat`: your teams, upsets, overtime, one-score finishes, ranked matchups; primetime games (6:30pm local or later) get the amber frame, corner notch and an amber time pill; one-score games get the floating lavender ring and a "by n" pill; tapping any row opens the game, with `syncFromHash` falling back to `S.yf` for finals already trimmed from the list), then the overview (scores, form guide, next 7 days). **Week**: last 7 days, top performances, then the next 30 days. **Recap**: the day's stories (soccer only when it's a final, World Cup, title decider or a followed side: `bigSoccer`), then the news feed.
 
+## My teams loading
+
+The first open fetches every followed team at once. Instead of redrawing as each one lands, `loadTeam` reports to `teamsSoon`, which waits until none are in flight (1.2s at most) and redraws once; a loading team holds a card-sized placeholder (`.recap.ld`, `.tsk`). A redraw of the same view never replays the entrance animation (`render`). Active streaks lists only teams on a streak and is left out when no one is.
+
 ## Week (Yesterday → Week)
 
 Last seven days of results for followed teams, then "Top performances": the best leader line per category across those games (`weekPerf` in `app.js`, one cached box score per game via `ESPN.fetchGame`, filtered to the followed side by abbreviation). The month ahead lives under Tomorrow.
@@ -114,7 +118,7 @@ Inline in `index.html` (markup, CSS and a few lines of script) so it paints befo
 
 ## Account stats
 
-Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps, `fav` the favorite card. Profile age comes from the profile's `c` timestamp. The Cards section leads with the **favorite card** the person picked (★ Favorite on any owned card's detail view; tapping the tile opens that card); with none picked, the tile is a shortcut into the Collection Log. There is no automatic "rarest" pick. Followed teams and people come from the live lists (`SB.config`), so the defaults count before any edit; a game opened before `fun.js` loads is queued (`S.gvq`) and counted when it does. **Sync keeps every counter**: `mergeCol` and `mergeMax` run everything outside `i`/`s`/`d` through `mergeExtra` (numbers keep the higher value, `d0` the earliest day, `ld`/`ue` the latest, the favorite and meters this device's copy), and visit days sort by date, not as text.
+Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps, `fav` the favorite card. Profile age comes from the profile's `c` timestamp. The Cards section leads with the **favorite card** the person picked (★ Favorite on any owned card's detail view; tapping the tile opens that card); with none picked, the tile is a shortcut into the Collection Log. There is no automatic "rarest" pick. Followed teams and people come from the live lists (`SB.config`), so the defaults count before any edit; a game opened before `fun.js` loads is queued (`S.gvq`) and counted when it does. **Sync keeps every counter**: `mergeCol` and `mergeMax` run everything outside `i`/`s`/`d` through `mergeExtra` (numbers keep the higher value, `d0` the earliest day, `ld`/`ue` the latest, the favorite and meters this device's copy), and visit days sort by date, not as text (`fun.js` also re-sorts them on load, since an old sync could have saved them out of order). "Days old" counts from whichever came first, the profile or the first visit, and the share of days visited is capped at 100%.
 
 ## Pop-ups
 
