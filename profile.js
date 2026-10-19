@@ -56,7 +56,7 @@
       blob["sb-col"] = JSON.stringify(merged);
       applyBlob(blob); s("sb-active", name.toLowerCase());
       var go = function () { location.reload(); };
-      Promise.race([lbJoin(name, pw, true), new Promise(function (r) { setTimeout(r, 3500); })]).then(go, go);
+      Promise.race([lbJoin(name, pw, true), new Promise(function (r) { setTimeout(r, 2500); })]).then(go, go);
     });
   }
   function saveActive() { var a = active(); if (!a) return; var P = profiles(); P[a].d = snapshot(); putProfiles(P); }
@@ -120,7 +120,6 @@
     });
   }
   var lbCache = null;
-  var lbMode = "login";
   function lbTop(force) {
     if (!force && lbCache && Date.now() - lbCache.at < 180000) return Promise.resolve(lbCache.rows);
     return jpost(DOC + ":runQuery", { structuredQuery: { from: [{ collectionId: "scores" }], orderBy: [{ field: { fieldPath: "score" }, direction: "DESCENDING" }], limit: 50 } })
@@ -190,7 +189,7 @@
         pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       }
     }
-    function msg2(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
+    var msg2 = msg;
     drawMe(); if (!lbGet()) drawList(false);
   }
 
@@ -349,7 +348,7 @@
     body.dataset.keep = "1";
   }
 
-  var dRoot = null;
+  var dRoot = null, dCur = null;
   function detail(c) {
     var col = F.col(), got = !!col.i[c[0]], idx = F.CAT.indexOf(c);
     if (got) F.seen(c[0]);
@@ -374,9 +373,13 @@
       });
       card.addEventListener("pointerleave", function () { card.style.setProperty("--rx", "0deg"); card.style.setProperty("--ry", "0deg"); });
     }
+    var sx = null;
+    ov.addEventListener("touchstart", function (ev) { sx = ev.touches.length === 1 ? ev.touches[0].clientX : null; }, { passive: true });
+    ov.addEventListener("touchend", function (ev) { if (sx == null) return; var dx = ev.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 60) nav(dx < 0 ? 1 : -1); }, { passive: true });
     wrap.appendChild(card);
     var ctl = el("div", "tcd-c");
     function nav(d) { var n = (idx + d + F.CAT.length) % F.CAT.length; detail(F.CAT[n]); }
+    dCur = nav;
     var pb = btn("‹", "pm-b tcd-n", function () { nav(-1); }); pb.setAttribute("aria-label", "Previous card"); ctl.appendChild(pb);
     var pl = /^[wlcb]_/.test(c[0]);
     if (got && pl) ctl.appendChild(btn("▶ Replay", "pm-b", function () { F.play(c[0], card); }));
@@ -397,7 +400,7 @@
     b.textContent = p ? p.n.charAt(0).toUpperCase() : "👤"; b.className = p ? "on" : "";
     b.setAttribute("aria-label", p ? "Profile: " + p.n : "Profile and Collection Log");
   }
-  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } });
+  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
   window.PROF = {
     open: function (v, a) {
       var m = /^#xfer=(.+)$/.exec(location.hash);
