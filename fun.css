@@ -220,3 +220,5 @@ body.pm-open{overflow:hidden}
 .lb-nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-cd{font-size:12px;color:var(--mute)}
 .lb-sc{font:800 18px var(--hd);color:var(--pri);text-align:right}
+
+#toast.go{pointer-events:auto;cursor:pointer}
