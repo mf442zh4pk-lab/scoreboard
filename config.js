@@ -64,8 +64,11 @@ window.CONFIG = {
     { key: "pll", label: "PLL lacrosse", path: "lacrosse/pll", lazy: true, grp: "Other" },
     { key: "ncaaml", label: "College lacrosse (men)", path: "lacrosse/mens-college-lacrosse", lazy: true, grp: "Other", noTeams: true },
     // Event sports (no home/away): one request covers the last week and the next two.
-    { key: "ufc", label: "UFC", path: "mma/ufc", lazy: true, grp: "Combat and racing", noTeams: true, kind: "mma", range: [-7, 14] },
-    { key: "f1", label: "Formula 1", path: "racing/f1", lazy: true, grp: "Combat and racing", noTeams: true, kind: "race", range: [-7, 14] },
-    { key: "nascar", label: "NASCAR Cup", path: "racing/nascar-premier", lazy: true, grp: "Combat and racing", noTeams: true, kind: "race", range: [-7, 14] },
+    { key: "ufc", label: "UFC", path: "mma/ufc", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "mma", range: [-7, 14] },
+    { key: "f1", label: "Formula 1", path: "racing/f1", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "race", range: [-7, 14] },
+    { key: "nascar", label: "NASCAR Cup", path: "racing/nascar-premier", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "race", range: [-7, 14] },
+    { key: "pga", label: "PGA Tour", path: "golf/pga", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "golf", range: [-7, 10] },
+    { key: "lpga", label: "LPGA Tour", path: "golf/lpga", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "golf", range: [-7, 10] },
+    { key: "eur", label: "DP World Tour", path: "golf/eur", lazy: true, grp: "Combat, racing and golf", noTeams: true, kind: "golf", range: [-7, 10] },
   ],
 };
