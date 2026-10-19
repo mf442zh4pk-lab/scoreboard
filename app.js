@@ -7,7 +7,7 @@
   var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
   var RM = false; try { RM = matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
   // Preferences (Settings). Defaults here; anything the person changes is saved under sb-pref.
-  var PREF = { tab0: "last", compact: false, h24: false, haptic: true, alerts: true, upwin: "3", splash: true, text: "n", logos: true };
+  var PREF = { tab0: "last", compact: false, h24: false, haptic: true, alerts: true, upwin: "3", splash: true, text: "n", logos: true, notify: false, hideL: [] };
   try { var pf = JSON.parse(localStorage.getItem("sb-pref") || "{}"); for (var pk in pf) if (pk in PREF) PREF[pk] = pf[pk]; } catch (e) {}
   function setPref(k, v) { PREF[k] = v; try { localStorage.setItem("sb-pref", JSON.stringify(PREF)); } catch (e) {} applyPref(); }
   function applyPref() {
@@ -26,7 +26,7 @@
   var RQ = 0;
   function renderSoon() { if (RQ) return; RQ = requestAnimationFrame(function () { RQ = 0; render(); }); }
   // Page-level swaps (opening or leaving a game) crossfade when the browser can do it for free.
-  function swap(fn) { if (!RM && document.startViewTransition) { try { document.startViewTransition(fn); return; } catch (e) {} } fn(); }
+  function swap(fn) { if (!RM && !NOVT && document.startViewTransition) { try { document.startViewTransition(fn); return; } catch (e) {} } fn(); }
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
@@ -42,7 +42,7 @@
   var DEFAULT_FOLLOWED = C.followed.slice();
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
   if (PREF.tab0 !== "last") S.tab = PREF.tab0;
-  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news") S.ysub = sy; } catch (e) {}
+  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news" || sy === "week") S.ysub = sy; } catch (e) {}
   try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
   // People you follow (fighters, drivers, golfers), matched by name against each event's entrants.
   C.fp = []; try { var sfp = JSON.parse(localStorage.getItem("sb-fp") || "[]"); if (sfp && sfp.length) C.fp = sfp; } catch (e) {}
@@ -450,7 +450,7 @@
   }
   function renderYesterday(out) {
     var sn = el("div", "subnav"); sn.setAttribute("role", "tablist");
-    [["teams", "Teams"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
+    [["teams", "Teams"], ["week", "Week"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
       var b = el("button", "sub", p[1]); b.type = "button"; b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", S.ysub === p[0] ? "true" : "false");
       b.onclick = function () {
@@ -463,6 +463,7 @@
     out.appendChild(sn);
     if (S.ysub === "recap") { renderRecap(out); return; }
     if (S.ysub === "news") { renderNews(out); return; }
+    if (S.ysub === "week") { renderWeek(out); return; }
     var y = S.yesterday;
     if (!y) { out.appendChild(notice("No recap yet", "Pull down to load yesterday's results.")); return; }
     out.appendChild(el("p", "lg", y.date));
@@ -505,6 +506,48 @@
     });
     out.appendChild(gr);
     out.appendChild(overview(y, played));
+  }
+
+  // ---------- Week: the last seven days of results for your teams, day by day, then the next seven ----------
+  function renderWeek(out) {
+    var now = Date.now(), from = now - 7 * DAY, to = now + 7 * DAY, past = [], next = [];
+    C.followed.forEach(function (n) {
+      tcGames(n).forEach(function (g) {
+        var t = Date.parse(g.t); if (isNaN(t)) return;
+        if (g.s === "final" && g.my != null && g.op != null && t >= from && t <= now) past.push({ n: n, g: g, t: t });
+        else if (g.s !== "final" && t > now && t < to) next.push({ n: n, g: g, t: t });
+      });
+    });
+    out.appendChild(el("p", "lg", "This week"));
+    if (!past.length && !next.length) { out.appendChild(notice("Nothing yet", "Results and fixtures for your teams fill in once their schedules load (My teams).")); return; }
+    var W = 0, L = 0; past.forEach(function (p) { if (p.g.my > p.g.op) W++; else if (p.g.my < p.g.op) L++; });
+    var box = el("div", "ovs");
+    if (past.length) {
+      past.sort(function (a, b) { return b.t - a.t; });
+      var body = el("div", "rsw"), lastDay = "";
+      past.forEach(function (p) {
+        var d = new Date(p.t), dk = d.toDateString();
+        if (dk !== lastDay) { lastDay = dk; body.appendChild(el("div", "agd", d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }))); }
+        var g = p.g, res = g.my > g.op ? "W" : g.my < g.op ? "L" : "T", row = el("div", "rs " + res.toLowerCase());
+        row.appendChild(el("span", "rsb", res));
+        var mid = el("div", "rsm"); mid.appendChild(el("b", null, p.n)); mid.appendChild(el("span", null, (g.home ? "vs " : "at ") + g.opp)); row.appendChild(mid);
+        row.appendChild(el("span", "rss", g.my + "\u2013" + g.op)); body.appendChild(row);
+      });
+      box.appendChild(ovSection("Last 7 days", W + "-" + L + (past.length - W - L ? "-" + (past.length - W - L) : ""), body));
+    }
+    if (next.length) {
+      next.sort(function (a, b) { return a.t - b.t; });
+      var ag = el("div", "ag"), ld = "";
+      next.forEach(function (it) {
+        var d = new Date(it.t), dk = d.toDateString();
+        if (dk !== ld) { ld = dk; ag.appendChild(el("div", "agd", dk === new Date().toDateString() ? "Today" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }))); }
+        var r = el("div", "agr"); r.appendChild(el("span", "agt", d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 })));
+        r.appendChild(el("b", null, it.n)); r.appendChild(el("span", "ago", (it.g.home ? "vs " : "at ") + it.g.opp)); ag.appendChild(r);
+      });
+      box.appendChild(ovSection("Next 7 days", next.length + " game" + (next.length === 1 ? "" : "s"), ag));
+    }
+    out.appendChild(box);
+    C.followed.forEach(loadTeam);
   }
 
   // ---------- Daily recap: yesterday's biggest stories first, then every result by league ----------
@@ -1019,7 +1062,6 @@
   }
   function peopleBox() {
     var box = el("section", "ppl");
-    box.appendChild(el("h3", null, "People you follow"));
     if (C.fp.length) {
       C.fp.forEach(function (n) {
         var r = el("div", "pr fol"); r.appendChild(el("span", "pp", "★"));
@@ -1043,8 +1085,17 @@
     f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
     return box;
   }
+  function peopleStatus() {
+    if (!C.fp.length) return null;
+    var box = el("section", "ppl ro"); box.appendChild(el("h3", null, "People you follow"));
+    C.fp.forEach(function (n) {
+      var r = el("div", "pr fol"); r.appendChild(el("span", "pp", "\u2605"));
+      var nm = el("span", "pn"); nm.appendChild(el("span", null, n)); nm.appendChild(el("small", null, personLine(n))); r.appendChild(nm); box.appendChild(r);
+    });
+    return box;
+  }
   function renderTeams(out) {
-    var heatRows = [], heatSlot = el("div"); out.appendChild(peopleBox()); out.appendChild(heatSlot);
+    var heatRows = [], heatSlot = el("div"), ps = peopleStatus(); if (ps) out.appendChild(ps); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) {
       loadTeam(name);
@@ -1127,6 +1178,18 @@
       }
     };
     f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+    box.appendChild(el("h3", null, "People you follow"));
+    var pb = peopleBox(); pb.classList.add("inset"); box.appendChild(pb);
+    box.appendChild(el("h3", null, "Share your teams"));
+    box.appendChild(el("p", "hcold", "Send a link that adds your teams and people to someone else\u2019s scoreboard."));
+    var shb = el("button", null, "Copy share link"); shb.type = "button";
+    shb.onclick = function () {
+      var code = btoa(unescape(encodeURIComponent(JSON.stringify({ t: C.followed, p: C.fp })))).replace(/=+$/, "");
+      var url = location.origin + location.pathname + "?add=" + code;
+      if (navigator.share) navigator.share({ title: "My teams on Scoreboard", url: url }).catch(function () { copyText(url, "Link copied"); });
+      else copyText(url, "Link copied");
+    };
+    box.appendChild(shb);
 
     // One row per preference: a label, a short hint and a segmented control.
     function segRow(label, hint, opts, cur, onPick) {
@@ -1151,6 +1214,21 @@
     box.appendChild(pref("tab0", "Open on", "Which tab the app starts on", [["last", "Last used"], ["pinned", "Following"], ["yesterday", "Yesterday"], ["teams", "My teams"]]));
     box.appendChild(pref("upwin", "Upcoming games", "How far ahead the lists go", [["1", "24 hours"], ["3", "3 days"], ["all", "Everything"]], true));
     box.appendChild(pref("alerts", "Score alerts", "Pop-ups when your teams score or finish", ONOFF));
+    box.appendChild(segRow("Notify at final", "A phone notification when a followed game ends (app open or in the background)", ONOFF, PREF.notify, function (v) {
+      if (!v) { setPref("notify", false); return; }
+      if (!("Notification" in window)) { toast("This browser can\u2019t show notifications"); setPref("notify", false); render(); return; }
+      Notification.requestPermission().then(function (p) { if (p === "granted") { setPref("notify", true); notify("Notifications on", "You\u2019ll hear when a followed game ends."); } else { toast("Notifications are blocked for this site"); setPref("notify", false); render(); } });
+    }));
+    box.appendChild(el("h3", null, "Leagues in All"));
+    box.appendChild(el("p", "hcold", "Tap a league to hide it from the All tab. Its own tab and your teams are never hidden."));
+    var lw = el("div", "lchips");
+    LG.forEach(function (l) {
+      if (l.lazy && EAGER.indexOf(l.key) < 0 && S.lgState[l.key] !== "done") return;
+      var off = PREF.hideL.indexOf(l.key) >= 0, b = el("button", "lchip" + (off ? " off" : ""), l.label); b.type = "button"; b.setAttribute("aria-pressed", off ? "false" : "true");
+      b.onclick = function () { var i = PREF.hideL.indexOf(l.key); if (i >= 0) PREF.hideL.splice(i, 1); else PREF.hideL.push(l.key); setPref("hideL", PREF.hideL); b.classList.toggle("off"); b.setAttribute("aria-pressed", b.classList.contains("off") ? "false" : "true"); };
+      lw.appendChild(b);
+    });
+    box.appendChild(lw);
     box.appendChild(pref("h24", "24-hour clock", "", ONOFF, true));
     box.appendChild(pref("haptic", "Haptics", "Little taps on buttons (phones)", ONOFF));
     box.appendChild(pref("splash", "Splash screen", "The one-second intro when the app opens", ONOFF));
@@ -1160,7 +1238,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.1 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.2 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
@@ -1699,7 +1777,7 @@
     if (S.tab === "yesterday") { renderYesterday(out); emit("render", out); return; }
     if (S.tab === "teams") { renderTeams(out); emit("render", out); return; }
 
-    var items = S.tab === "pinned" ? fol : S.tab === "all" ? all : all.filter(function (x) { return x.lk === S.tab; });
+    var items = S.tab === "pinned" ? fol : S.tab === "all" ? all.filter(function (x) { return PREF.hideL.indexOf(x.lk) < 0 || isFollowed(x.g); }) : all.filter(function (x) { return x.lk === S.tab; });
     var pins = all.filter(isPinned);
     items = items.filter(function (x) { return !isPinned(x); });
     var cl = leagueOf(S.tab), cst = cl && S.lgState[cl.key];
@@ -1718,6 +1796,58 @@
     emit("render", out);
   }
 
+  // ---------- Find a game: type-ahead over every loaded game, then a portal to it ----------
+  var FIND = null;
+  function hay(x) {
+    var g = x.g, lg = leagueOf(x.lk) || {};
+    return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lg.key, g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
+  }
+  function closeFind() { if (!FIND) return; var f = FIND; FIND = null; f.classList.remove("in"); document.body.classList.remove("find-on"); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220); }
+  function openFind() {
+    if (FIND) return;
+    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "\u2715"), res = el("div", "find-res"), hint = el("p", "find-h", "Teams, leagues, players, \u201clive\u201d, \u201ctoday\u201d\u2026");
+    inp.type = "search"; inp.placeholder = "Find a game"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a game"); x.type = "button"; x.setAttribute("aria-label", "Close"); x.onclick = closeFind;
+    top.appendChild(inp); top.appendChild(x); ov.appendChild(top); ov.appendChild(hint); ov.appendChild(res);
+    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [];
+    function fill() {
+      var q = inp.value.trim().toLowerCase(), toks = q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
+      if (!toks.length) { hint.hidden = false; return; }
+      hint.hidden = true;
+      var hits = all.filter(function (e) { return toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
+      var rk = { live: 0, up: 1, final: 2 };
+      hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - Date.now()) - Math.abs(Date.parse(b.x.g.t) - Date.now()); });
+      cur = hits.slice(0, 12).map(function (e) { return e.x; });
+      if (!cur.length) { res.appendChild(el("p", "find-h", "No games match \u201c" + inp.value.trim() + "\u201d in what\u2019s loaded. Open a league under More to load it.")); return; }
+      var grid = el("div", "grid");
+      cur.forEach(function (gx) {
+        var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
+        c.onclick = function () { portal(c, gx); };
+        c.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); portal(c, gx); } };
+        grid.appendChild(c);
+      });
+      res.appendChild(grid);
+      if (hits.length > cur.length) res.appendChild(el("p", "find-h", "+" + (hits.length - cur.length) + " more \u00b7 keep typing"));
+    }
+    inp.oninput = fill;
+    inp.onkeydown = function (e) { if (e.key === "Enter" && cur.length) { e.preventDefault(); var c = res.querySelector(".card"); if (c) portal(c, cur[0]); } if (e.key === "Escape") { e.preventDefault(); closeFind(); } };
+    document.body.appendChild(ov); FIND = ov; document.body.classList.add("find-on");
+    requestAnimationFrame(function () { ov.classList.add("in"); try { inp.focus(); } catch (e) {} });
+  }
+  // The black-hole portal: the chosen card spirals into a vortex, the vortex swallows the screen, the game page emerges from it.
+  var NOVT = false;
+  function portal(c, x) {
+    if (RM) { closeFind(); openGame(x); return; }
+    var r = c.getBoundingClientRect(), ov = el("div", "portal"), hole = el("div", "hole"), ghost = c.cloneNode(true);
+    ghost.className = "card pghost"; ghost.style.cssText = "left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;--dx:" + (innerWidth / 2 - (r.left + r.width / 2)) + "px;--dy:" + (innerHeight / 2 - (r.top + r.height / 2)) + "px";
+    ov.appendChild(hole); ov.appendChild(ghost); document.body.appendChild(ov);
+    c.style.visibility = "hidden"; buzz(12);
+    requestAnimationFrame(function () { ov.classList.add("in"); });
+    setTimeout(function () {
+      closeFind(); NOVT = true; openGame(x);
+      var out = $("out"); out.classList.add("emerge"); setTimeout(function () { out.classList.remove("emerge"); }, 700);
+      ov.classList.add("out"); setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); NOVT = false; }, 600);
+    }, 620);
+  }
   // Picker for the extra leagues, grouped by sport.
   var MAIN = ["nfl", "nba", "nhl", "mlb"], GRP = { ncaafb: "Football", epl: "Soccer", ucl: "Soccer", afl: "Australian football" };
   function pickLeague(l) {
@@ -1730,6 +1860,7 @@
   function morePanel() {
     var box = el("div", "more"), inp = el("input", "msearch"), res = el("div", "mres"), cur = [];
     inp.type = "search"; inp.placeholder = "Search leagues (soccer, UFC, college\u2026)"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Search leagues");
+    var fb = el("button", "findbtn", "\u2315 Find a game"); fb.type = "button"; fb.onclick = openFind; box.appendChild(fb);
     function fill() {
       var q = inp.value.trim().toLowerCase(), groups = {}, order = []; cur = []; res.textContent = "";
       LG.forEach(function (l) {
@@ -1836,11 +1967,12 @@
         return x && !(x.g.s === "final" && Date.now() - new Date(x.g.t) > 12 * 3600000);
       });
       savePins();
-      if (!firstLoad && PREF.alerts) allGames().forEach(function (x) {
+      if (!firstLoad && (PREF.alerts || PREF.notify)) allGames().forEach(function (x) {
         var g = x.g, p = prev[g.id];
         if (!p || !isFollowed(g)) return;
         var line = g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2];
-        if (g.s === "final" && p.s !== "final") toast("Final: " + line);
+        if (g.s === "final" && p.s !== "final") { if (PREF.alerts) toast("Final: " + line); notify("Final: " + line, x.ll); }
+        else if (!PREF.alerts) return;
         else if (g.s === "live" && p.s === "up") toast("Game started: " + g.a[0] + " at " + g.h[0]);
         else if (g.s === "live" && (p.h[2] !== g.h[2] || p.a[2] !== g.a[2])) toast("Score: " + line);
       });
@@ -1895,12 +2027,14 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && LPM) { lpClose(); return; }
     if (e.key === "Escape" && TIPB && TIPB.classList.contains("in")) { tipHide(); return; }
+    if (e.key === "Escape" && FIND) { closeFind(); return; }
     if (e.key === "Escape" && S.more) { S.more = false; render(); return; }
     if ((e.key === "Escape" || e.key === "ArrowLeft") && S.view && !e.metaKey && !e.altKey) { closeGame(); return; }
     var t = e.target, tg = t && t.tagName; if (e.metaKey || e.ctrlKey || e.altKey || tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT" || (t && t.isContentEditable) || document.body.classList.contains("pm-open")) return;
     if (e.key === "r" && !S.loading) load(true); else if (e.key === "p") openProf(); else if (e.key === "t") window.scrollTo({ top: 0, behavior: "smooth" });
     else if (e.key === "1") goTab("pinned"); else if (e.key === "2") goTab("yesterday"); else if (e.key === "3") goTab("teams");
     else if (e.key === "/") { e.preventDefault(); if (!S.more) { S.more = true; S.view = null; S.settings = false; clearHash(); render(); } }
+    else if (e.key === "f") { e.preventDefault(); openFind(); }
   });
   // Swipe in from the left edge of a game page to go back (home-screen apps have no browser gesture).
   (function () {
@@ -1949,6 +2083,15 @@
   });
   // Background refresh only when something is happening: every 30s while a followed game is live, every minute for
   // other live games or a followed game about to start, and then only for the leagues involved. Idle = no requests.
+  function notify(title, body) {
+    if (!PREF.notify || !("Notification" in window) || Notification.permission !== "granted") return;
+    var o = { body: body, icon: (document.querySelector("link[rel~=apple-touch-icon]") || {}).href, tag: "sb-" + title, silent: false };
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(function (r) { r.showNotification(title, o); }, function () { new Notification(title, o); });
+      else new Notification(title, o);
+    } catch (e) {}
+  }
+  var FOLLIVE = false;
   function pollGap() {
     var now = Date.now(), fol = false, live = false, soon = false;
     allGames().forEach(function (x) {
@@ -1956,10 +2099,12 @@
       if (g.s === "live") { live = true; if (isFollowed(g)) fol = true; }
       else if (g.s === "up" && isFollowed(g)) { var d = new Date(g.t) - now; if (d < 5 * 60000 && d > -30 * 60000) soon = true; }
     });
+    FOLLIVE = fol || soon;
     return fol ? 30000 : live ? C.liveRefreshSeconds * 1000 : soon ? 60000 : 0;
   }
   setInterval(function () {
-    if (document.hidden || S.loading) return;
+    if (S.loading) return;
+    if (document.hidden && !(PREF.notify && FOLLIVE)) return;   // in the background, keep polling only to deliver a final-score notification
     var gap = pollGap();
     if (gap && Date.now() - S.last >= gap - 1000) load(false, activeLeagues());
   }, 10000);
@@ -1995,6 +2140,21 @@
     });
   })();
 
+  // A shared link (?add=...) offers to add someone else's teams and people.
+  (function () {
+    var m = /[?&]add=([\w\-+/]+)/.exec(location.search); if (!m) return;
+    var d = null; try { d = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch (e) {}
+    try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+    if (!d || (!Array.isArray(d.t) && !Array.isArray(d.p))) return;
+    var nt = (d.t || []).filter(function (n) { return typeof n === "string" && n.length < 60 && C.followed.indexOf(n) < 0; }).slice(0, 30);
+    var np = (d.p || []).filter(function (n) { return typeof n === "string" && n.length < 60 && !fpHas(n); }).slice(0, 30);
+    if (!nt.length && !np.length) { toast("You already follow everything in that link"); return; }
+    var bar = el("div", "addbar"), tx = el("span", null, "Add " + [nt.length ? nt.length + " team" + (nt.length > 1 ? "s" : "") : "", np.length ? np.length + " " + (np.length > 1 ? "people" : "person") : ""].filter(Boolean).join(" and ") + " from this link?");
+    var ok = el("button", "ok", "Add"), no = el("button", null, "No");
+    ok.onclick = function () { bar.remove(); if (nt.length) setFollowed(C.followed.concat(nt)); if (np.length) setFp(C.fp.concat(np)); toast("Added"); };
+    no.onclick = function () { bar.remove(); };
+    bar.appendChild(tx); bar.appendChild(ok); bar.appendChild(no); document.body.appendChild(bar);
+  })();
   // Show the last saved scores instantly (marked with how old they are) while fresh ones load.
   try {
     var cc = JSON.parse(localStorage.getItem("sb-cache") || "null");
