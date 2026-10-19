@@ -651,3 +651,72 @@ body.find-on{overflow:hidden}
 .rsw .agd{margin:10px 0 2px}
 @media (prefers-reduced-motion:reduce){.hole,.pghost,#out.emerge{animation:none!important;transition:none!important}}
 .hl li.cold .hr b{color:#5ac8fa}
+/* v69: Tomorrow (month ahead) */
+.glance{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.gch{display:inline-flex;flex-direction:column;gap:2px;min-width:0}
+.gl-row{display:flex;flex-wrap:wrap;gap:8px 16px}
+.gl-row .gch b{font:800 22px/1 var(--hd);color:var(--pri)}
+.gl-row .gch span{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.mstrip{display:grid;grid-template-columns:repeat(30,1fr);gap:2px}
+.mstrip i{display:block;height:14px;border-radius:3px;background:var(--line);opacity:.7}
+.mstrip i.g{background:var(--pri);opacity:1}
+.mstrip i.m{background:var(--ter);opacity:1}
+.mstrip i.h{background:var(--pri);opacity:1}
+.mstrip i.a{background:var(--ter);opacity:1}
+.mstrip i.today{box-shadow:0 0 0 1.5px var(--live) inset}
+.mstrip.sm i{height:8px;border-radius:2px}
+.mstrip-l{position:relative;height:14px;font-size:10px;color:var(--mute)}
+.mstrip-l span{position:absolute;left:calc(var(--k) / 30 * 100%);white-space:nowrap}
+.tms{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.tmr{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--line)}
+.tmr:first-child{border-top:0;padding-top:2px}
+.tmr-t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
+.tmr-t .dvs{color:var(--mute);min-width:0;white-space:nowrap}
+.tmr-n{display:flex;gap:8px;font-size:12.5px;align-items:baseline;min-width:0}
+.tmr-n span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agt.w{width:86px}
+.tmr-k{flex:none;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--ter);text-transform:uppercase;width:32px}
+/* v69: live watch panel */
+.lv{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 12px;display:flex;flex-direction:column;gap:10px;view-transition-name:none}
+.lvh{display:flex;align-items:center;gap:8px;font-size:14px}
+.lvd{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 50%,transparent);animation:lvp 1.6s ease-out infinite;flex:none}
+@keyframes lvp{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.lvwp{margin-left:auto;font-size:12px;font-weight:800;color:var(--mute);display:inline-flex;gap:4px;align-items:center}
+.lvwp i{font-style:normal;font-size:9px}
+.lvwp i.up{color:var(--win)}.lvwp i.down{color:var(--live)}
+.fld{position:relative;height:54px;border-radius:8px;overflow:hidden;background:linear-gradient(90deg,color-mix(in srgb,var(--win) 28%,var(--card)) 0 10%,color-mix(in srgb,var(--win) 16%,var(--card)) 10% 90%,color-mix(in srgb,var(--win) 28%,var(--card)) 90%);border:1px solid color-mix(in srgb,var(--win) 35%,var(--line))}
+.fld.rz{box-shadow:0 0 0 2px color-mix(in srgb,var(--live) 45%,transparent) inset;animation:rzg 1.4s ease-in-out infinite}
+@keyframes rzg{50%{box-shadow:0 0 0 2px color-mix(in srgb,var(--live) 85%,transparent) inset}}
+.fld .ez{position:absolute;top:0;bottom:0;width:10%;display:grid;place-items:center;font:800 10px var(--bd);letter-spacing:.06em;color:var(--fg);opacity:.8;writing-mode:vertical-rl;text-orientation:mixed}
+.fld .ez.l{left:0;transform:rotate(180deg)}.fld .ez.r{right:0}
+.fld .yl{position:absolute;top:0;bottom:0;width:1px;background:color-mix(in srgb,var(--fg) 18%,transparent);pointer-events:none}
+.fld .yl:nth-child(odd){top:12%;bottom:12%}
+.fld .ball{position:absolute;top:50%;transform:translate(-50%,-50%);transition:left var(--t3) var(--ease);display:flex;align-items:center;gap:2px;font-size:14px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.fld .ball i{font-style:normal;display:inline-block;animation:bob 1.2s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-2px)}}
+.fld .ball.r::after,.fld .ball.l::before{content:"";width:0;height:0;border:5px solid transparent}
+.fld .ball.r::after{border-left:7px solid var(--fg);border-right:0}
+.fld .ball.l::before{border-right:7px solid var(--fg);border-left:0}
+.lvdd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.rzb{font:800 10px var(--bd);letter-spacing:.1em;color:#fff;background:var(--live);border-radius:6px;padding:2px 6px}
+.tos{margin-left:auto;display:flex;gap:10px}
+.to{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--mute)}
+.to em{font-style:normal;font-weight:800;margin-right:2px}
+.to i,.outs i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block}
+.to i.on{background:var(--pri)}
+.bsb{display:flex;align-items:center;gap:16px}
+.dia{position:relative;width:56px;height:56px;flex:none}
+.dia i{position:absolute;width:16px;height:16px;background:var(--line);border:1.5px solid color-mix(in srgb,var(--fg) 35%,transparent);transform:rotate(45deg);transition:background var(--t2)}
+.dia i.on{background:var(--warn);border-color:var(--warn);box-shadow:0 0 8px color-mix(in srgb,var(--warn) 60%,transparent)}
+.dia .b0{right:0;top:50%;margin-top:-8px}.dia .b1{left:50%;top:0;margin-left:-8px}.dia .b2{left:0;top:50%;margin-top:-8px}
+.bsi{display:flex;flex-direction:column;gap:3px;font-size:13px;min-width:0}
+.outs{display:flex;align-items:center;gap:4px}.outs span{margin-left:4px;color:var(--mute);font-size:12px}
+.outs i.on{background:var(--live)}
+.who{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvp{display:flex;flex-direction:column;gap:2px;font-size:13px;padding-top:8px;border-top:1px solid var(--line)}
+.lvk{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--ter);text-transform:uppercase}
+.lvp.new span:last-child{animation:lvin .5s var(--ease)}
+@keyframes lvin{from{opacity:0;transform:translateY(4px)}}
+td.chg{animation:cellf 1.6s ease-out}
+@keyframes cellf{0%{background:color-mix(in srgb,var(--ter) 45%,transparent);font-weight:800}60%{background:color-mix(in srgb,var(--ter) 25%,transparent)}100%{background:transparent}}
+.play.new{animation:cellf 2s ease-out}
