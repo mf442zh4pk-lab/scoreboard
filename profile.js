@@ -483,10 +483,10 @@
     var art = el("div", "tc-art"); art.appendChild(F.art(c, "tc-em", 200, got)); card.appendChild(art);
     card.appendChild(el("h3", "tc-n", c[4]));
     var rb = el("div", "tc-rar"); rb.appendChild(el("i", null, c[2])); rb.appendChild(D.createTextNode(F.RAR[c[2]])); card.appendChild(rb);
-    card.appendChild(el("p", "tc-d", got ? c[5] : "Not found yet."));
+    var dsc = el("p", "tc-d", c[5]); card.appendChild(dsc); if (c[5].length > 140) card.classList.add("story");
     if (got) {
       var e = col.i[c[0]]; card.appendChild(el("p", "tc-f", "First found " + new Date(e[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + (e[1] > 1 ? " \u00b7 \u00d7" + e[1] + " (" + (e[1] - 1) + (e[1] > 2 ? " dupes)" : " dupe)") : "")));
-    } else card.appendChild(el("p", "tc-f", "How to find it: " + c[6]));
+    } else card.appendChild(el("p", "tc-f", "Not found yet."));
     card.appendChild(el("span", "tc-foil"));
     if (!F.reduced) {
       card.addEventListener("pointermove", function (ev) {
