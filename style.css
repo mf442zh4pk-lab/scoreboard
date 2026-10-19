@@ -27,7 +27,7 @@ header{display:flex;gap:12px;align-items:center;justify-content:space-between;pa
 .mark{width:40px;height:40px;flex:none;border-radius:12px;cursor:pointer;box-shadow:0 4px 14px -4px rgba(45,58,85,.55)}
 h1{display:flex;flex-direction:column;gap:3px;margin:0;min-width:0;overflow:hidden;text-transform:uppercase;line-height:.95}
 h1 .t1{font:700 12px/1 var(--bd);letter-spacing:.34em;color:var(--ter);padding-left:2px}
-h1 .t2{white-space:nowrap;font:800 clamp(22px,calc((100vw - 232px) / 4.8),34px)/.95 var(--hd);letter-spacing:.035em;background:linear-gradient(100deg,var(--pri) 20%,var(--ter));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:1px}
+h1 .t2{white-space:nowrap;font:800 clamp(20px,calc((100vw - 200px) / 7.6),34px)/.95 var(--hd);letter-spacing:.035em;background:linear-gradient(100deg,var(--pri) 20%,var(--ter));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:1px}
 .ctl{display:flex;align-items:center;gap:6px;flex:none}
 #stamp{font:700 12px/1 var(--bd);color:var(--mute);letter-spacing:.02em;margin-right:-2px;min-width:1ch;text-align:right}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--mute)}
@@ -413,8 +413,6 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 @keyframes droop{0%{transform:translateY(-6px) rotate(0)}30%{transform:translateX(-4px) rotate(-5deg)}60%{transform:translateX(3px) rotate(3deg)}100%{transform:none}}
 @keyframes burst{0%{transform:translate(0,0) rotate(0) scale(.3);opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(1);opacity:0}}
 @keyframes ring{to{--a:360deg}}
-@keyframes glowf{50%{box-shadow:0 0 22px rgba(255,140,30,.55)}}
-@keyframes glowc{50%{box-shadow:0 0 20px rgba(90,200,250,.5)}}
 @keyframes flick{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(5deg) scale(1.18)}}
 @keyframes barx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
@@ -427,6 +425,7 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+4){animation-delay:.18s}
 .enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+5){animation-delay:.24s}
 .enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+7){animation-delay:.3s}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+13){animation:none}
 /* wins pop, losses droop */
 .enter .recap.w .res,.enter .pill.final.w,.enter .rs.w .rsb{animation:pop .5s .15s cubic-bezier(.3,1.5,.5,1) backwards}
 .enter .recap.l .res,.enter .pill.final.l,.enter .rs.l .rsb{animation:droop .6s .15s ease-out backwards}
@@ -442,8 +441,13 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .cold3,.cold5{background:linear-gradient(var(--card),var(--card)) padding-box,conic-gradient(from var(--a),#5ac8fa,#e0f7ff,#4f6dff,#9ad7ff,#5ac8fa) border-box}
 .fire3{animation:ring 3s linear 2}
 .cold3{animation:ring 5s linear 2}
-.fire5{animation:ring 2.4s linear infinite,glowf 2s ease-in-out infinite}
-.cold5{animation:ring 6s linear infinite,glowc 3s ease-in-out infinite}
+.fire5,.cold5{position:relative}
+.fire5{animation:ring 2.4s linear 5}
+.cold5{animation:ring 6s linear 3}
+.fire5::after,.cold5::after{content:"";position:absolute;inset:-2px;border-radius:inherit;pointer-events:none;animation:glowo 2.4s ease-in-out infinite}
+.fire5::after{box-shadow:0 0 22px rgba(255,140,30,.55)}
+.cold5::after{box-shadow:0 0 20px rgba(90,200,250,.5);animation-duration:3.2s}
+@keyframes glowo{0%,100%{opacity:0}50%{opacity:1}}
 .stk{font-size:11px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:999px;white-space:nowrap}
 .stk.hot{background:rgba(255,140,30,.16);color:#ff9a3d}
 .stk.ice{background:rgba(90,200,250,.16);color:#5ac8fa}
@@ -459,12 +463,13 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .card.click:active,.story.click:active,.recap[role=button]:active{transform:scale(.985)}
 .rh{flex-wrap:wrap}
 
-#who{display:inline-block;align-self:flex-end;margin:0 0 5px;padding:0;border:0;background:none;font:700 9.5px/1 var(--bd);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62px;flex:0 1 auto;min-width:0}
+#who{display:inline-block;align-self:flex-end;margin:0 0 4px;padding:0;border:0;background:none;font:700 9.5px/1 var(--bd);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;flex:none}
 #who[hidden]{display:none}
 #who::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--line);flex:none;margin-right:5px;display:inline-block}
 #who.on::before{background:var(--win);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--win) 22%,transparent)}
 #who:hover{color:var(--ter)}
-header:has(#who:not([hidden])) h1 .t2{font-size:clamp(19px,calc((100vw - 276px) / 4.8),30px)}
+header:has(#who:not([hidden])) h1 .t2{font-size:clamp(16px,calc((100vw - 262px) / 7.6),30px)}
+@media (max-width:389px){header:has(#who:not([hidden])) #stamp{display:none}header:has(#who:not([hidden])) h1 .t2{font-size:clamp(16px,calc((100vw - 232px) / 7.6),30px)}}
 
 /* v62: calmer menus and organizers (the three big tabs stay as they are) */
 .rail-lg{gap:2px 16px;border-top:1px solid var(--line)}
