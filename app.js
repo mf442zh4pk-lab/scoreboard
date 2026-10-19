@@ -1238,7 +1238,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.3 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.4 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
