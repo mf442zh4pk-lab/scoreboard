@@ -516,3 +516,69 @@ html{scroll-behavior:smooth}
 .fstar.on{color:#e0a800}
 .fn .fstar{font-size:15px;padding:0 4px;vertical-align:baseline}
 .evs.fpl{color:var(--pri);font-weight:600}
+
+/* v64 (v1): one motion system for every ordinary interaction. The fun layer keeps its own animations on top. */
+:root{--t1:110ms;--t2:200ms;--t3:320ms;--ease:cubic-bezier(.2,.7,.2,1);--spring:cubic-bezier(.34,1.4,.44,1)}
+button,.tab,.sub,.chip,summary,.srow.click,.bl,.nums li.click,.ni,.pr,.lpm-b{transition:transform var(--t1) var(--ease),background-color var(--t2) var(--ease),color var(--t2) var(--ease),border-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease),opacity var(--t2) var(--ease)}
+button:active,.tab:active,.sub:active,.lpm-b:active,.chip:active{transform:scale(.96)}
+.tab.big:active{transform:scale(.94)}
+summary:active{opacity:.7}
+.fstar:active{transform:scale(1.35)}
+.fstar.on{animation:starIn var(--t3) var(--spring)}
+@keyframes starIn{from{transform:scale(.4) rotate(-40deg)}to{transform:none}}
+/* a highlight slides between the three big tabs instead of jumping */
+.rail-main{position:relative;isolation:isolate}
+.rail-ind{position:absolute;top:0;bottom:0;left:0;width:calc((100% - 16px)/3);border-radius:14px;background:linear-gradient(135deg,var(--pri),var(--ter));z-index:0;transition:transform var(--t3) var(--ease),opacity var(--t2) var(--ease),scale var(--t2) var(--ease);pointer-events:none;box-shadow:0 6px 16px -8px rgba(45,58,85,.65)}
+.rail-ind.off{opacity:0;scale:.92}
+.tab.big{position:relative;z-index:1;transition:color var(--t2) var(--ease),background-color var(--t2) var(--ease),transform var(--t1) var(--ease)}
+.tab.big[aria-selected="true"]{background:transparent}
+.tab.big .ico{transition:color var(--t2) var(--ease),transform var(--t3) var(--spring)}
+.tab.big[aria-selected="true"] .ico{transform:scale(1.12)}
+.rail-lg .tab{transition:color var(--t2) var(--ease),border-color var(--t2) var(--ease),transform var(--t1) var(--ease)}
+body.gv .rail{display:none}
+/* game pages: a sticky bar with the compact score once the big card scrolls away */
+.navbar{position:sticky;top:0;z-index:4;background:var(--bg);padding:calc(4px + env(safe-area-inset-top,0px)) 0 4px;gap:10px;margin:0 -2px}
+.mini-sc{margin-left:auto;font:700 13px var(--hd);letter-spacing:.04em;color:var(--fg);opacity:0;transform:translateY(6px);transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.navbar.on .mini-sc{opacity:1;transform:none}
+.navbar.on{box-shadow:0 10px 14px -14px rgba(20,30,50,.6)}
+.back{font-size:15px;padding:8px 2px}
+/* a live score that moves gives a little pop */
+.sc.bump{animation:bump .55s var(--spring)}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.3);color:var(--live)}100%{transform:scale(1)}}
+/* the M mark means "following"; live pills carry a pulse instead of the word */
+.mki{width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:5px;flex:none}
+.tag.fol{display:inline-flex;align-items:center;color:var(--mute);font-weight:600}
+.mk.fol{display:inline-flex;align-items:center}
+.mk.fol .mki{margin:0;width:16px;height:16px}
+.pill .pulse{display:inline-block;width:7px;height:7px;margin-right:6px;vertical-align:1px}
+.pill.live{letter-spacing:.02em}
+/* loading placeholders */
+.sk{min-height:98px;display:flex;flex-direction:column;gap:12px;justify-content:center}
+.sk-l{height:12px;border-radius:6px;width:74%;background:linear-gradient(90deg,var(--pri-soft) 25%,color-mix(in srgb,var(--pri-soft) 45%,var(--card)) 50%,var(--pri-soft) 75%);background-size:200% 100%;animation:shim 1.2s linear infinite}
+.sk-l.w40{width:40%}
+@keyframes shim{to{background-position:-200% 0}}
+/* stat tooltips */
+th[data-tip]{cursor:help;text-decoration:underline dotted;text-decoration-color:color-mix(in srgb,var(--mute) 55%,transparent);text-underline-offset:3px}
+.tipb{position:fixed;z-index:80;max-width:min(256px,calc(100vw - 32px));background:var(--fg);color:var(--bg);font:500 12.5px/1.4 var(--bd);padding:7px 11px;border-radius:9px;box-shadow:0 10px 24px -8px rgba(0,0,0,.45);pointer-events:none;opacity:0;transform:translate(-50%,5px) scale(.96);transition:opacity var(--t1) var(--ease),transform var(--t2) var(--spring)}
+.tipb.in{opacity:1;transform:translate(-50%,0)}
+.tipb b{display:block;font:700 10.5px var(--bd);letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:1px}
+/* page swaps (opening and leaving a game) crossfade where the browser supports it */
+::view-transition-old(root){animation:vtOut 120ms var(--ease) both}
+::view-transition-new(root){animation:vtIn 200ms var(--ease) both}
+@keyframes vtOut{to{opacity:0}}
+@keyframes vtIn{from{opacity:0;transform:translateY(8px)}}
+header{view-transition-name:hdr}
+#toast{view-transition-name:toast}
+#ptr{view-transition-name:ptr}
+.lpx{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#toast{transition:opacity var(--t2) var(--ease),transform var(--t3) var(--spring)}
+.lpm-s{transition:transform var(--t3) var(--spring)}
+.card.click{transition:transform var(--t1) var(--ease),box-shadow var(--t2) var(--ease)}
+.more{animation:rise var(--t3) var(--ease) both}
+.lgh-c,.stn summary::after,.trn summary::after,.ov summary::after,details.sec>summary::after{transition:transform var(--t2) var(--ease)}
+.rail-lg .tab .n{display:none}
+@media (prefers-reduced-motion:reduce){.rail-ind{transition:none}::view-transition-old(root),::view-transition-new(root){animation:none}.sk-l{animation:none}}
+.subnav{background:none;padding:0;gap:14px;border-bottom:1px solid var(--line);border-radius:0;width:100%}
+.sub{padding:8px 2px;margin-bottom:-1px}
+.more .tab{border-color:transparent;background:var(--pri-soft);color:var(--pri)}
+.more .tab[aria-selected="true"]{background:var(--pri);color:var(--card)}
