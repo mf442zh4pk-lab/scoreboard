@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var C = window.CONFIG, LG = C.leagues, DAY = ESPN.DAY;
-  var $ = function (id) { return document.getElementById(id); };
+  var D0 = document, $ = function (id) { return document.getElementById(id); };
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
@@ -1012,6 +1012,7 @@
     var rs = el("button", null, "Back to default teams"); rs.type = "button";
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
+    if (window.FUN) { box.appendChild(el("h3", null, "Secrets")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " found. Hint: poke things. Tap the title, the logos, the footer, Refresh. Scroll to the very bottom. Try a classic cheat code.")); }
     out.appendChild(box);
   }
 
@@ -1309,7 +1310,11 @@
     var out = $("out"); out.textContent = "";
     // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
     var vk = [S.tab, S.ysub, S.view && (S.view.g ? S.view.g.id : S.view.id), S.settings ? 1 : 0].join("|");
-    if (vk !== RK) { RK = vk; out.classList.add("enter"); clearTimeout(RT); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500); }
+    if (vk !== RK) {
+      RK = vk; out.classList.add("enter"); clearTimeout(RT);
+      out.setAttribute("data-fx", window.FUN ? FUN.enterFx() : "rise");
+      if (window.FUN) requestAnimationFrame(function () { FUN.after(out); }); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500);
+    }
     else if (!RT) out.classList.remove("enter");
     var about = "Following: " + C.followed.join(", ") + ".";
     if (C.noFeed.length) about += " " + C.noFeed.join(", ") + " " + (C.noFeed.length > 1 ? "are" : "is") + " on the list, but there is no data feed for " + (C.noFeed.length > 1 ? "them" : "it") + " yet.";
@@ -1571,5 +1576,14 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=43").catch(function () {}); } catch (e) {} });
+  // The fun layer (random celebrations, easter eggs) loads after everything else, when the browser is idle.
+  var FV = ((D0.currentScript || {}).src || "").split("?")[1] || "";
+  window.addEventListener("load", function () {
+    var go = function () {
+      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "fun.css?" + FV; document.head.appendChild(l);
+      var s = document.createElement("script"); s.src = "fun.js?" + FV; s.async = true; document.head.appendChild(s);
+    };
+    if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
+  });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=44").catch(function () {}); } catch (e) {} });
 })();
