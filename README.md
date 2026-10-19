@@ -58,6 +58,14 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 - **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`).
 - **A detail section**: build it in `renderDetail` / `renderEvent` with `sec(title, node, open)`.
 
+## Settings (`PREF` in `app.js`)
+
+Defaults live in the `PREF` object; whatever the person changes is saved under `sb-pref`. Add a key there, a `segRow` in `renderSettings`, and read `PREF.key` where it matters. Current keys: `tab0` (start tab), `compact`, `logos`, `text`, `upwin` (how far ahead lists go), `alerts`, `h24`, `haptic`, `splash`.
+
+## Splash
+
+Inline in `index.html` (markup, CSS and a few lines of script) so it paints before anything else loads. One second, then it fades over the already-rendered app. Skipped on deep links, when the Splash setting is off, and shortened under reduced motion.
+
 ## Data keys (localStorage)
 
-`sb-tab`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`.
+`sb-tab`, `sb-pref`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`.
