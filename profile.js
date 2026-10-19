@@ -292,10 +292,9 @@
     var cur = F.streak(days), last = days.length ? F.keyDate(days[days.length - 1]) : 0, today = new Date(); today.setHours(0, 0, 0, 0);
     if (last && today - last > D) cur = 0;                          // the streak only counts if it reaches yesterday or today
     var longest = Math.max(col.ls || 0, cur), opened = Math.max(col.dn || 0, days.length);
-    var owned = 0, dupes = 0, byR = {}, top = null, firstC = null, lastC = null, holo = 0;
+    var owned = 0, dupes = 0, byR = {}, firstC = null, lastC = null, holo = 0;
     F.CAT.forEach(function (c) {
       var e = col.i[c[0]]; if (!e) return; owned++; dupes += Math.max(0, e[1] - 1); byR[c[2]] = (byR[c[2]] || 0) + 1;
-      if (c[2] !== "S" && (!top || "CURELM".indexOf(c[2]) > "CURELM".indexOf(top[2]))) top = c;   // the signature card is a gift for signing up, not a pull
       if (!firstC || e[0] < firstC[0]) firstC = [e[0], c]; if (!lastC || e[0] > lastC[0]) lastC = [e[0], c];
       if (c.h) holo++;
     });
@@ -306,7 +305,7 @@
     var w = el("div"); w.appendChild(el("div", "pm-name", p ? p.n : "This device")); w.appendChild(el("div", "pm-sub", since ? (p ? "Profile made " : "First visit ") + fmt(since) : "No visits logged yet")); hd.appendChild(w); body.appendChild(hd);
     function grid(title, tiles) {
       body.appendChild(el("h3", "ac-h", title)); var gr = el("div", "ac-grid");
-      tiles.forEach(function (t) { if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
+      tiles.forEach(function (t) { if (t && t.nodeType) { gr.appendChild(t); return; } if (t[0] == null) return; var c = el("div", "ac" + (t[2] ? " " + t[2] : "")); c.appendChild(el("b", null, String(t[0]))); c.appendChild(el("span", null, t[1])); gr.appendChild(c); });
       body.appendChild(gr);
     }
     grid("Account", [
@@ -317,12 +316,22 @@
       [opened && age ? Math.round(opened / age * 100) + "%" : null, "of days visited"],
       [days.length ? DN[favD] : null, "favorite day"],
     ]);
+    // The card you chose to show off (★ Favorite on any card you own). None yet: a shortcut to pick one.
+    var fc = col.fav && col.i[col.fav] && F.IDX[col.fav], ft = el("button", "ac ac-fav" + (fc ? " r" + fc[2] : " none")); ft.type = "button";
+    if (fc) {
+      ft.appendChild(F.art(fc, "ac-art", 56, true));
+      var fw = el("span", "ac-fw"); fw.appendChild(el("b", null, fc[4])); fw.appendChild(el("span", null, "\u2605 favorite card \u00b7 " + F.RAR[fc[2]])); ft.appendChild(fw);
+      ft.onclick = function () { detail(fc, [fc], "Favorite card"); };
+    } else if (owned) {
+      ft.appendChild(el("b", null, "\u2606")); var fw2 = el("span", "ac-fw"); fw2.appendChild(el("b", null, "Pick a favorite")); fw2.appendChild(el("span", null, "Open any card you own and tap \u2605 Favorite")); ft.appendChild(fw2);
+      ft.onclick = function () { show("log"); };
+    } else ft = null;
     grid("Cards", [
+      ft,
       [owned + " / " + F.total, "cards found"],
       [col.po || 0, (col.po === 1 ? "pack" : "packs") + " opened"],
       [F.packs ? F.packs().n : 0, "packs waiting"],
       [dupes, "duplicates"],
-      [top ? F.RAR[top[2]] : null, top ? "rarest: " + top[4] : ""],
       [holo || null, "holiday cards"],
       [sc.score, "leaderboard score"],
       [firstC ? fmt(firstC[0]) : null, firstC ? "first card: " + firstC[1][4] : ""],
@@ -514,6 +523,16 @@
     var pl = /^[wlcb]_/.test(c[0]);
     if (got && pl) ctl.appendChild(btn("▶ Replay", "pm-b", function () { F.play(c[0], card); }));
     if (got && /^[RELMS]$/.test(c[2])) ctl.appendChild(btn("✨ Reveal", "pm-b", function () { F.reveal(c); }));
+    if (got) {   // the favorite card is what the stats page shows off
+      var isFav = function () { return F.col().fav === c[0]; };
+      var fb = btn(isFav() ? "\u2605 Favorite" : "\u2606 Favorite", "pm-b tcd-fav" + (isFav() ? " on" : ""), function () {
+        var cl = F.col(); if (isFav()) delete cl.fav; else cl.fav = c[0]; F.saveCol();
+        fb.textContent = isFav() ? "\u2605 Favorite" : "\u2606 Favorite"; fb.classList.toggle("on", isFav());
+        if (window.SB && SB.toast) SB.toast(isFav() ? c[4] + " is your favorite card" : "Favorite cleared");
+        if (root && root.querySelector(".ac-grid")) show("stats");   // opened from the stats page: refresh the tile behind
+      });
+      fb.setAttribute("aria-pressed", isFav() ? "true" : "false"); ctl.appendChild(fb);
+    }
     ctl.appendChild(btn("Close", "pm-b", closeD));
     var last = dList && idx === L.length - 1, nb = btn(last ? "\u2713" : "\u203a", "pm-b tcd-n" + (last ? " done" : ""), function () { nav(1); }); nb.setAttribute("aria-label", last ? "Done" : "Next card"); ctl.appendChild(nb);
     wrap.appendChild(ctl);
