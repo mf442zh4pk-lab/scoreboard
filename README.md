@@ -70,6 +70,10 @@ Defaults live in the `PREF` object; whatever the person changes is saved under `
 
 Settings → "Copy share link" makes `?add=<base64 {t:[teams], p:[people]}>`. On load, `app.js` offers to add whatever in the link isn't followed yet, then cleans the URL.
 
+## Card packs
+
+Hidden meters in `sb-col` (`cr` regular credits, `hc` holiday credits, `pk` packs owed, `hk` holiday packs owed as holiday keys, `ld` last daily top-up, `ue` usage earned today). `COST` is 100: the daily top-up is one pack, and ordinary use (1 per tap, 3 per arrival, capped at 100 a day) earns about one more. The holiday meter fills at the same time whenever a holiday window is on and pays out a pack from that holiday's cards. `drawPack` leans toward cards not yet owned and guarantees at least one Rare+. Cards are granted the moment a pack opens, so skipping never loses anything. Entry points: the pop-up when a pack is earned, the "Open pack" button in the profile, and the gold dot on the profile button.
+
 ## Fun layer frequency
 
 `fun.js`: `TAPP` is the per-tap card chance; `holidayFx` runs once on the first arrival and then at most every four minutes (about a third of arrivals); win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
