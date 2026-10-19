@@ -2460,6 +2460,7 @@
     }
     else { out.classList.remove("enter"); clearTimeout(RT); RT = 0; }   // same view, new data: swap in place, no second entrance
 
+    if (FIND && FIND._fresh) FIND._fresh();
     if (!S.ready) { out.appendChild(skel(4, true)); emit("render", out); return; }
     if (S.settings) { renderSettings(out); emit("render", out); return; }
     if (S.view) { if (S.view.team) renderTeamPage(out); else if (S.view.person) renderPerson(out); else renderDetail(out); emit("render", out); return; }
@@ -2501,22 +2502,21 @@
   // Typing searches every loaded game, plus teams and athletes from every sport (the same search as Find a team). For
   // the best team matches it also pulls that team's schedule (one request, kept for its page) so a game that isn't
   // loaded anywhere still turns up: live, next and last. Results drop down under the bar; tapping a game opens it.
-  var FIND = null, FINDQ = null, FG = {};
+  var FIND = null, FINDQ = null, FG = {}, COARSE = false; try { COARSE = matchMedia("(pointer: coarse)").matches; } catch (e) {}
   function hay(x) {
     var g = x.g, lg = leagueOf(x.lk) || {};
     return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lg.key, g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
   }
   // A team's schedule for Find, once per team per session; it also fills S.teams so its page opens without waiting.
-  function findSched(t) {
-    var k = t.lk + "_" + t.id;
-    if (FG[k]) return FG[k];
-    var T = S.teams[t.name]; if (T && T.done && !T.error && !T.missing && T.games && T.lk === t.lk) return (FG[k] = Promise.resolve(T));
-    FG[k] = ESPN.fetchTeamInfo(t.lk, t.id).then(function (i) {
-      i.lk = t.lk; i.id = t.id; i.done = true;
-      if (!S.teams[t.name] || !S.teams[t.name].done) S.teams[t.name] = i;
-      return i;
-    }, function () { return null; });   // a failed lookup stays failed for this session (no retry loop while typing)
-    return FG[k];
+  // A team's games for Find: what's on hand (a team page already loaded, or an earlier lookup) comes back at once;
+  // otherwise, with go, one schedule request starts (no standings; ESPN.scheduleOf keeps it for the team page).
+  // A failed lookup stays empty for the session, so typing never loops on it.
+  function findSched(t, go) {
+    var k = t.lk + "_" + t.id, e = FG[k];
+    if (e) return e.v;
+    var T = S.teams[t.name]; if (T && T.done && T.games && T.me && T.lk === t.lk) { FG[k] = { v: T }; return T; }
+    if (!go) return;
+    e = FG[k] = {}; e.p = ESPN.scheduleOf(t.lk, t.id).then(function (v) { e.v = v; }, function () { e.v = { games: [] }; });
   }
   // Live first, then the next game, then the last result: the games someone searching for a team most likely wants.
   function schedPicks(T) {
@@ -2545,12 +2545,14 @@
   function openFind() {
     if (!FINDQ) return;
     if (FIND) { try { FINDQ.focus(); } catch (e) {} return; }
-    var rail = $("rail"), inp = FINDQ, ov = el("div", "find rfp"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026 Add a sport to narrow it: \u201cboston college football\u201d.");
+    var rail = $("rail"), inp = FINDQ, ov = el("div", "find rfp"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team, athlete or league. Add a sport to narrow it: \u201cboston college football\u201d.");
     ov.appendChild(hint); ov.appendChild(res);
     rail.classList.remove("hide"); rail.classList.add("finding");
     var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {}, st = 0;
     teamIndex().then(function () { if (FIND === ov) fill(); });
     ctl.redraw = function () { if (FIND === ov) fill(); };
+    // New scores while the panel is open: the result cards update in place (scroll position kept).
+    ov._fresh = function () { if (FIND !== ov || document.querySelector(".portal") || !inp.value.trim()) return; all = allGames().map(function (g) { return { x: g, h: hay(g) }; }); var y = ov.scrollTop; fill(); ov.scrollTop = y; };
     function open(c, gx) { portal(c, gx); }
     function gameCard(gx, grid) {
       var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
@@ -2558,9 +2560,20 @@
       c.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); open(c, gx); } };
       grid.appendChild(c); cur.push({ c: c, x: gx });
     }
+    // Empty box: one-tap searches (live games, today, the teams you follow), then what you opened lately.
+    function chips() {
+      var row = el("div", "fchips"), anyLive = all.some(function (e) { return e.x.g.s === "live"; });
+      (anyLive ? [["\u25CF Live now", "live now"]] : []).concat([["Today", "today"]]).concat(C.followed.slice(0, 4).map(function (n) { return [n, n]; })).forEach(function (c) {
+        var b = el("button", "fchip" + (c[1] === "live now" ? " lv" : ""), c[0]); b.type = "button";
+        b.addEventListener("pointerdown", function (e) { e.preventDefault(); });   // keep the keyboard where it is
+        b.onclick = function () { buzz(4); inp.value = c[1]; inp.dispatchEvent(new Event("input", { bubbles: true })); };
+        row.appendChild(b);
+      });
+      res.appendChild(row);
+    }
     function fill() {
       var raw = inp.value.trim().toLowerCase(), sq = sportQ(raw), toks = sq.q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
-      if (!toks.length) { hint.hidden = false; drawRecent(res); return; }
+      if (!toks.length) { hint.hidden = false; chips(); drawRecent(res); return; }
       hint.hidden = true;
       var hits = all.filter(function (e) { return sq.ok((leagueOf(e.x.lk) || {}).path) && toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
       var rk = { live: 0, up: 1, final: 2 };
@@ -2569,14 +2582,24 @@
       hits.slice(0, 12).forEach(function (e) { seen[e.x.lk + "_" + e.x.g.id] = 1; gameCard(e.x, grid); });
       // Games from the best team matches' own schedules, for teams whose games aren't loaded.
       var tms = mergeTeams(sq.q, ESPN.peekSearch(sq.q)).filter(function (t) { return !t.dl && t.id && leagueOf(t.lk) && sq.ok(pathOfTeam(t)); }).slice(0, 2), waiting = false;
+      var pend = [];
       tms.forEach(function (t) {
-        var p = findSched(t), T = p && p.__v;
-        if (!T) { waiting = true; p.then(function (v) { p.__v = v || { games: [] }; if (FIND === ov && inp.value.trim().toLowerCase() === raw) fill(); }); return; }
+        var T = findSched(t);
+        if (!T) { pend.push(t); return; }
         schedPicks(T).forEach(function (g) {
           var sg = schedGame(g, T, t.lk); if (!sg || seen[t.lk + "_" + sg.id]) return; seen[t.lk + "_" + sg.id] = 1;
           var gx = { lk: t.lk, g: sg, ll: (leagueOf(t.lk) || {}).label || "" }; SG[t.lk + "_" + sg.id] = sg; gameCard(gx, grid);
         });
       });
+      // Schedules are looked up only once typing pauses, so "b", "bo", "bos"... don't each fetch a different team.
+      clearTimeout(ctl.st);
+      if (pend.length && raw.length >= 3) {
+        waiting = true;
+        ctl.st = setTimeout(function () {
+          if (FIND !== ov || inp.value.trim().toLowerCase() !== raw) return;
+          Promise.all(pend.map(function (t) { findSched(t, true); return FG[t.lk + "_" + t.id].p; })).then(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw) fill(); });
+        }, 350);
+      }
       if (grid.firstChild) {
         res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid);
         if (hits.length > 12) res.appendChild(el("p", "find-h", "+" + (hits.length - 12) + " more \u00b7 keep typing"));
@@ -2586,10 +2609,17 @@
     }
     inp.oninput = function () { if (FIND === ov) fill(); };
     inp.onkeydown = function (e) {
-      if (e.key === "Enter") { e.preventDefault(); if (cur.length) open(cur[0].c, cur[0].x); else { var r = res.querySelector(".find-tm"); if (r) r.onclick(); } }
+      // Enter opens the top result on a keyboard; on a phone the Search key just tucks the keyboard away to show the list.
+      if (e.key === "Enter") { e.preventDefault(); if (COARSE) { inp.blur(); return; } if (cur.length) open(cur[0].c, cur[0].x); else { var r = res.querySelector(".find-tm"); if (r) r.onclick(); } }
       if (e.key === "Escape") { e.preventDefault(); closeFind(); }
     };
     fill();
+    // Scrolling the results puts the phone keyboard away, so the whole list is in view.
+    // Only a finger-driven scroll counts: results shrinking as you type also move scrollTop.
+    var sy0 = 0, tch = false;
+    ov.addEventListener("touchstart", function () { tch = true; sy0 = ov.scrollTop; }, { passive: true });
+    ov.addEventListener("touchend", function () { tch = false; }, { passive: true });
+    ov.addEventListener("scroll", function () { if (tch && D0.activeElement === inp && Math.abs(ov.scrollTop - sy0) > 24) inp.blur(); }, { passive: true });
     document.body.appendChild(ov); FIND = ov; document.body.classList.add("find-on");
     var place = function () { ov.style.top = Math.max(0, rail.getBoundingClientRect().bottom) + "px"; };
     place(); requestAnimationFrame(function () { place(); ov.classList.add("in"); });
