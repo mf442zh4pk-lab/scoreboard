@@ -2441,6 +2441,26 @@
     no.onclick = function () { bar.remove(); };
     bar.appendChild(tx); bar.appendChild(ok); bar.appendChild(no); document.body.appendChild(bar);
   })();
+  // After about a minute of use with no account, offer one, once ever (sb-acct-ask). Scores never need an account;
+  // it only saves the Collection Log and joins the leaderboard, and the card says exactly that.
+  (function () {
+    var has = function (k) { try { return !!localStorage.getItem(k); } catch (e) { return true; } };
+    if (has("sb-active") || has("sb-acct-ask")) return;
+    var tryShow = function () {
+      if (has("sb-active") || has("sb-acct-ask")) return;
+      if (document.hidden || FIND || LPM || D0.body.classList.contains("pm-open") || D0.querySelector(".addbar")) { setTimeout(tryShow, 30000); return; }   // not mid-something; try again later
+      try { localStorage.setItem("sb-acct-ask", "1"); } catch (e) {}
+      var bar = el("div", "addbar acct"), tx = el("div", "acct-t");
+      tx.appendChild(el("b", null, "Want to keep your cards?"));
+      tx.appendChild(el("span", null, "An account saves your Collection Log and puts you on the leaderboard. That\u2019s all it\u2019s for \u2014 scores work without one."));
+      var row = el("div", "acct-b"), ok = el("button", "ok", "Make an account"), no = el("button", null, "No thanks");
+      ok.type = no.type = "button";
+      ok.onclick = function () { bar.remove(); openProf(); };
+      no.onclick = function () { bar.remove(); };
+      row.appendChild(ok); row.appendChild(no); bar.appendChild(tx); bar.appendChild(row); D0.body.appendChild(bar);
+    };
+    setTimeout(tryShow, 60000);
+  })();
   // Show the last saved scores instantly (marked with how old they are) while fresh ones load.
   try {
     var cc = JSON.parse(localStorage.getItem("sb-cache") || "null");
