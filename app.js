@@ -42,7 +42,7 @@
   var DEFAULT_FOLLOWED = C.followed.slice();
   try { var saved = localStorage.getItem("sb-tab"); if (saved) S.tab = saved; } catch (e) {}
   if (PREF.tab0 !== "last") S.tab = PREF.tab0;
-  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "recap" || sy === "teams" || sy === "news" || sy === "week" || sy === "tomorrow") S.ysub = sy; } catch (e) {}
+  try { var sy = localStorage.getItem("sb-ysub"); if (sy === "news") sy = "recap"; if (sy === "tomorrow") sy = "week"; if (sy === "recap" || sy === "teams" || sy === "week") S.ysub = sy; } catch (e) {}
   try { var sf = JSON.parse(localStorage.getItem("sb-followed") || "null"); if (sf && sf.length) C.followed = sf; } catch (e) {}
   // People you follow (fighters, drivers, golfers), matched by name against each event's entrants.
   C.fp = []; try { var sfp = JSON.parse(localStorage.getItem("sb-fp") || "[]"); if (sfp && sfp.length) C.fp = sfp; } catch (e) {}
@@ -450,7 +450,7 @@
   }
   function renderYesterday(out) {
     var sn = el("div", "subnav"); sn.setAttribute("role", "tablist");
-    [["teams", "Teams"], ["week", "Week"], ["tomorrow", "Tomorrow"], ["recap", "Recap"], ["news", "News"]].forEach(function (p) {
+    [["teams", "Yesterday"], ["week", "Week"], ["recap", "Recap"]].forEach(function (p) {
       var b = el("button", "sub", p[1]); b.type = "button"; b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", S.ysub === p[0] ? "true" : "false");
       b.onclick = function () {
@@ -461,15 +461,13 @@
       sn.appendChild(b);
     });
     out.appendChild(sn);
-    if (S.ysub === "recap") { renderRecap(out); return; }
-    if (S.ysub === "news") { renderNews(out); return; }
-    if (S.ysub === "week") { renderWeek(out); return; }
-    if (S.ysub === "tomorrow") { renderTomorrow(out); return; }
+    if (S.ysub === "recap") { renderRecap(out); renderNews(out); return; }
+    if (S.ysub === "week") { renderWeek(out); renderTomorrow(out); return; }
     var y = S.yesterday;
     if (!y) { out.appendChild(notice("No recap yet", "Pull down to load yesterday's results.")); return; }
     out.appendChild(el("p", "lg", y.date));
     var played = y.teams.filter(function (t) { return t.played; });
-    if (!played.length) { out.appendChild(notice("No games yesterday", "None of your teams played yesterday.")); out.appendChild(overview(y, played)); return; }
+    if (!played.length) { out.appendChild(notice("No games yesterday", "None of your teams played yesterday.")); out.appendChild(quickScores()); out.appendChild(overview(y, played)); return; }
     var gr = el("div", "recaps");
     played.forEach(function (t) {
       var stv = streakOf(t.name);
@@ -506,7 +504,35 @@
       gr.appendChild(a);
     });
     out.appendChild(gr);
+    out.appendChild(quickScores());
     out.appendChild(overview(y, played));
+  }
+  // Quick scoreboard: every final from yesterday in the big four, one line per game, tap to open.
+  var BIG4 = ["nfl", "nba", "nhl", "mlb"];
+  function quickScores() {
+    var yk = ESPN.dayKey(new Date(Date.now() - DAY)), box = el("div", "ovs"), n = 0, body = el("div", "qsw");
+    BIG4.forEach(function (lk) {
+      var lg = leagueOf(lk); if (!lg) return;
+      var gs = (S.yf[lk] || S.games[lk] || []).filter(function (g) { return g.s === "final" && g.h[2] != null && g.a[2] != null && ESPN.dayKey(new Date(g.t)) === yk; });
+      if (!gs.length) return;
+      gs.sort(function (a, b) { return (isFollowed(b) ? 1 : 0) - (isFollowed(a) ? 1 : 0) || Math.abs(a.h[2] - a.a[2]) - Math.abs(b.h[2] - b.a[2]); });
+      var hd = el("div", "qsl"); hd.appendChild(el("b", null, lg.label)); hd.appendChild(el("span", null, gs.length + " game" + (gs.length === 1 ? "" : "s"))); body.appendChild(hd);
+      gs.forEach(function (g) {
+        n++;
+        var r = el("div", "qs" + (isFollowed(g) ? " fol" : "")), aw = g.a[2] > g.h[2];
+        r.tabIndex = 0; r.setAttribute("role", "button"); r.setAttribute("aria-label", g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2]);
+        var a = el("span", "qst" + (aw ? " w" : "")); a.appendChild(el("i", null, g.a[1])); a.appendChild(el("u", null, String(g.a[2]))); r.appendChild(a);
+        r.appendChild(el("span", "qsat", "@"));
+        var h = el("span", "qst" + (aw ? "" : " w")); h.appendChild(el("i", null, g.h[1])); h.appendChild(el("u", null, String(g.h[2]))); r.appendChild(h);
+        r.appendChild(el("span", "qsf", g.o ? "F/OT" : "F"));
+        var go = function () { openGame({ lk: lk, g: g }); };
+        r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+        body.appendChild(r);
+      });
+    });
+    if (!n) body.appendChild(el("p", "rb", "No NFL, NBA, NHL or MLB finals yesterday."));
+    box.appendChild(ovSection("Scoreboard", n ? n + " final" + (n === 1 ? "" : "s") + " \u00b7 big four" : "big four", body));
+    return box;
   }
 
   // ---------- Tomorrow: a month of what's coming for your teams, summarized (schedules already on the phone) ----------
@@ -630,7 +656,7 @@
       });
     });
     out.appendChild(el("p", "lg", "This week"));
-    if (!past.length) { out.appendChild(notice("Nothing yet", "Results for your teams fill in once their schedules load (My teams). The month ahead is under Tomorrow.")); C.followed.forEach(loadTeam); return; }
+    if (!past.length) { out.appendChild(notice("Nothing yet", "Results for your teams fill in once their schedules load (My teams).")); C.followed.forEach(loadTeam); return; }
     var W = 0, L = 0; past.forEach(function (p) { if (p.g.my > p.g.op) W++; else if (p.g.my < p.g.op) L++; });
     var box = el("div", "ovs");
     if (past.length) {
@@ -684,6 +710,7 @@
       (S.yf[l.key] || S.games[l.key] || []).forEach(function (g) {
         if (g.s !== "final") return;
         if (l.kind === "race" || l.kind === "golf" ? Date.now() - new Date(g.t) > 4 * DAY : ESPN.dayKey(new Date(g.t)) !== yk) return;
+        if (l.soccer && !isFollowed(g) && !bigSoccer(g)) return;   // soccer only for the huge ones: finals, World Cup, title deciders
         var x = { g: g, lk: l.key, ll: l.label, lg: l };
         if (g.ev) { x.heat = (l.kind === "mma" ? 75 : l.kind === "golf" ? 70 : 80) + (isFollowed(g) ? 120 : 0); out.push(x); return; }
         if (g.h[2] == null || g.a[2] == null) return;
@@ -699,6 +726,7 @@
     });
     return out;
   }
+  function bigSoccer(g) { return /\bfinal\b|world cup|euro 20\d\d|copa am|gold cup|championship|title|decider|super ?cup/i.test(g.n || ""); }
   // "Kansas City Chiefs edge Buffalo Bills 27-24 in overtime"
   function headline(x) {
     var g = x.g, lg = x.lg;
@@ -1354,7 +1382,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.6 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.7 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
