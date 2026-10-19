@@ -54,7 +54,24 @@
       return [c.team.displayName, c.team.abbreviation, n, recOf(c), c.team.id, logoOf(c.team), c.curatedRank && c.curatedRank.current <= 25 ? c.curatedRank.current : 0];
     }
     var g = { id: ev.id, lk: lk, s: st, t: ev.date, h: side(home), a: side(away) };
-    if (st === "live") g.c = (ev.status.type && ev.status.type.shortDetail) || "";
+    if (st === "live") {
+      g.c = (ev.status.type && ev.status.type.shortDetail) || "";
+      // Live situation (football: down, distance, ball spot, red zone; baseball: bases, outs, count), kept tiny.
+      var q = comp.situation;
+      if (q) {
+        var z = {};
+        if (q.lastPlay && q.lastPlay.text) z.lp = q.lastPlay.text;
+        if (q.possession) z.p = String(q.possession);
+        if (q.downDistanceText) z.dd = q.downDistanceText;
+        if (q.possessionText) z.pt = q.possessionText;
+        if (q.isRedZone) z.rz = 1;
+        if (q.homeTimeouts != null) z.ht = q.homeTimeouts; if (q.awayTimeouts != null) z.at = q.awayTimeouts;
+        if (q.outs != null) { z.o = q.outs; z.b = [q.onFirst ? 1 : 0, q.onSecond ? 1 : 0, q.onThird ? 1 : 0]; z.bs = (q.balls || 0) + "-" + (q.strikes || 0); }
+        if (q.batter && q.batter.athlete) z.bat = q.batter.athlete.shortName || q.batter.athlete.displayName;
+        if (q.pitcher && q.pitcher.athlete) z.pit = q.pitcher.athlete.shortName || q.pitcher.athlete.displayName;
+        if (Object.keys(z).length) g.q = z;
+      }
+    }
     else if (st === "final" && /OT|SO\b|ET\b|AET|Pen/i.test((ev.status.type && ev.status.type.shortDetail) || "")) g.o = 1;
     var note = comp.notes && comp.notes[0] && comp.notes[0].headline;
     if (note) g.n = note;
