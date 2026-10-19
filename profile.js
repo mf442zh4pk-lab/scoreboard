@@ -449,7 +449,8 @@
       cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" : ""; cnt.hidden = !sub;
       if (!vl.length) { grid.appendChild(el("p", "pm-note pm-none", "No cards match.")); return; }
       vl.forEach(function (c) {
-        var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button";
+        var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button"; b.dataset.id = c[0];
+        b.style.setProperty("--i", Math.min(grid.children.length, 11));
         b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
         b.appendChild(F.art(c, "tcm-art", 84, got));
         b.appendChild(el("span", "tcm-n", c[4]));
@@ -469,15 +470,15 @@
     body.dataset.keep = "1";
   }
 
-  var dRoot = null, dCur = null, dList = null, dLbl = "New cards";
-  function detail(c, list, lbl) {
+  var dRoot = null, dCur = null, dList = null, dLbl = "New cards", dFrom = null;
+  function detail(c, list, lbl, dir) {
     if (list !== undefined) { dList = list; dLbl = lbl || "Results"; }
     var col = F.col(), got = !!col.i[c[0]], L = dList || F.CAT, idx = L.indexOf(c);
     if (got) F.seen(c[0]);
-    if (dRoot && dRoot.parentNode) dRoot.parentNode.removeChild(dRoot);
-    var ov = el("div", "tcd"); dRoot = ov;
-    ov.onclick = function (e) { if (e.target === ov) closeD(); };
-    var wrap = el("div", "tcd-w"), card = el("div", "tc r" + c[2] + (got ? " got" : " lock"));
+    // Moving between cards keeps the backdrop and slides the card in from the side you're heading.
+    var ov = dRoot && dRoot.parentNode ? dRoot : null, reuse = !!ov;
+    if (!ov) { ov = el("div", "tcd"); dRoot = ov; ov.onclick = function (e) { if (e.target === ov) closeD(); }; dFrom = D.activeElement && D.activeElement.classList && D.activeElement.classList.contains("tcm") ? D.activeElement : null; }
+    var wrap = el("div", "tcd-w" + (reuse && dir ? (dir > 0 ? " from-r" : " from-l") : "")), card = el("div", "tc r" + c[2] + (got ? " got" : " lock"));
     var head = el("div", "tc-h"); head.appendChild(el("span", null, "No. " + pad(c.n) + " / " + pad(F.total))); head.appendChild(el("span", null, F.CATS[c[1]])); card.appendChild(head);
     var art = el("div", "tc-art"); art.appendChild(F.art(c, "tc-em", 200, got)); card.appendChild(art);
     card.appendChild(el("h3", "tc-n", c[4]));
@@ -498,26 +499,31 @@
     var sx = null;
     ov.addEventListener("touchstart", function (ev) { sx = ev.touches.length === 1 ? ev.touches[0].clientX : null; }, { passive: true });
     ov.addEventListener("touchend", function (ev) { if (sx == null) return; var dx = ev.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 60) nav(dx < 0 ? 1 : -1); }, { passive: true });
-    if (dList) wrap.appendChild(el("div", "tcd-q", dLbl + " · " + (idx + 1) + " of " + L.length));
+    if (dList) {
+      var q = el("div", "tcd-q"); q.appendChild(el("span", null, dLbl + " \u00b7 " + (idx + 1) + " of " + L.length));
+      var pg = el("div", "tcd-pg"), pf = el("i"); pf.style.width = Math.round((idx + 1) / L.length * 100) + "%"; pg.appendChild(pf); q.appendChild(pg); wrap.appendChild(q);
+    }
     wrap.appendChild(card);
     var ctl = el("div", "tcd-c");
     function nav(d) {
-      if (dList) { var n2 = idx + d; if (n2 < 0) return; if (n2 >= L.length) { closeD(); return; } detail(L[n2]); return; }
-      var n = (idx + d + F.CAT.length) % F.CAT.length; detail(F.CAT[n]);
+      if (dList) { var n2 = idx + d; if (n2 < 0) return; if (n2 >= L.length) { closeD(); return; } detail(L[n2], undefined, undefined, d); return; }
+      var n = (idx + d + F.CAT.length) % F.CAT.length; detail(F.CAT[n], undefined, undefined, d);
     }
     dCur = nav;
-    var pb = btn("‹", "pm-b tcd-n", function () { nav(-1); }); if (dList && idx === 0) pb.disabled = true; pb.setAttribute("aria-label", "Previous card"); ctl.appendChild(pb);
+    var pb = btn("\u2039", "pm-b tcd-n", function () { nav(-1); }); if (dList && idx === 0) pb.disabled = true; pb.setAttribute("aria-label", "Previous card"); ctl.appendChild(pb);
     var pl = /^[wlcb]_/.test(c[0]);
     if (got && pl) ctl.appendChild(btn("▶ Replay", "pm-b", function () { F.play(c[0], card); }));
     if (got && /^[RELMS]$/.test(c[2])) ctl.appendChild(btn("✨ Reveal", "pm-b", function () { F.reveal(c); }));
     ctl.appendChild(btn("Close", "pm-b", closeD));
-    var nb = btn(dList && idx === L.length - 1 ? "✓" : "›", "pm-b tcd-n", function () { nav(1); }); nb.setAttribute("aria-label", dList && idx === L.length - 1 ? "Done" : "Next card"); ctl.appendChild(nb);
-    wrap.appendChild(ctl); ov.appendChild(wrap); (root || D.body).appendChild(ov);
-    requestAnimationFrame(function () { ov.classList.add("in"); });
+    var last = dList && idx === L.length - 1, nb = btn(last ? "\u2713" : "\u203a", "pm-b tcd-n" + (last ? " done" : ""), function () { nav(1); }); nb.setAttribute("aria-label", last ? "Done" : "Next card"); ctl.appendChild(nb);
+    wrap.appendChild(ctl);
+    if (reuse) { var old = ov.querySelector(".tcd-w"); if (old) ov.replaceChild(wrap, old); else ov.appendChild(wrap); }
+    else { ov.appendChild(wrap); (root || D.body).appendChild(ov); requestAnimationFrame(function () { ov.classList.add("in"); }); }
+    if (dList) try { nb.focus({ preventScroll: true }); } catch (e) {}
     if (got && (c[2] === "L" || c[2] === "M" || c[2] === "S") && !F.reduced) F.confetti(24, ["✨", "⭐"]);
   }
-  function closeD() { if (!dRoot) return; var d = dRoot; dRoot = null; dList = null; d.classList.remove("in"); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 180);
-    if (root) { var v = root.querySelector(".pm-grid"); if (v) { var sc = root.querySelector(".pm-sheet").scrollTop; show("log"); root.querySelector(".pm-sheet").scrollTop = sc; } } }
+  function closeD() { if (!dRoot) return; var d = dRoot, back = dFrom; dRoot = null; dList = null; dFrom = null; d.classList.remove("in"); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 180);
+    if (root) { var v = root.querySelector(".pm-grid"); if (v) { var sc = root.querySelector(".pm-sheet").scrollTop; show("log"); root.querySelector(".pm-sheet").scrollTop = sc; if (back) { var again = root.querySelector('.tcm[data-id="' + back.dataset.id + '"]'); if (again) try { again.focus({ preventScroll: true }); } catch (e) {} } } } }
 
   // ---------- header button ----------
   function refreshBtn() {
