@@ -457,3 +457,30 @@ img.pk-em{width:28px;height:28px;object-fit:contain}
 .ac-rr em{font-style:normal;text-align:right;color:var(--mute)}
 .ac-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .ac-bar u{display:block;height:100%;background:var(--rc);border-radius:3px;transition:width .5s var(--ease)}
+/* v73: collection log polish */
+.pm-chips{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);padding-right:28px}
+.pm-chip{transition:color var(--t2,.2s),border-color var(--t2,.2s)}
+.pm-chip:hover{color:var(--fg)}
+.tcm{transition:transform var(--t1,.11s) var(--ease,ease),box-shadow var(--t2,.2s),border-color var(--t2,.2s);animation:tcmIn .36s var(--ease,ease) both;animation-delay:calc(var(--i,0) * 28ms)}
+@keyframes tcmIn{from{opacity:0;transform:translateY(8px) scale(.97)}}
+.tcm.got:hover{transform:translateY(-2px);box-shadow:0 8px 18px -10px color-mix(in srgb,var(--rc) 60%,transparent)}
+.tcm:active{transform:scale(.96)}
+.tcm:focus-visible{outline:2px solid var(--ter);outline-offset:2px}
+.tcm-new{animation:tcmNew 2.4s ease-in-out infinite}
+@keyframes tcmNew{50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 25%,transparent)}}
+.tcd{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);background:rgba(6,9,16,.72)}
+.tcd-q{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px;width:min(78vw,300px)}
+.tcd-pg{width:100%;height:3px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}
+.tcd-pg i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ter),#fff);transition:width var(--t3,.32s) var(--ease,ease)}
+.tcd-c .pm-b{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#fff;font-weight:700;backdrop-filter:blur(4px)}
+.tcd-c .pm-b:hover{border-color:rgba(255,255,255,.6);background:rgba(255,255,255,.14)}
+.tcd-c .tcd-n{width:46px;height:46px;min-height:46px;border-radius:50%;padding:0!important;font-size:24px;line-height:1;display:grid;place-items:center}
+.tcd-c .tcd-n.done{background:var(--ter);border-color:var(--ter);color:#10141f;font-size:20px}
+.tcd-c .tcd-n:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.tcd-w.from-r .tc{animation:tcdR .32s var(--spring,ease) both}
+.tcd-w.from-l .tc{animation:tcdL .32s var(--spring,ease) both}
+@keyframes tcdR{from{opacity:0;transform:translateX(48px) rotate(3deg)}}
+@keyframes tcdL{from{opacity:0;transform:translateX(-48px) rotate(-3deg)}}
+.tcd-w.from-r .tcd-q span,.tcd-w.from-l .tcd-q span{animation:tcdQ .3s ease both}
+@keyframes tcdQ{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tcm,.tcd-w.from-r .tc,.tcd-w.from-l .tc,.tcm-new{animation:none}}
