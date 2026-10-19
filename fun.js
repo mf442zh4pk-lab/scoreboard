@@ -230,6 +230,9 @@
       else if (mt >= 2 && quick) vib(30);
       say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); }, "r" + "CURELM".charAt(mt));
           }, newQ.some(function (c) { return tier(c) >= 3; }) ? 1100 : 450);
+    milestones(id);
+  }
+  function milestones(id) {
     var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50"); if (n >= 100) disc("m100");
     if (id !== "all" && n >= TOTAL - 1) disc("all");
   }
@@ -264,6 +267,7 @@
   function wchoice(arr, wf) { var tot = 0, ws = arr.map(function (c) { var w = wf(c); tot += w; return w; }), r = Math.random() * tot, i = 0; while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; } return arr[i]; }
   function tapRoll() {
     var n = Date.now(); if (n - lastTap < TAPGAP) return; lastTap = n;
+    earn(1, "use");
     if (D.body.classList.contains("rv-on") || Math.random() >= TAPP) return;
     var left = CAT.filter(function (c) { return !col.i[c[0]] && !AUTO[c[0]]; }); if (!left.length) return;
     var hol = left.filter(function (c) { return c.h && hActive(c.h); }), gen = left.filter(function (c) { return !c.h; }), c;
@@ -284,6 +288,14 @@
     if (!rvO) return; var o = rvO; rvO = null; clearTimeout(o._a); clearTimeout(o._c);
     D.body.classList.remove("rv-on"); o.classList.remove("in"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 260);
   }
+  function bigCard(c) {
+    var card = E("div", "tc r" + c[2] + " got"), hd = E("div", "tc-h"); hd.appendChild(E("span", null, "No. " + ("00" + c.n).slice(-3) + " / " + ("00" + TOTAL).slice(-3))); hd.appendChild(E("span", null, CATS[c[1]])); card.appendChild(hd);
+    var art = E("div", "tc-art"); art.appendChild(artEl(c, "tc-em", 200, true)); card.appendChild(art);
+    card.appendChild(E("h3", "tc-n", c[4]));
+    var rb = E("div", "tc-rar"); rb.appendChild(E("i", null, c[2])); rb.appendChild(D.createTextNode(RAR[c[2]])); card.appendChild(rb);
+    card.appendChild(E("p", "tc-d", c[5])); card.appendChild(E("span", "tc-foil"));
+    return card;
+  }
   function reveal(q, replay) {
     var c = q.slice().sort(function (a, b) { return tier(b) - tier(a); })[0], t = tier(c);
     if (t < 2) return false;
@@ -298,11 +310,7 @@
     var cw = E("div", "rv-cw"), chg = E("div", "rv-ch"), flip = E("div", "rv-flip");
     chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6, 8][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
     flip.appendChild(E("div", "rv-bk", "?"));
-    var card = E("div", "tc r" + c[2] + " got"), hd = E("div", "tc-h"); hd.appendChild(E("span", null, "No. " + ("00" + c.n).slice(-3) + " / " + ("00" + TOTAL).slice(-3))); hd.appendChild(E("span", null, CATS[c[1]])); card.appendChild(hd);
-    var art = E("div", "tc-art"); art.appendChild(artEl(c, "tc-em", 200, true)); card.appendChild(art);
-    card.appendChild(E("h3", "tc-n", c[4]));
-    var rb = E("div", "tc-rar"); rb.appendChild(E("i", null, c[2])); rb.appendChild(D.createTextNode(RAR[c[2]])); card.appendChild(rb);
-    card.appendChild(E("p", "tc-d", c[5])); card.appendChild(E("span", "tc-foil"));
+    var card = bigCard(c);
     flip.appendChild(card); chg.appendChild(flip); cw.appendChild(chg); o.appendChild(cw);
     var ctl = E("div", "rv-c");
     if (!replay) { var b1 = E("button", "pm-b pri", "View in log"); b1.type = "button"; b1.onclick = function () { revealClose(); if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", { card: c[0] }); }); }; ctl.appendChild(b1); }
@@ -466,7 +474,7 @@
   function after(out) {
     var st = out.querySelectorAll(".fire3,.fire5,.cold3,.cold5,.heat");
     for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
-    quipNow(false);
+    quipNow(false); earn(3, "use");
     if (RM) return; arrivals++; holidayFx();
     if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, Math.random() < .5 ? 1 : 0), anyWin = false;
@@ -619,9 +627,137 @@
     var nb = innerHeight + scrollY >= D.documentElement.scrollHeight - 6;
     if (nb) bottomAt = Date.now(); else if (scrollY < 40 && bottomAt && Date.now() - bottomAt < 2000) { bottomAt = 0; disc("whip"); }
   }, { passive: true });
+  // ---------- card packs: a hidden credit meter fills from using the app (and a daily top-up); every full meter is a pack ----------
+  // A holiday meter fills alongside it while a holiday window is on, and pays out a holiday pack from that holiday's cards.
+  var COST = 100, DAYCAP = 100, PKO = null, pendingMs = [];
+  function dkey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function pk0() { if (col.cr == null) col.cr = 0; if (col.hc == null) col.hc = 0; if (col.pk == null) col.pk = 0; if (!col.hk) col.hk = []; }
+  function holNow() {                             // the active holiday closest to today (any holiday, not only the animated ones)
+    var now = new Date(), best = null, bd = 1e12;
+    Object.keys(HOLS).forEach(function (k) { var w = hWin(k, now); if (!w || !w.on) return; var dd = Math.abs(w.d - now); if (dd < bd) { bd = dd; best = k; } });
+    return best;
+  }
+  function packs() { pk0(); return { r: col.pk, h: col.hk.slice(), n: col.pk + col.hk.length }; }
+  function badge() { var b = $("prof"); if (b) b.classList.toggle("pk", packs().n > 0); }
+  function earn(n, why) {
+    pk0(); var day = dkey(), hk = holNow(), gotR = false, gotH = false;
+    if (why === "daily") { if (col.ld === day) return; col.ld = day; col.cr += COST; if (hk) col.hc += COST; }
+    else {
+      if (!col.ue || col.ue.d !== day) col.ue = { d: day, n: 0 };
+      if (col.ue.n >= DAYCAP) return;
+      var add = Math.min(n, DAYCAP - col.ue.n); col.ue.n += add; col.cr += add; if (hk) col.hc += add;
+    }
+    while (col.cr >= COST) { col.cr -= COST; col.pk++; gotR = true; }
+    while (hk && col.hc >= COST) { col.hc -= COST; col.hk.push(hk); gotH = true; }
+    save(); badge();
+    if (gotR || gotH) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
+  }
+  var PKP = null;
+  function packPop(r, hk) {
+    if (PKO || PKP) return;
+    var o = E("div", "pkp"), b = E("div", "pkp-b");
+    b.appendChild(E("div", "pkp-i", hk && !r ? holEmoji(hk) : "\uD83C\uDF81"));
+    b.appendChild(E("div", "pkp-t", r && hk ? "A card pack and a " + HOLS[hk][0] + " pack are ready" : hk ? "A " + HOLS[hk][0] + " pack is ready" : "A card pack is ready"));
+    b.appendChild(E("div", "pkp-s", "Ten cards inside. Open it now or find it in your profile."));
+    var row = E("div", "pkp-r"), ok = E("button", "pm-b pri", "Open"), no = E("button", "pm-b", "Later"); ok.type = no.type = "button";
+    ok.onclick = function () { closePop(); openPacks(); }; no.onclick = closePop;
+    row.appendChild(ok); row.appendChild(no); b.appendChild(row); o.appendChild(b);
+    o.onclick = function (e) { if (e.target === o) closePop(); };
+    D.body.appendChild(o); PKP = o; vib([20, 30, 20]); requestAnimationFrame(function () { o.classList.add("in"); });
+  }
+  function closePop() { if (!PKP) return; var o = PKP; PKP = null; o.classList.remove("in"); gone(o, 260); }
+  function holEmoji(hk) { var c = CAT.filter(function (x) { return x.h === hk; })[0]; return c ? c[3] : "\uD83C\uDF89"; }
+  function drawPack(hk) {
+    var pool = hk ? CAT.filter(function (c) { return c.h === hk; }) : CAT.filter(function (c) { return !c.h && !AUTO[c[0]] && c[2] !== "S"; });
+    if (!pool.length) pool = CAT.filter(function (c) { return !AUTO[c[0]] && c[2] !== "S"; });
+    var wf = hk ? function (c) { return HW2[c[2]] || 1; } : function (c) { return RW[c[2]] || 1; }, out = [];
+    var fresh = pool.filter(function (c) { return !col.i[c[0]]; });
+    for (var i = 0; i < 10; i++) {
+      var c = wchoice(pool, wf);
+      if (col.i[c[0]] && fresh.length && Math.random() < .5) c = wchoice(fresh, wf);   // packs lean toward cards you don't have yet
+      out.push(c);
+    }
+    if (!out.some(function (c) { return tier(c) >= 2; })) { var hi = pool.filter(function (c) { return tier(c) >= 2; }); if (hi.length) out[9] = wchoice(hi, wf); }
+    return out;
+  }
+  function grant(c) {
+    var id = c[0], e = col.i[id], isNew = !e;
+    if (e) e[1]++; else { col.i[id] = [Date.now(), 1]; if (LOGO[id]) col.i[id][2] = LOGO[id]; }
+    return isNew;
+  }
+  function openPacks() {
+    pk0(); if (PKO) return;
+    var hk = null; if (col.pk > 0) col.pk--; else if (col.hk.length) hk = col.hk.shift(); else { say("No packs right now. Keep using the app, a new one comes every day."); return; }
+    var cards = drawPack(hk), news = cards.map(grant); save(); badge();
+    try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
+    packShow(hk, cards, news);
+  }
+  function miniCard(c, isNew) {
+    var m = E("div", "pk-mini r" + c[2] + (isNew ? " new" : "")); m.appendChild(artEl(c, "pk-em", 80, true));
+    m.appendChild(E("span", "pk-mn", c[4])); if (isNew) m.appendChild(E("i", "pk-new", "NEW")); return m;
+  }
+  function packShow(hk, cards, news) {
+    var o = E("div", "pko" + (hk ? " hol" : "")), i = 0, stage = 0, auto = false, tray = E("div", "pk-tray"), center = E("div", "pk-c"), bar = E("div", "pk-bar"), flip = null, shown = false;
+    PKO = o; D.body.classList.add("rv-on"); o.setAttribute("role", "dialog"); o.setAttribute("aria-label", "Opening a card pack");
+    var st = E("div", "rv-st"), sh = []; for (var k = 0; k < 30; k++) sh.push(rnd(100) + "vw " + rnd(100) + "vh 0 " + rnd(2) + "px #fff"); st.style.boxShadow = sh.join(","); o.appendChild(st);
+    var ttl = E("div", "pk-t", hk ? HOLS[hk][0].toUpperCase() + " PACK" : "CARD PACK"); o.appendChild(ttl);
+    var cnt = E("div", "pk-n", ""); o.appendChild(cnt);
+    o.appendChild(center); o.appendChild(tray); o.appendChild(bar);
+    var bQuick = E("button", "pm-b", "Reveal all"), bSkip = E("button", "pm-b", "Skip"); bQuick.type = bSkip.type = "button";
+    bar.appendChild(bQuick); bar.appendChild(bSkip);
+    // stage 0: the sealed pack
+    var pack = E("div", "pk-pack"), face = E("div", "pk-face");
+    if (hk) face.appendChild(E("span", "pk-pe", holEmoji(hk))); else { var mk = E("span", "pk-pm"); mk.innerHTML = MK; face.appendChild(mk); }
+    face.appendChild(E("span", "pk-pl", hk ? HOLS[hk][0] : "Scoreboard")); face.appendChild(E("span", "pk-ps", "10 cards \u00b7 tap to tear"));
+    pack.appendChild(E("div", "pk-strip")); pack.appendChild(face); pack.appendChild(E("span", "pk-foil")); center.appendChild(pack);
+    function tear() {
+      if (stage) return; stage = 1; pack.classList.add("tear"); vib([30, 40, 60]);
+      if (!RM) { gConfetti(hk ? 40 : 28, hk ? [holEmoji(hk), "\u2728", "\uD83C\uDF81"] : ["\u2728", "\uD83C\uDFC0", "\uD83C\uDFC8", "\uD83C\uDFD2", "\u26BE"]); gBurst(innerWidth / 2, innerHeight * .45, hk ? "#ffb020" : "#9b8cd9", 26); }
+      setTimeout(function () { center.textContent = ""; stage = 2; next(); }, RM ? 0 : 700);
+    }
+    pack.onclick = tear;
+    function next() {
+      if (i >= cards.length) { summary(); return; }
+      var c = cards[i]; shown = false; cnt.textContent = (i + 1) + " / " + cards.length;
+      flip = E("div", "rv-flip pkf"); flip.appendChild(E("div", "rv-bk", "?")); var big = bigCard(c); flip.appendChild(big);
+      var wrap = E("div", "rv-ch"); wrap.style.setProperty("--rc", RVC[c[2]] || "#9b8cd9"); wrap.appendChild(flip); center.textContent = ""; center.appendChild(wrap);
+      if (news[i]) big.appendChild(E("i", "pk-new big", "NEW"));
+      wrap.onclick = function () { if (!shown) show(); else advance(); };
+      if (auto) setTimeout(show, 140);
+    }
+    function show() {
+      if (shown) return; shown = true; var c = cards[i], t = tier(c);
+      flip.classList.add("fl"); vib(t >= 3 ? [30, 30, 60] : 18);
+      if (!RM && t >= 2) { var cx = innerWidth / 2, cy = innerHeight * .42; gBurst(cx, cy, RVC[c[2]], [0, 0, 12, 22, 34, 44, 56][t]); if (t >= 4) gConfetti(60, ["\u2728", "\u2B50", "\uD83D\uDC51"]); else if (t === 3) gConfetti(24, ["\u2728", "\uD83D\uDD2E"]); }
+      if (auto) setTimeout(advance, t >= 3 ? 1100 : 520);
+    }
+    function advance() {
+      if (!shown) return; var m = miniCard(cards[i], news[i]); tray.appendChild(m); i++; next();
+    }
+    function summary() {
+      stage = 3; center.textContent = ""; tray.textContent = ""; bar.textContent = "";
+      var n = news.filter(Boolean).length, g = E("div", "pk-grid");
+      cards.forEach(function (c, k) { var m = miniCard(c, news[k]); m.style.setProperty("--i", k); m.onclick = function () { reveal([c], true); }; g.appendChild(m); });
+      center.appendChild(E("div", "pk-sum", n ? n + " new card" + (n > 1 ? "s" : "") + " \u00b7 " + (10 - n) + " duplicate" + (10 - n === 1 ? "" : "s") : "All duplicates this time")); center.appendChild(g);
+      cnt.textContent = "";
+      var left = packs().n, bDone = E("button", "pm-b pri", left ? "Open next pack (" + left + ")" : "Done"); bDone.type = "button";
+      bDone.onclick = function () { packClose(); if (left) setTimeout(openPacks, 260); };
+      bar.appendChild(bDone);
+      if (left) { var bLater = E("button", "pm-b", "Done"); bLater.type = "button"; bLater.onclick = packClose; bar.appendChild(bLater); }
+    }
+    bQuick.onclick = function () { auto = true; if (stage === 0) tear(); else if (stage === 2 && !shown) show(); else if (stage === 2) advance(); };
+    bSkip.onclick = function () { if (stage === 3) return; stage = 3; summary(); };
+    D.body.appendChild(o); requestAnimationFrame(function () { o.classList.add("in"); });
+  }
+  function packClose() {
+    if (!PKO) return; var o = PKO; PKO = null; D.body.classList.remove("rv-on"); o.classList.remove("in"); gone(o, 280);
+    setTimeout(function () { milestones(""); }, 400);
+  }
+  D.addEventListener("keydown", function (e) { if (e.key === "Escape" && PKO) { e.stopImmediatePropagation(); packClose(); } }, true);
+  setTimeout(function () { pk0(); earn(0, "daily"); badge(); }, 1200);
   dates();
 
-  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { packs: packs, openPacks: openPacks, art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
