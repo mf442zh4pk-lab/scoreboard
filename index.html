@@ -18,13 +18,13 @@ var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="dns-prefetch" href="https://a.espncdn.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Hanken+Grotesk:wght@400;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=51">
+<link rel="stylesheet" href="style.css?v=52">
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1 id="title">Scoreboard</h1>
-    <div class="ctl"><span class="dot" id="dot"></span><span id="stamp" aria-live="polite">Loading scores</span><button id="refresh" type="button">Refresh</button><button id="prof" type="button" aria-label="Profile and Collection Log">&#128100;</button><button id="gear" type="button" aria-label="Settings">&#9881;</button></div>
+    <div class="brand"><svg id="mark" class="mark" viewBox="0 0 512 512" role="img" aria-label="Home"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b7095"/><stop offset="1" stop-color="#2d3a55"/></linearGradient><linearGradient id="mh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c4b9f2"/><stop offset="1" stop-color="#9b8cd9"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#mg)"/><path d="M126 214C64 214 40 164 46 92c28 48 62 58 136 58v64z" fill="url(#mh)"/><path d="M386 214c62 0 86-50 80-122-28 48-62 58-136 58v64z" fill="url(#mh)"/><path d="M122 410V198h60l74 110 74-110h60v212h-56V292l-56 80h-44l-56-80v118z" fill="#eef1f6"/></svg><h1 id="title">Scoreboard</h1></div>
+    <div class="ctl"><button id="refresh" type="button" aria-label="Refresh scores"><span class="dot" id="dot"></span></button><span id="stamp" class="sr" aria-live="polite">Loading scores</span><button id="prof" type="button" aria-label="Profile and Collection Log">&#128100;</button><button id="gear" type="button" aria-label="Settings">&#9881;</button></div>
   </header>
   <p class="about" id="about"></p>
   <nav class="rail" id="rail" role="tablist" aria-label="Views"></nav>
@@ -35,8 +35,8 @@ var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL
 <div id="ptr" aria-hidden="true"><span class="ring"></span><span class="pl">Pull to refresh</span></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <noscript>This scoreboard needs JavaScript.</noscript>
-<script src="config.js?v=51"></script>
-<script src="espn.js?v=51"></script>
-<script src="app.js?v=51"></script>
+<script src="config.js?v=52"></script>
+<script src="espn.js?v=52"></script>
+<script src="app.js?v=52"></script>
 </body>
 </html>
