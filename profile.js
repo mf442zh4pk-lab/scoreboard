@@ -34,16 +34,17 @@
   function applyBlob(blob) { PK.forEach(function (k) { s(k, blob && blob[k] != null ? blob[k] : null); }); }
 
   // ---------- account actions ----------
-  function validName(n) { return /^[A-Za-z0-9_.\- ]{3,16}$/.test(n) && n.trim() === n; }
+  function validName(n) { return /^[A-Za-z0-9_.\-]{3,16}$/.test(n); }
   function create(name, pw) {
     var P = profiles(), l = name.toLowerCase();
-    if (!validName(name)) return Promise.reject("Username: 3 to 16 letters, numbers, spaces, _ . -");
+    if (!validName(name)) return Promise.reject("Username: 3 to 16 letters, numbers, _ . -");
     if (P[l]) return Promise.reject("That username is taken on this device.");
-    if (pw.length < 4) return Promise.reject("Password needs at least 4 characters.");
+    if (pw.length < 6) return Promise.reject("Password needs at least 6 characters.");
     var salt = b64(crypto.getRandomValues(new Uint8Array(16)));
     return hashPw(pw, salt, ITER).then(function (h) {
       P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() };
       putProfiles(P); s("sb-active", l);
+      lbJoin(name, pw, true);
     });
   }
   function login(name, pw) {
@@ -54,7 +55,8 @@
       var guest = parse(g("sb-col")), blob = p.d || {}, merged = mergeCol(parse(blob["sb-col"]), guest);
       blob["sb-col"] = JSON.stringify(merged);
       applyBlob(blob); s("sb-active", name.toLowerCase());
-      location.reload();
+      var go = function () { location.reload(); };
+      Promise.race([lbJoin(name, pw, true), new Promise(function (r) { setTimeout(r, 3500); })]).then(go, go);
     });
   }
   function saveActive() { var a = active(); if (!a) return; var P = profiles(); P[a].d = snapshot(); putProfiles(P); }
@@ -97,6 +99,11 @@
     return jpost("https://identitytoolkit.googleapis.com/v1/accounts:" + (mode === "create" ? "signUp" : "signInWithPassword") + "?key=" + FB.key, { email: name.toLowerCase() + "@scoreboard.app", password: pw, returnSecureToken: true })
       .then(function (j) { var o = { uid: j.localId, rt: j.refreshToken, it: j.idToken, exp: Date.now() + (+j.expiresIn - 60) * 1000, name: name }; lbPut(o); return o; });
   }
+  function lbJoin(name, pw, sync) {            // one login for both: try to create the online account, else sign in
+    if (!/^[A-Za-z0-9_.\-]{3,16}$/.test(name) || pw.length < 6) return Promise.resolve(false);
+    return lbAuth("create", name, pw).catch(function (e) { if (/EMAIL_EXISTS/.test(String(e))) return lbAuth("login", name, pw); throw e; })
+      .then(function () { lbCache = null; return sync ? lbSync(true) : 0; }).then(function () { return true; }, function () { return false; });
+  }
   function lbToken() {
     var o = lbGet(); if (!o) return Promise.reject("NOAUTH");
     if (Date.now() < o.exp) return Promise.resolve(o);
@@ -135,7 +142,7 @@
     return "Leaderboard unavailable right now. Try again later.";
   }
   function vLb(body) {
-    body.appendChild(el("p", "pm-lead", "Your score is your cards added up by rarity: Common 1, Uncommon 3, Rare 8, Epic 20, Legendary 50, Mythic 150. Your username and score are public."));
+    body.appendChild(el("p", "pm-lead", "Your score is your cards added up by rarity: Common 1, Uncommon 3, Rare 8, Epic 20, Legendary 50, Mythic 150. Your profile name and score are public."));
     var me = el("div", "lb-me"), list = el("div", "lb-list");
     body.appendChild(me); body.appendChild(list);
     function drawList(force) {
@@ -159,33 +166,28 @@
         me.appendChild(el("div", "pm-name", o.name)); me.appendChild(el("div", "pm-sub", m.score + " pts · " + m.cards + " cards"));
         var msg = msg2(me);
         lbSync().then(function () { return lbRank(m.score); }).then(function (rk) { msg("Your rank: #" + rk, true); drawList(true); }, function (e) { msg(e === "WRITE" ? "Couldn't upload your score right now." : lbErr(e)); });
-        me.appendChild(btn("Log out of leaderboard", "pm-b ghost", function () { lbPut(null); drawMe(); }));
         var dz = btn("Remove my score", "pm-b dng", function () {
           if (dz.dataset.c !== "1") { dz.dataset.c = "1"; dz.textContent = "Tap again to remove it"; return; }
           lbToken().then(function (t) { return fetch(DOC + "/scores/" + t.uid, { method: "DELETE", headers: { Authorization: "Bearer " + t.it } }); }).then(function () { var x = lbGet(); if (x) { delete x.last; lbPut(x); } lbCache = null; drawMe(); drawList(true); }, function () { msg("Couldn't remove it right now."); });
         });
         me.appendChild(dz);
       } else {
-        var mode = lbMode, form = el("div", "pm-form"), tabs = el("div", "pm-seg"), bl = btn("Log in", "on"), bc = btn("Join", "");
-        tabs.appendChild(bl); tabs.appendChild(bc); me.appendChild(tabs); me.appendChild(form);
-        var a = active(), pre = a && /^[A-Za-z0-9_.\-]{3,16}$/.test(profiles()[a].n) ? profiles()[a].n : "";
-        (function draw() {
-          form.innerHTML = ""; bl.className = mode === "login" ? "on" : ""; bc.className = mode === "create" ? "on" : "";
-          var u = field("Username", "text", "username", pre), pw = field("Password (6+ characters)", "password", mode === "login" ? "current-password" : "new-password");
-          form.appendChild(u[0]); form.appendChild(pw[0]); var m2 = msg2(form), go = btn(mode === "login" ? "Log in" : "Join leaderboard", "pm-b pri");
-          go.onclick = function () {
-            var nm = u[1].value.trim();
-            if (!/^[A-Za-z0-9_.\-]{3,16}$/.test(nm)) { m2("Username: 3 to 16 letters, numbers, _ . -"); return; }
-            if (pw[1].value.length < 6) { m2("Password needs at least 6 characters."); return; }
-            go.disabled = true; m2("One sec…", true);
-            lbAuth(mode, nm, pw[1].value).then(function () { return lbSync(true); }).then(function () { lbCache = null; drawMe(); }, function (e) { go.disabled = false; m2(e === "WRITE" ? "Joined, but couldn't upload your score yet." : lbErr(e)); if (e === "WRITE") drawMe(); });
-          };
-          pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
-          form.appendChild(go);
-          form.appendChild(el("p", "pm-note", "This is a separate online account, only used for the leaderboard."));
-        })();
-        bl.onclick = function () { lbMode = "login"; drawMe(); }; bc.onclick = function () { lbMode = "create"; drawMe(); };
-        // keep chosen mode across redraw
+        var a = active(), P = profiles();
+        if (!a) { me.appendChild(el("p", "pm-note", "Log in or create a profile and you're on the leaderboard automatically.")); me.appendChild(btn("Go to profile", "pm-b pri", function () { show("home"); })); return; }
+        var pn = P[a].n;
+        if (!/^[A-Za-z0-9_.\-]{3,16}$/.test(pn)) { me.appendChild(el("p", "pm-note", "This profile's name can't be used online. Make a new profile with letters, numbers, _ . - only.")); return; }
+        me.appendChild(el("div", "pm-name", pn)); me.appendChild(el("div", "pm-sub", m.score + " pts · " + m.cards + " cards"));
+        me.appendChild(el("p", "pm-note", "Enter your profile password once to put this profile on the leaderboard."));
+        var pw = field("Password", "password", "current-password"), m2 = msg2(me), go = btn("Join leaderboard", "pm-b pri");
+        me.appendChild(pw[0]); me.appendChild(go);
+        go.onclick = function () {
+          go.disabled = true; m2("One sec…", true);
+          hashPw(pw[1].value, P[a].s, P[a].it || ITER).then(function (h) {
+            if (h !== P[a].h) throw "BADPW";
+            return lbJoin(pn, pw[1].value, true);
+          }).then(function (ok) { if (!ok) throw "NET"; lbCache = null; drawMe(); }, function (e) { go.disabled = false; m2(e === "BADPW" ? "Wrong password." : "Leaderboard unavailable right now. Try again later."); });
+        };
+        pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       }
     }
     function msg2(parent) { var m = el("p", "pm-msg"); parent.appendChild(m); return function (t, ok) { m.textContent = t || ""; m.className = "pm-msg" + (ok ? " ok" : ""); }; }
@@ -250,7 +252,7 @@
       dz.appendChild(db); dz.appendChild(el("p", "pm-note", "Deleting removes the login and its saved copy here. Your current scores, teams and cards stay as a guest.")); body.appendChild(dz);
       return;
     }
-    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together. It's stored on this device; use Transfer to move it to another one."));
+    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together, and to join the leaderboard. Use the same login on any device, or Transfer to move your data."));
     summary(body);
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
@@ -271,7 +273,7 @@
       };
       pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       form.appendChild(go);
-      if (mode === "create") form.appendChild(el("p", "pm-note", "Your current teams, settings and cards become this profile's starting point."));
+      if (mode === "create") form.appendChild(el("p", "pm-note", "Username: letters, numbers, _ . - (3 to 16). Password 6+. Your current teams, settings and cards become this profile's starting point, and it joins the online leaderboard."));
       if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Create one, or import one from another device."));
     }
     bl.onclick = function () { mode = "login"; draw(); }; bc.onclick = function () { mode = "create"; draw(); };
@@ -314,7 +316,7 @@
   // ---------- collection log ----------
   var filter = "all", RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M" };
   function pad(n) { return ("00" + n).slice(-3); }
-  function vLog(body) {
+  function vLog(body, arg) {
     var col = F.col(), found = F.count(), t = F.total;
     summary(body);
     var chips = el("div", "pm-chips"), grid = el("div", "pm-grid");
@@ -340,6 +342,7 @@
     }
     function RAR(k) { return RL[k]; }
     body.appendChild(chips); body.appendChild(grid); draw();
+    if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card]);
     var lg = el("div", "pm-key");
     ["C", "U", "R", "E", "L", "M"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
     body.appendChild(lg);
