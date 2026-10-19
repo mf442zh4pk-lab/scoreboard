@@ -1560,7 +1560,12 @@
     if (gap && Date.now() - S.last >= gap - 1000) load(false, activeLeagues());
   }, 10000);
   setInterval(stampTick, 30000);
-  $("gear").onclick = function () { S.settings = !S.settings; S.view = null; clearHash(); render(); };
+  var setOpens = [];
+  window.SB_SET = function () {
+    S.settings = true; S.view = null; clearHash(); render();
+    var n = Date.now(); setOpens.push(n); setOpens = setOpens.filter(function (t) { return n - t < 90000; });
+    if (setOpens.length >= 5 && window.FUN) { setOpens.length = 0; FUN.disc("gear"); FUN.say("⚙️ Loose bolt found."); }
+  };
 
   // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
   (function () {
@@ -1633,5 +1638,5 @@
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=59").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=60").catch(function () {}); } catch (e) {} });
 })();
