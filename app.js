@@ -713,7 +713,7 @@
 
   // ---------- Daily recap: yesterday's biggest stories first, then every result by league ----------
   var HEAT = { nfl: 100, nba: 90, ncaafb: 80, mlb: 70, ucl: 70, epl: 65, nhl: 65, ncaamb: 55, wnba: 50, afl: 40, mls: 35, ufl: 30 };
-  var TIGHT = { nfl: 3, ncaafb: 3, nba: 3, wnba: 3, ncaamb: 3, ncaawb: 3, ufl: 3, afl: 6, mlb: 1, nhl: 1, ncaah: 1, ncaawh: 1, ncaabsb: 1, ncaasb: 1 };
+  var TIGHT = { nfl: 7, ncaafb: 7, nba: 5, wnba: 5, ncaamb: 5, ncaawb: 5, ufl: 7, afl: 6, mlb: 2, nhl: 1, ncaah: 1, ncaawh: 1, ncaabsb: 2, ncaasb: 2 };   // "close game": one score in football, 5 in basketball, 2 runs, 1 goal
   var YCOL = {};
   try { YCOL = JSON.parse(localStorage.getItem("sb-ycol") || "{}") || {}; } catch (e) {}
   var SCORING = { nfl: 1, ncaafb: 1, nba: 1, ncaamb: 1, ncaawb: 1, wnba: 1, gleague: 1, ufl: 1, afl: 1 };
