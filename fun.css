@@ -373,3 +373,9 @@ body.rv-on .fxg{z-index:95}
 .hf-zoom{animation-name:hfZoom}
 @keyframes hfZoom{0%{transform:scale(.2);opacity:0}30%{opacity:1}100%{transform:scale(2.4) translateY(-12vh);opacity:0}}
 @media (prefers-reduced-motion:reduce){.hf{display:none}}
+
+/* v64: sheets use the app-wide motion tokens */
+.pm{transition:opacity var(--t2,.2s) var(--ease,ease)}
+.pm-sheet{transition:transform var(--t3,.32s) var(--spring,ease)}
+.pm-b,.pm-x,.pm-back,.pm-chip,.pm-seg button{transition:transform var(--t1,.1s) var(--ease,ease),background-color var(--t2,.2s),color var(--t2,.2s),border-color var(--t2,.2s)}
+.pm-b:active,.pm-x:active,.pm-back:active,.pm-chip:active{transform:scale(.96)}
