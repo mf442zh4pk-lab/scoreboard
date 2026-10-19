@@ -24,7 +24,7 @@
     var o = { i: {}, s: {}, d: [] };
     [a, b].forEach(function (c) {
       if (!c) return;
-      for (var k in (c.i || {})) { var e = c.i[k], x = o.i[k]; o.i[k] = x ? [Math.min(x[0], e[0]), x[1] + e[1]] : [e[0], e[1]]; }
+      for (var k in (c.i || {})) { var e = c.i[k], x = o.i[k]; var n = x ? [Math.min(x[0], e[0]), x[1] + e[1]] : [e[0], e[1]]; if ((x && x[2]) || e[2]) n.push((x && x[2]) || e[2]); o.i[k] = n; }
       for (var k2 in (c.s || {})) o.s[k2] = 1;
       (c.d || []).forEach(function (d) { if (o.d.indexOf(d) < 0) o.d.push(d); });
     });
@@ -326,7 +326,7 @@
         if (filter !== "all" && c[1] !== filter) return;
         var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button";
         b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
-        b.appendChild(el("span", "tcm-art", c[3]));
+        b.appendChild(F.art(c, "tcm-art", 84, got));
         b.appendChild(el("span", "tcm-n", c[4]));
         b.appendChild(el("i", "tcm-r", RAR(c[2])));
         if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
@@ -352,7 +352,7 @@
     ov.onclick = function (e) { if (e.target === ov) closeD(); };
     var wrap = el("div", "tcd-w"), card = el("div", "tc r" + c[2] + (got ? " got" : " lock"));
     var head = el("div", "tc-h"); head.appendChild(el("span", null, "No. " + pad(c.n) + " / " + pad(F.total))); head.appendChild(el("span", null, F.CATS[c[1]])); card.appendChild(head);
-    var art = el("div", "tc-art"); art.appendChild(el("span", "tc-em", c[3])); card.appendChild(art);
+    var art = el("div", "tc-art"); art.appendChild(F.art(c, "tc-em", 200, got)); card.appendChild(art);
     card.appendChild(el("h3", "tc-n", c[4]));
     var rb = el("div", "tc-rar"); rb.appendChild(el("i", null, c[2])); rb.appendChild(D.createTextNode(F.RAR[c[2]])); card.appendChild(rb);
     card.appendChild(el("p", "tc-d", got ? c[5] : "Not found yet."));
