@@ -507,34 +507,46 @@
     out.appendChild(quickScores());
     out.appendChild(overview(y, played));
   }
-  // Quick scoreboard: every final from yesterday in the big four, one line per game, tap to open.
+  // Quick scoreboard: yesterday's finals in the big four plus college football's big ones, ranked so the close and
+  // the big games sit at the top (your teams first, then upsets, overtime, one-score finishes, ranked matchups).
   var BIG4 = ["nfl", "nba", "nhl", "mlb"];
+  function qsHeat(g, lk) {
+    var diff = Math.abs(g.h[2] - g.a[2]), t = TIGHT[lk] || 2, h = 0;
+    if (isFollowed(g)) h += 100;
+    if (g.o) h += 25;
+    if (diff <= t) h += 40 - diff * (20 / Math.max(1, t)); else if (diff <= t * 2) h += 10;
+    if (g.n) h += 15;
+    var rw = g.h[2] > g.a[2] ? g.h : g.a, rl = rw === g.h ? g.a : g.h;
+    if (g.h[6] || g.a[6]) h += 20 + (Math.min(g.h[6] || 99, g.a[6] || 99) <= 10 ? 15 : 0) + (rl[6] && !rw[6] ? 45 : 0) + (rl[6] && rw[6] && rw[6] > rl[6] ? 25 : 0);
+    if (g.h[6] && g.a[6]) h += 20;
+    return h;
+  }
   function quickScores() {
-    var yk = ESPN.dayKey(new Date(Date.now() - DAY)), box = el("div", "ovs"), n = 0, body = el("div", "qsw");
-    BIG4.forEach(function (lk) {
+    var yk = ESPN.dayKey(new Date(Date.now() - DAY)), box = el("div", "ovs"), body = el("div", "qsw"), rows = [];
+    BIG4.concat(["ncaafb"]).forEach(function (lk) {
       var lg = leagueOf(lk); if (!lg) return;
       var gs = (S.yf[lk] || S.games[lk] || []).filter(function (g) { return g.s === "final" && g.h[2] != null && g.a[2] != null && ESPN.dayKey(new Date(g.t)) === yk; });
-      if (!gs.length) return;
-      gs.sort(function (a, b) { return (isFollowed(b) ? 1 : 0) - (isFollowed(a) ? 1 : 0) || Math.abs(a.h[2] - a.a[2]) - Math.abs(b.h[2] - b.a[2]); });
-      var hd = el("div", "qsl"); hd.appendChild(el("b", null, lg.label)); hd.appendChild(el("span", null, gs.length + " game" + (gs.length === 1 ? "" : "s"))); body.appendChild(hd);
-      gs.forEach(function (g) {
-        n++;
-        var r = el("div", "qs" + (isFollowed(g) ? " fol" : "")), aw = g.a[2] > g.h[2];
-        r.tabIndex = 0; r.setAttribute("role", "button"); r.setAttribute("aria-label", g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2]);
-        var a = el("span", "qst" + (aw ? " w" : "")); a.appendChild(el("i", null, g.a[1])); a.appendChild(el("u", null, String(g.a[2]))); r.appendChild(a);
-        r.appendChild(el("span", "qsat", "@"));
-        var h = el("span", "qst" + (aw ? "" : " w")); h.appendChild(el("i", null, g.h[1])); h.appendChild(el("u", null, String(g.h[2]))); r.appendChild(h);
-        r.appendChild(el("span", "qsf", g.o ? "F/OT" : "F"));
-        var go = function () { openGame({ lk: lk, g: g }); };
-        r.onclick = go; r.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
-        body.appendChild(r);
-      });
+      if (lk === "ncaafb") gs = gs.filter(function (g) { return g.h[6] || g.a[6] || isFollowed(g); });   // college: ranked teams only
+      var L = gs.map(function (g) { return { g: g, lk: lk, ll: lg.label, h: qsHeat(g, lk) }; });
+      if (lk === "ncaafb") L = L.sort(function (a, b) { return b.h - a.h; }).slice(0, 8);
+      rows = rows.concat(L);
     });
-    if (!n) body.appendChild(el("p", "rb", "No NFL, NBA, NHL or MLB finals yesterday."));
-    box.appendChild(ovSection("Scoreboard", n ? n + " final" + (n === 1 ? "" : "s") + " \u00b7 big four" : "big four", body));
+    rows.sort(function (a, b) { return b.h - a.h; });
+    rows.forEach(function (r, i) {
+      var g = r.g, row = el("div", "qs" + (isFollowed(g) ? " fol" : "") + (i < 3 && r.h >= 40 ? " hot" : "")), aw = g.a[2] > g.h[2];
+      row.tabIndex = 0; row.setAttribute("role", "button"); row.setAttribute("aria-label", r.ll + ": " + g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2]);
+      var a = el("span", "qst" + (aw ? " w" : "")); a.appendChild(el("i", null, (g.a[6] ? g.a[6] + " " : "") + g.a[1])); a.appendChild(el("u", null, String(g.a[2]))); row.appendChild(a);
+      row.appendChild(el("span", "qsat", "@"));
+      var h = el("span", "qst" + (aw ? "" : " w")); h.appendChild(el("i", null, (g.h[6] ? g.h[6] + " " : "") + g.h[1])); h.appendChild(el("u", null, String(g.h[2]))); row.appendChild(h);
+      var f = el("span", "qsf"); f.appendChild(el("em", null, r.lk === "ncaafb" ? "CFB" : r.ll)); f.appendChild(el("b", null, g.o ? "F/OT" : "F")); row.appendChild(f);
+      var go = function () { openGame({ lk: r.lk, g: g }); };
+      row.onclick = go; row.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+      body.appendChild(row);
+    });
+    if (!rows.length) body.appendChild(el("p", "rb", "No NFL, NBA, NHL, MLB or ranked college football finals yesterday."));
+    box.appendChild(ovSection("Scoreboard", rows.length ? rows.length + " final" + (rows.length === 1 ? "" : "s") + " \u00b7 biggest first" : "yesterday", body));
     return box;
   }
-
   // ---------- Tomorrow: a month of what's coming for your teams, summarized (schedules already on the phone) ----------
   function renderTomorrow(out) {
     var now = Date.now(), t0 = new Date(); t0.setHours(0, 0, 0, 0); var day0 = t0.getTime(), to = day0 + 30 * DAY, items = [], per = {};
