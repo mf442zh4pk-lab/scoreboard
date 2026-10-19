@@ -558,7 +558,8 @@
   function fetchTeams(lazy) {
     var pk = lazy ? "l" : "c";
     if (teamsP[pk]) return teamsP[pk];
-    var ck = lazy ? "sb-teams2" : "sb-teams", ls = C.leagues.filter(function (l) { return !l.noTeams && !!l.lazy === !!lazy; });
+    var ck = lazy ? "sb-tm2" : "sb-tm", ls = C.leagues.filter(function (l) { return !l.noTeams && !!l.lazy === !!lazy; });
+    try { localStorage.removeItem(lazy ? "sb-teams2" : "sb-teams"); } catch (e) {}   // the older index without abbreviations and logos
     var cached = null;
     try { cached = JSON.parse(localStorage.getItem(ck) || "null"); } catch (e) {}
     if (cached && Date.now() - cached.at < 7 * DAY && cached.n === ls.length) return (teamsP[pk] = Promise.resolve(cached.v));
@@ -566,7 +567,7 @@
       // ESPN's /teams endpoint blocks browsers (CORS); the standings feed lists every team too.
       return getJson(V2 + "/" + l.path + "/standings").then(function (j) {
         var seen = {}, ts = [];
-        walk(j, []).forEach(function (g) { g.entries.forEach(function (e) { if (!seen[e.team.id]) { seen[e.team.id] = 1; ts.push({ id: e.team.id, name: e.team.displayName }); } }); });
+        walk(j, []).forEach(function (g) { g.entries.forEach(function (e) { if (!seen[e.team.id]) { seen[e.team.id] = 1; ts.push({ id: e.team.id, name: e.team.displayName, ab: e.team.abbreviation || "", lg: logoOf(e.team) }); } }); });
         return [l.key, ts];
       }, function () { return [l.key, []]; });
     })).then(function (rows) {
@@ -633,23 +634,23 @@
       var opp = cs.filter(function (c) { return String(c.team.id) !== me; })[0];
       if (!mine || !opp) return null;
       var st = ((comp.status || ev.status || {}).type || {}).state;
-      return { id: ev.id, st: (ev.seasonType || {}).type, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp), b: bcName(comp) };
+      return { id: ev.id, st: (ev.seasonType || {}).type, t: ev.date || comp.date, s: st === "in" ? "live" : st === "post" ? "final" : "up", opp: opp.team.displayName, home: mine.homeAway === "home", my: num(mine), op: num(opp), b: bcName(comp), o: [opp.team.abbreviation || "", logoOf(opp.team), String(opp.team.id)] };
     }).filter(Boolean);
   }
   // Standing (rank, record, streak) and schedule for one team.
   function fetchTeamInfo(lk, tid) {
     var lg = labelOf(lk);
     var st = getJson(V2 + "/" + lg.path + "/standings").then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
-    var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule";
+    var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule", me = null;
     // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
-    var sc = getJson(url).then(parseSchedule, function () { return []; }).then(function (gs) {
+    var sc = getJson(url).then(function (j) { var t = j.team || {}; me = [t.displayName || "", t.abbreviation || "", logoOf(t) || (t.logo || ""), String(t.id || tid)]; return parseSchedule(j); }, function () { return []; }).then(function (gs) {
       if (!gs.length || gs.some(function (g) { return g.st === 2; })) return gs;
       return getJson(url + "?seasontype=2").then(parseSchedule, function () { return []; }).then(function (reg) {
         var seen = {};
         return reg.concat(gs).filter(function (g) { if (seen[g.id]) return false; seen[g.id] = 1; return true; });
       });
     });
-    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1] }; });
+    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1], me: me }; });
   }
 
   window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
