@@ -584,11 +584,45 @@
     for (var k in v) for (var i = 0; i < v[k].length; i++) if (v[k][i].name === name) return { lk: k, id: v[k][i].id };
     return null;
   }
+  // A followed team's league and id: the core index first, then one search request (never the old sweep of every
+  // league's standings). Only hits in a league the app knows (config or added) count.
+  function pathKey(path) { var l = C.leagues.filter(function (x) { return x.path === path; })[0]; return l ? l.key : null; }
   function findTeam(name) {
     return fetchTeams().then(function (v) {
-      return findIn(v, name) || fetchTeams(true).then(function (v2) { return findIn(v2, name); });
+      return findIn(v, name) || search(name).then(function (r) {
+        var hit = r.teams.filter(function (t) { return t.name === name && pathKey(t.sport + "/" + t.slug); })[0];
+        return hit ? { lk: pathKey(hit.sport + "/" + hit.slug), id: hit.id } : null;
+      }, function () { return null; });
     });
   }
+
+  // ---------- search: every team and athlete ESPN knows, one small request per query ----------
+  // type=team,player trims the reply from ~60KB (articles, clips) to about 1KB. Answers are kept ten minutes.
+  var SRCH = "https://site.api.espn.com/apis/search/v2", srC = {};
+  function smallImg(u) { var m = /^https?:\/\/a\.espncdn\.com(\/i\/teamlogos\/.+)$/.exec(u || ""); return m ? "https://a.espncdn.com/combiner/i?img=" + m[1] + "&w=64&h=64" : (u || ""); }
+  function search(q) {
+    var k = String(q || "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (k.length < 2) return Promise.resolve({ teams: [], people: [] });
+    var e = srC[k];
+    if (e && Date.now() - e.at < 600000) return e.p;
+    e = { at: Date.now() }; srC[k] = e;
+    e.p = getJson(SRCH + "?limit=10&type=team,player&query=" + encodeURIComponent(k)).then(function (j) {
+      var teams = [], people = [];
+      (j.results || []).forEach(function (r) {
+        (r.contents || []).forEach(function (c) {
+          var tm = /~t:(\d+)/.exec(c.uid || ""), at = /~a:(\d+)/.exec(c.uid || ""), img = (c.image && c.image.default) || "";
+          var base = { name: String(c.displayName || "").trim(), sport: c.sport || "", slug: c.defaultLeagueSlug || "" };
+          if (r.type === "team" && tm) teams.push(Object.assign(base, { id: tm[1], ll: c.subtitle || c.description || "", lg: smallImg(img) }));
+          else if (r.type === "player" && at) people.push(Object.assign(base, { id: at[1], sub: c.subtitle || "", d: c.description || "", img: img, web: (c.link && c.link.web) || "" }));
+        });
+      });
+      e.d = { teams: teams, people: people };
+      return e.d;
+    }, function (x) { if (srC[k] === e) delete srC[k]; throw x; });
+    return e.p;
+  }
+  // The finished answer for a query, if there is one, so a re-render can paint it without waiting.
+  function peekSearch(q) { var e = srC[String(q || "").toLowerCase().replace(/\s+/g, " ").trim()]; return e && e.d; }
 
   function walk(n, out) {
     if (n.standings && n.standings.entries) out.push({ name: n.name, entries: n.standings.entries });
@@ -655,16 +689,16 @@
   }
   // Standing (rank, record, streak) and schedule for one team.
   var stC = {};   // one standings feed per league, kept five minutes, so hopping between teams costs one request
-  function standingsOf(lg) {
+  function standingsOf(lg, fresh) {
     var e = stC[lg.key];
-    if (e && Date.now() - e.at < 300000) return e.p;
+    if (e && !fresh && Date.now() - e.at < 300000) return e.p;
     e = { at: Date.now(), p: getJson(V2 + "/" + lg.path + "/standings") }; stC[lg.key] = e;
     e.p.catch(function () { if (stC[lg.key] === e) delete stC[lg.key]; });
     return e.p;
   }
-  function fetchTeamInfo(lk, tid) {
+  function fetchTeamInfo(lk, tid, fresh) {
     var lg = labelOf(lk);
-    var st = standingsOf(lg).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
+    var st = standingsOf(lg, fresh).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
     var url = BASE + "/" + lg.path + "/teams/" + tid + "/schedule", me = null;
     // In the offseason ESPN's default schedule can be just the playoffs, so also pull the regular season then.
     var sc = getJson(url).then(function (j) { var t = j.team || {}; me = [t.displayName || "", t.abbreviation || "", logoOf(t) || (t.logo || ""), String(t.id || tid)]; return parseSchedule(j); }, function () { return []; }).then(function (gs) {
@@ -677,5 +711,5 @@
     return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1], me: me }; });
   }
 
-  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, dayKey: dayKey, DAY: DAY };
+  window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, search: search, peekSearch: peekSearch, dayKey: dayKey, DAY: DAY };
 })();
