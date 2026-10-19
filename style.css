@@ -385,7 +385,7 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .sc,.dvs,.tb,.tgr{font-variant-numeric:tabular-nums}
 .card,.story,.sub,button,summary,.chip{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .ov summary:active,.trn summary:active,.usec summary:active{opacity:.7}
-.recap{content-visibility:auto;contain-intrinsic-size:auto 420px}
+.recaps+.ovs{margin-top:14px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 /* v41: yesterday scores strip */
 .rsw{display:flex;flex-direction:column;margin-top:6px}
