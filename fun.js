@@ -17,9 +17,9 @@
 
   // ---------- collection log ----------
   // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
-  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams" };
+  var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams", mn: "NFL Moments", mb: "NBA Moments", mm: "MLB Moments", mh: "NHL Moments" };
   var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic", S: "Signature" };
-  var RW = { C: 11, U: 5, R: 2.4, E: 1, L: .35, M: .07, S: 0 };
+  var RW = { C: 11, U: 3.5, R: 1.2, E: .35, L: .08, M: .012, S: 0 };
   var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
   var CAT = [
     ["w_confetti","w","C","🎊","Confetti Cannon","The classic. Someone's team came through.",HW],
@@ -86,7 +86,7 @@
     ["owl","x","U","🦉","Night Owl","Scores don't sleep.","Visit very late at night."],
     ["bat","x","U","🦇","Spooky Season","It's October.","Visit in October."],
     ["goat","x","U","🐐","GOAT","Greatest. Of. All. Typed.","On a keyboard, type the greatest of all time."],
-    ["gear","x","U","⚙️","Gear Head","Tightened every bolt.","Give the settings gear some attention."],
+    ["gear","x","U","⚙️","Gear Head","Tightened every bolt.","Open Settings from your profile again and again."],
     ["whip","x","U","🌪️","Whiplash","Bottom to top in a blink.","Scroll to the bottom and straight back up."],
     ["land","x","U","📱","Sideways","Landscape lover.","Turn your phone sideways."],
     ["konami","x","R","🕹️","Retro Mode","Up up down down...","A classic cheat code."],
@@ -138,7 +138,20 @@
     });
   });
   TK["nba|losangelesclippers"] = "t_nba_clippers"; TK["nhl|utahhockeyclub"] = "t_nhl_mammoth"; TK["mlb|oaklandathletics"] = "t_mlb_athletics";
-  CAT.push(["mack", "m", "S", "🦬", "Mack", "Glad to have you.", "Create an account."]);
+  var MOMS = {
+    nfl: "Immaculate Reception|🙌|M|1972. A deflected pass, a shoestring grab, and Pittsburgh's first playoff win.|steelers,raiders\nThe Catch|🤲|M|1982. Montana rolls right, Dwight Clark leaps, and a dynasty begins.|49ers,cowboys\n28–3|🐐|M|Super Bowl LI. The biggest comeback the big game has ever seen.|patriots,falcons\nThe Helmet Catch|🪖|L|Super Bowl XLII. Eli escapes, Tyree pins it to his helmet.|giants,patriots\nThe Guarantee|📣|L|Super Bowl III. Joe Namath promises a win, then delivers.|jets,colts\nMiracle at the Meadowlands|🏈|L|1978. A fumble, a scoop, and an Eagles touchdown.|eagles,giants\nMusic City Miracle|🎶|L|2000. A lateral across the field and a Titans playoff win.|titans,bills\nStaubach's Hail Mary|🙏|L|1975. Roger Staubach throws it up. Drew Pearson comes down with it.|cowboys,vikings\nThe Perfect Season|💯|L|1972. Seventeen games, zero losses. The Dolphins stand alone.|dolphins\nMalcolm Butler's Interception|🛡️|L|Super Bowl XLIX. A goal-line pick from nowhere.|patriots,seahawks\nThe Ice Bowl|🥶|E|1967. Bart Starr sneaks in on a frozen Lambeau field.|packers,cowboys\nThe Drive|🚗|E|1987. John Elway marches 98 yards to force overtime.|broncos,browns\nWide Right|↗️|E|Super Bowl XXV. A 47-yard kick drifts just outside the post.|bills,giants\nOne Yard Short|📏|E|Super Bowl XXXIV. The Titans stop at the one-yard line.|rams,titans\nBeast Quake|🌋|E|2011. Marshawn Lynch breaks tackle after tackle and Seattle shakes.|seahawks,saints\nMinneapolis Miracle|🪄|E|2018. A 61-yard touchdown on the final play.|vikings,saints\nPhilly Special|🦅|E|Super Bowl LII. A trick play, a quarterback catch, a first title.|eagles,patriots\nTuck Rule Game|🌨️|E|2002. A snowy night in Foxborough and a famous review.|patriots,raiders\nThe Toe Tap|👣|E|Super Bowl XLIII. Santonio Holmes keeps both toes in bounds.|steelers,cardinals\nFail Mary|😵|R|2012. A final-play call that stunned Monday Night Football.|seahawks,packers\nOdell's Catch|🖐️|R|2014. One hand, one impossible grab in the end zone.|giants,cowboys\n73–0|📊|R|1940. The most lopsided championship game ever played.|bears,commanders\nFavre After Dad|💔|R|2003. Four touchdowns on Monday Night, the day after losing his father.|packers,raiders\nVinatieri Beats the Rams|🦵|R|Super Bowl XXXVI. A last-second kick wins it for New England.|patriots,rams\nMarcus Allen's Run|🏃|R|Super Bowl XVIII. A 74-yard touchdown that reversed field.|raiders,commanders",
+    nba: "Wilt's 100|💯|M|1962. One hundred points in one game. It still stands.|warriors,knicks\nThe Last Shot|🕊️|M|1998 Finals. Jordan's final shot as a Bull, and the sixth title.|bulls,jazz\nThe Block|👑|M|2016 Finals Game 7. LeBron's chase-down block and Cleveland's first title.|cavaliers,warriors\nThe Shot|🔔|L|1989. Jordan hangs over Craig Ehlo and hits the buzzer-beater.|bulls,cavaliers\nKobe's 81|🐍|L|2006. Eighty-one points, the second-most ever in a game.|lakers,raptors\nWillis Reed Limps Out|🦵|L|1970 Finals Game 7. The captain walks onto the court and the Garden erupts.|knicks,lakers\nThe Flu Game|🤒|L|1997 Finals. Jordan, sick, scores 38 and finishes the job.|bulls,jazz\nRay Allen's Corner Three|🎯|L|2013 Finals Game 6. A shot that saved a season.|heat,spurs\nMagic Plays Center|✨|L|1980 Finals Game 6. A rookie guard fills in for Kareem and scores 42.|lakers,76ers\nHavlicek Stole the Ball|🕵️|L|1965. A famous steal in the final seconds of Game 7.|celtics,76ers\nReggie's Eight in Nine|⏱️|E|1995. Eight points in 9 seconds, and the Garden goes silent.|pacers,knicks\nBird Steals the Ball|🥷|E|1987. Larry Bird picks off the inbound pass and sets up the winner.|celtics,pistons\nDr. J's Baseline Scoop|🪂|E|1980 Finals. A reverse layup that defied physics.|76ers,lakers\nTriple Overtime|🕰️|E|1976 Finals Game 5. Often called the greatest game ever played.|celtics,suns\nIverson Steps Over Lue|🦶|E|2001 Finals Game 1. A stepback jumper, and a step right over Tyronn Lue.|76ers,lakers\nT-Mac's 13 in 33|🔥|E|2004. Thirteen points in 33 seconds to beat San Antonio.|rockets,spurs\n0.4 Seconds|🕐|E|2004. Derek Fisher's catch-and-shoot beats the clock by a fraction.|lakers,spurs\nKlay's 37|🌊|E|2015. Thirty-seven points in a single quarter.|warriors,kings\nVince Carter's Dunk Contest|🚀|E|2000. Elbow in the rim. It's over.|raptors\n33 Straight|🔗|R|1971–72. The Lakers win 33 games in a row.|lakers\n72–10|🐂|R|1995–96. The Bulls set the regular-season wins record.|bulls\nLinsanity|🗽|R|2012. A benchwarmer takes over New York.|knicks,nets\nThe Alley-Oop|🤝|R|2000 Western Finals Game 7. Kobe to Shaq, and the Lakers survive Portland.|lakers,blazers\nLillard Logo Shot|⌚|R|2019. Dame sends Oklahoma City home from 37 feet.|blazers,thunder\nCurry's Thunder Shot|🥶|R|2016. A 38-foot game-winner in overtime in Oklahoma City.|warriors,thunder",
+    mlb: "The Shot Heard 'Round the World|☄️|M|1951. Bobby Thomson's homer wins the pennant for the Giants.|giants,dodgers\nJackie Robinson Debuts|⭐|M|1947. Jackie Robinson breaks baseball's color barrier.|dodgers\nLarsen's Perfect Game|0️⃣|M|1956 World Series Game 5. The only perfect game in postseason history.|yankees,dodgers\nRuth's Called Shot|👉|L|1932 World Series. Did he point? The legend says yes.|yankees,cubs\nBuckner's Error|🧤|L|1986 World Series Game 6. A grounder through the legs and a Mets miracle.|mets,redsox\nGibson's Homer|🦿|L|1988 World Series Game 1. A limping pinch-hitter and a walk-off blast.|dodgers,athletics\nFisk Waves It Fair|🪄|L|1975 World Series Game 6. Carlton Fisk wills it around the pole.|redsox,reds\nMazeroski Walks It Off|🪵|L|1960. A Game 7 home run ends the World Series.|pirates,yankees\nCubs Break the Curse|🐻|L|2016. 108 years, ten innings, and a long-awaited title.|cubs,guardians\nHank Aaron's 715|🏠|L|1974. Hammerin' Hank passes Babe Ruth.|braves,dodgers\nGehrig's Farewell|🎙️|E|1939. Lou Gehrig says goodbye to Yankee Stadium.|yankees\nRipken's 2,131|🔢|E|1995. Cal Ripken passes Gehrig's record and takes a lap.|orioles,angels\nMays Makes The Catch|🧢|E|1954 World Series. An over-the-shoulder grab at the Polo Grounds.|giants,guardians\nJoe Carter Walks It Off|🎆|E|1993 World Series Game 6. A three-run homer ends it for Toronto.|bluejays,phillies\nBucky Dent|🏴|E|1978. A one-game playoff and a very unlikely home run.|yankees,redsox\nRoberts Steals Second|💨|E|2004 ALCS Game 4. The steal that started a comeback.|redsox,yankees\nDiMaggio's 56|5️⃣|E|1941. Fifty-six straight games with a hit.|yankees\nBonds Hits 73|🔨|E|2001. The single-season home run record.|giants,dodgers\nMcGwire's 62|🧨|E|1998. A race that brought fans back to baseball.|cardinals,cubs\nRose Passes Cobb|🌹|R|1985. Pete Rose gets hit number 4,192.|reds,padres\nKerry Wood's 20|🔥|R|1998. Twenty strikeouts in a nine-inning game.|cubs,astros\nThe Flip|🤾|R|2001 ALDS. Derek Jeter appears out of nowhere to flip the ball home.|yankees,athletics\nIchiro's 262|🎌|R|2004. Ichiro sets the single-season hit record.|mariners,rangers\nOhtani 50–50|🦄|R|2024. The first 50 homers and 50 steals in a season.|dodgers,marlins\nBumgarner's Game 7|🧊|R|2014 World Series. Five innings of relief on two days' rest.|giants,royals",
+    nhl: "Miracle on Ice|🇺🇸|M|1980. A team of college kids beats the Soviet Union.|\nThe Flying Goal|🛫|M|1970. Bobby Orr scores in overtime and soars through the air.|bruins,blues\nGretzky's 92|9️⃣|M|1981–82. Ninety-two goals in a season. Nobody has come close.|oilers\nThe Golden Goal|🥇|L|2010 Olympics. Sidney Crosby scores in overtime for Canada.|penguins\nHenderson Scores for Canada|🍁|L|1972 Summit Series. A goal with 34 seconds left.|\nMessier's Guarantee|📢|L|1994. Mark Messier promises a win and scores a hat trick.|rangers,devils\nGretzky Passes Howe|📈|L|1994. Goal number 802 makes Gretzky the all-time leader.|kings,canucks\nBourque Finally Wins|🏆|L|2001. Ray Bourque lifts the Cup after 22 seasons.|avalanche,devils\nBaun's Broken Ankle|🦴|L|1964. Bobby Baun scores in overtime on a broken ankle.|mapleleafs,redwings\nMatteau! Matteau!|🥅|L|1994. A double-overtime wraparound sends the Rangers to the Final.|rangers,devils\nGretzky Traded|✈️|E|1988. The Great One heads to Los Angeles.|oilers,kings\nRoy's Wink|😉|E|1993 Final. Patrick Roy winks at Tomas Sandstrom, and Montreal wins.|canadiens,kings\nLemieux Returns|🎗️|E|1993. Mario Lemieux returns right after his final radiation treatment and scores.|penguins,flyers\nThe Rocket's 50 in 50|🚀|E|1944–45. Maurice Richard scores fifty goals in fifty games.|canadiens\nSittler's Ten|🔟|E|1976. Darryl Sittler records ten points in one game.|mapleleafs,bruins\nKane's Phantom Goal|👻|E|2010 Final. Patrick Kane scores in overtime and nobody sees it.|blackhawks,flyers\nOvechkin Lifts the Cup|🥂|E|2018. Alex Ovechkin finally raises the Stanley Cup.|capitals,goldenknights\nYzerman's Double-OT Slapshot|💥|E|1996. A shot from the blue line sinks St. Louis.|redwings,blues\n215 Points|2️⃣|E|1985–86. Wayne Gretzky scores 215 points in 80 games.|oilers\nOvechkin's 895|🎯|R|2025. Ovechkin passes Gretzky as the NHL's all-time goals leader.|capitals,islanders\nBruins Game 7 Comeback|🐻|R|2013. Down 4–1 in the third, Boston wins in overtime.|bruins,mapleleafs\nToo Many Men|🙈|R|1979. A penalty that ended Boston's season.|bruins,canadiens\nBrodeur Scores|🧤|R|1997. A goaltender scores a playoff goal.|devils,canadiens\nGolden Knights Debut Run|⚔️|R|2018. An expansion team reaches the Stanley Cup Final in year one.|goldenknights\nLightning's Sweep|⚡|R|2019. 62 wins, then swept in the first round.|lightning,bluejackets"
+
+  }, MCAT = { nfl: "mn", nba: "mb", mlb: "mm", nhl: "mh" }, MLG = { nfl: [], nba: [], mlb: [], nhl: [] }, MKW = {}, MHINT = { nfl: "Open NFL games. Famous moments are very hard to pull, and games with the teams involved help.", nba: "Open NBA games. Famous moments are very hard to pull, and games with the teams involved help.", mlb: "Open MLB games. Famous moments are very hard to pull, and games with the teams involved help.", nhl: "Open NHL games. Famous moments are very hard to pull, and games with the teams involved help." };
+  Object.keys(MOMS).forEach(function (lk) {
+    MOMS[lk].split("\n").forEach(function (ln) {
+      var p = ln.split("|"), id = "mo_" + lk + "_" + slug(p[0]);
+      CAT.push([id, MCAT[lk], p[2], p[1], p[0], p[3], MHINT[lk]]); MKW[id] = p[4] ? p[4].split(",") : []; MLG[lk].push(id);
+    });
+  });
+  CAT.unshift(["mack", "m", "S", "🦬", "Mack", "Glad to have you.", "Create an account."]);
   var IDX = {}; CAT.forEach(function (c, i) { c.n = i + 1; IDX[c[0]] = c; });
   var TOTAL = CAT.length, col = { i: {}, s: {}, d: [] };
   try { var rc = JSON.parse(localStorage.getItem("sb-col") || "null"); if (rc && rc.i) col = rc; } catch (e) {}
@@ -184,7 +197,7 @@
     }
     return E("span", cls, c[3]);
   }
-  var TP = { C: .5, U: .35, R: .2, E: .1, L: .05, M: .025 };
+  var TP = { C: .3, U: .18, R: .07, E: .03, L: .012, M: .004 };
   function teamDrop(lk, g) {                     // opening a game rolls once for each team in it, by rarity
     if (!g || !TCAT[lk]) return;
     var rolled, ch = false; try { rolled = JSON.parse(localStorage.getItem("sb-roll") || "[]"); } catch (e) { rolled = []; }
@@ -194,6 +207,18 @@
       rolled.push(key); ch = true;
       if (Math.random() < TP[IDX[id][2]]) { var m = /img=([^&]+)/.exec(s[5] || ""); disc(id, m ? decodeURIComponent(m[1]) : ""); }
     });
+    var mk = lk + g.id + "mo";
+    if (MLG[lk] && rolled.indexOf(mk) < 0) {
+      rolled.push(mk); ch = true;
+      if (Math.random() < .05) {
+        var nm = [g.h, g.a].map(function (s) { return s ? slug(s[0]) : ""; }), pool = [], tw = 0;
+        MLG[lk].forEach(function (id) { if (col.i[id]) return; var w = MKW[id].some(function (k) { return nm.some(function (n) { return n.indexOf(k) >= 0; }); }) ? 6 : 1; pool.push([id, w]); tw += w; });
+        if (pool.length) {
+          var r = Math.random() * tw, k2 = 0; while (k2 < pool.length - 1 && r >= pool[k2][1]) { r -= pool[k2][1]; k2++; }
+          var mid = pool[k2][0]; if (Math.random() < { R: .5, E: .3, L: .12, M: .04 }[IDX[mid][2]]) disc(mid);
+        }
+      }
+    }
     if (ch) { try { localStorage.setItem("sb-roll", JSON.stringify(rolled.slice(-300))); } catch (e) {} }
   }
   function tier(c) { return "CURELMS".indexOf(c[2]); }
@@ -335,7 +360,7 @@
     var st = out.querySelectorAll(".fire3,.fire5,.cold3,.cold5,.heat");
     for (var si = 0; si < st.length; si++) { var cl = st[si].classList; ["fire3", "fire5", "cold3", "cold5"].forEach(function (k) { if (cl.contains(k)) disc("s_" + k); }); if (cl.contains("heat")) disc("s_heat"); }
     if (RM) return; arrivals++;
-    if (Math.random() < 1 / 600) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
+    if (Math.random() < 1 / 1500) { disc("gt"); gConfetti(90, ["🎫", "✨", "💎"]); say("🎫 GOLDEN TICKET"); }
     var cards = shuffle([].slice.call(out.querySelectorAll(".recap.w,.recap.l,.card.followed"))).slice(0, 4), anyWin = false;
     cards.forEach(function (c) {
       var win = c.classList.contains("w") || !!c.querySelector(".pill.final.w"), loss = c.classList.contains("l") || !!c.querySelector(".pill.final.l");
@@ -351,9 +376,9 @@
         else LOSE[k](holder(c));
       }
     });
-    if (anyWin && Math.random() < .045) { gConfetti(70); found("legend"); }
+    if (anyWin && Math.random() < .02) { gConfetti(70); found("legend"); }
     var r = Math.random();
-    if (r < .07) ball(); else if (r < .12) seasonal(); else if (r < .15) gold(out); else if (r < .17) cameo();
+    if (r < .04) ball(); else if (r < .07) seasonal(); else if (r < .09) gold(out); else if (r < .102) cameo();
     special();
   }
   var SPECIAL_DONE = false;
@@ -447,7 +472,7 @@
     var t = e.target; if (!t || !t.closest) return;
     var rb = t.closest("#rail button"); if (rb) { seenTabs[rb.textContent] = 1; if (Object.keys(seenTabs).length >= 5) disc("tour"); }
     if (t.closest("#refresh") && recent(taps.stamp || (taps.stamp = []), 2500) >= 5) { taps.stamp.length = 0; disc("stamp"); say("⏱️ Yes, it's still ticking."); }
-    if (t.closest("#gear") && recent(taps.gear || (taps.gear = []), 3000) >= 7) { taps.gear.length = 0; disc("gear"); var g = $("gear"); if (!RM) { g.classList.add("gear-go"); setTimeout(function () { g.classList.remove("gear-go"); }, 1400); } say("⚙️ Loose bolt found."); }
+    
   }, true);
   addEventListener("hashchange", function () { if (/^#game\//.test(location.hash)) disc("dive"); });
   addEventListener("offline", function () { disc("off"); });
@@ -472,7 +497,7 @@
   }, { passive: true });
   dates();
 
-  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
