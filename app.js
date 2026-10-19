@@ -6,7 +6,7 @@
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
-  var PINS = [], TC = {}, EAGER = [];
+  var PINS = [], TC = {}, EAGER = [], RK = "", RT = 0;
   try { EAGER = JSON.parse(localStorage.getItem("sb-eager") || "[]") || []; } catch (e) {}
   function addEager(k) { if (EAGER.indexOf(k) < 0) { EAGER.push(k); try { localStorage.setItem("sb-eager", JSON.stringify(EAGER)); } catch (e) {} } }
   try { PINS = JSON.parse(localStorage.getItem("sb-pins") || "[]") || []; } catch (e) {}
@@ -191,7 +191,7 @@
   function sessName(n) { return SESS[n] || n; }
   function card(x) {
     if (x.g.ev) return evCard(x);
-    var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : ""));
+    var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : "") + (isFollowed(g) ? strCls(streakOf(C.followed.indexOf(g.h[0]) >= 0 ? g.h[0] : g.a[0])) : ""));
     var top = el("div", "top");
     var ptxt = g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
     if (g.s === "final" && g.h[2] != null && g.a[2] != null) {
@@ -285,6 +285,28 @@
     e.appendChild(document.createTextNode(text));
     return e;
   }
+  // ---------- fun stuff: streak borders, win/loss pops, confetti (all CSS-driven, played once) ----------
+  var STK = {};
+  function streakOf(name) {
+    var gs = tcGames(name); if (!gs.length) return null;
+    var fin = 0; gs.forEach(function (g) { if (g.s === "final") fin++; });
+    if (fin === gs.length) return null;                       // season over: a streak means nothing now
+    var k = name + ":" + fin; if (STK[k] !== undefined) return STK[k];
+    var ts = trendStats(gs);
+    return (STK[k] = ts && ts.cur.t !== "T" && ts.cur.n >= 3 ? { t: ts.cur.t, n: ts.cur.n } : null);
+  }
+  function strCls(v) { return v ? " " + (v.t === "W" ? "fire" : "cold") + (v.n >= 5 ? "5" : "3") : ""; }
+  function strPill(v) { return v ? el("span", "stk " + (v.t === "W" ? "hot" : "ice"), (v.t === "W" ? "\uD83D\uDD25 " : "\u2744\uFE0F ") + v.t + v.n) : null; }
+  function confetti() {
+    var cf = el("span", "cf"); cf.setAttribute("aria-hidden", "true");
+    var cols = ["#ffd200", "#ff7a18", "#4ade80", "#38bdf8", "#f472b6"];
+    for (var i = 0; i < 14; i++) {
+      var p = document.createElement("i"), ang = (i / 14) * Math.PI * 2 + (i % 3) * 0.2, d = 34 + (i % 4) * 14;
+      p.style.cssText = "--dx:" + Math.round(Math.cos(ang) * d) + "px;--dy:" + Math.round(Math.sin(ang) * d - 10) + "px;--c:" + cols[i % 5] + ";--r:" + (i * 47 % 360) + "deg;animation-delay:" + (i % 5) * 35 + "ms";
+      cf.appendChild(p);
+    }
+    return cf;
+  }
   // ---------- Yesterday > My teams: all your sports on one page ----------
   var SIGMA = { nfl: 13, ncaafb: 14, nba: 12, ncaamb: 11, wnba: 11, ncaawb: 11, nhl: 2, mlb: 3.5, epl: 1.5, ucl: 1.5, mls: 1.5, afl: 28 };
   function tcGames(name) { var T = S.teams[name] && S.teams[name].games ? S.teams[name] : TC[name]; return (T && T.games) || []; }
@@ -315,7 +337,7 @@
       info.forEach(function (r) {
         var row = el("div", "fg"); row.appendChild(el("div", "dvn", r.n));
         var dots = el("div", "fgd");
-        r.g.slice(-10).forEach(function (g) { dots.appendChild(el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t")); });
+        r.g.slice(-10).forEach(function (g, di) { var d2 = el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t"); d2.style.setProperty("--i", di); dots.appendChild(d2); });
         row.appendChild(dots);
         var rt = el("div", "dvs", r.s ? Math.round(r.s.pct * 100) + "%" : ""); if (r.s) rt.appendChild(el("small", null, r.s.cur.t + r.s.cur.n));
         row.appendChild(rt);
@@ -366,12 +388,15 @@
     if (!played.length) { out.appendChild(notice("No games yesterday", "None of your teams played yesterday.")); out.appendChild(overview(y, played)); return; }
     var gr = el("div", "recaps");
     played.forEach(function (t) {
-      var a = el("article", "recap");
+      var stv = streakOf(t.name);
+      var a = el("article", "recap " + (t.result === "W" ? "w" : t.result === "L" ? "l" : "t") + strCls(stv));
       var h = el("div", "rh");
       var yh = el("h3", null, t.name), yl = logoFor(t.name);
       if (yl) { var yb = el("span", "ab lg sm"); yb.appendChild(logoImg(yl, "")); yh.insertBefore(yb, yh.firstChild); }
       h.appendChild(yh);
+      var sp = strPill(stv); if (sp) h.appendChild(sp);
       h.appendChild(el("span", "res" + (t.result === "W" ? " win" : ""), t.result === "W" ? "Won" : t.result === "L" ? "Lost" : "Tied"));
+      if (t.result === "W") a.appendChild(confetti());
       a.appendChild(h);
       a.appendChild(el("div", "rl", t.line));
       a.appendChild(el("p", "rb", t.body));
@@ -821,7 +846,7 @@
     svg.appendChild(sv("line", { x1: 0, x2: W, y1: mid, y2: mid, class: "t-mid" }));
     gs.forEach(function (g, i) {
       var m = g.my - g.op, h = Math.max(2, Math.abs(m) / mx * (mid - 4));
-      svg.appendChild(sv("rect", { x: (i * bw + bw * 0.14).toFixed(1), width: (bw * 0.72).toFixed(1), y: m >= 0 ? (mid - h).toFixed(1) : mid, height: h.toFixed(1), rx: 2, class: m > 0 ? "t-w" : m < 0 ? "t-l" : "t-t" }, (g.home ? "vs " : "at ") + g.opp + " \u00b7 " + (m > 0 ? "W " : m < 0 ? "L " : "T ") + g.my + "-" + g.op));
+      svg.appendChild(sv("rect", { x: (i * bw + bw * 0.14).toFixed(1), width: (bw * 0.72).toFixed(1), y: m >= 0 ? (mid - h).toFixed(1) : mid, height: h.toFixed(1), rx: 2, class: m > 0 ? "t-w" : m < 0 ? "t-l" : "t-t", style: "--i:" + i }, (g.home ? "vs " : "at ") + g.opp + " \u00b7 " + (m > 0 ? "W " : m < 0 ? "L " : "T ") + g.my + "-" + g.op));
     });
     return svg;
   }
@@ -829,7 +854,7 @@
     var W = 300, H = 46, n = s.cum.length, svg = sv("svg", { viewBox: "0 0 " + W + " " + H, class: "tsv", role: "img", "aria-label": "Win percentage over the season" });
     var y = function (p) { return (4 + (1 - p) * (H - 8)).toFixed(1); }, x = function (i) { return n > 1 ? (4 + i * (W - 8) / (n - 1)).toFixed(1) : W / 2; };
     svg.appendChild(sv("line", { x1: 0, x2: W, y1: y(0.5), y2: y(0.5), class: "t-half" }));
-    svg.appendChild(sv("polyline", { points: s.cum.map(function (p, i) { return x(i) + "," + y(p); }).join(" "), class: "t-line", fill: "none" }));
+    svg.appendChild(sv("polyline", { points: s.cum.map(function (p, i) { return x(i) + "," + y(p); }).join(" "), class: "t-line", fill: "none", pathLength: 1 }));
     svg.appendChild(sv("circle", { cx: x(n - 1), cy: y(s.cum[n - 1]), r: 3.5, class: "t-dot" }));
     return svg;
   }
@@ -849,7 +874,7 @@
     sm.appendChild(el("span", "tm " + lab[2], lab[0] + " " + lab[1]));
     sm.appendChild(el("span", "tsub", s.l5.w + "-" + s.l5.l + (s.l5.t ? "-" + s.l5.t : "") + " in last " + s.l5.n + " \u00b7 season " + recStr(s.W, s.L, s.T)));
     var dd = el("span", "tdots");
-    s.fin.slice(-5).forEach(function (g) { dd.appendChild(el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t")); });
+    s.fin.slice(-5).forEach(function (g, di) { var d1 = el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t"); d1.style.setProperty("--i", di); dd.appendChild(d1); });
     sm.appendChild(dd);
     box.appendChild(sm);
     var body = el("div", "trb");
@@ -880,7 +905,7 @@
         var mid = el("div", "hm"); mid.appendChild(el("div", "hname", r.name));
         var bar = el("div", "hbar"), fill = el("i", "up"); fill.style.width = Math.max(8, Math.round(r.s.cur.n / mx * 100)) + "%"; bar.appendChild(fill); mid.appendChild(bar);
         li.appendChild(mid);
-        var rt = el("div", "hr"); rt.appendChild(el("b", null, "W" + r.s.cur.n)); rt.appendChild(el("span", "tsub", "best " + r.s.best));
+        var rt = el("div", "hr"); rt.appendChild(el("b", null, (r.s.cur.n >= 5 ? "\uD83D\uDD25 " : "") + "W" + r.s.cur.n)); rt.appendChild(el("span", "tsub", "best " + r.s.best));
         li.appendChild(rt); ul.appendChild(li);
       });
       box.appendChild(ul);
@@ -911,7 +936,10 @@
         var stt = T.standing && standTable(name, T.standing);
         if (stt) a.appendChild(stt);
         var ts = trendStats(gs);
-        if (ts) { a.appendChild(trendsPanel(ts, off, !heatRows.length)); heatRows.push({ name: name, s: ts, off: off }); }
+        if (ts) {
+          a.appendChild(trendsPanel(ts, off, !heatRows.length)); heatRows.push({ name: name, s: ts, off: off });
+          if (!off && ts.cur.t !== "T" && ts.cur.n >= 3) { var sv0 = { t: ts.cur.t, n: ts.cur.n }; a.className += strCls(sv0); var sp2 = strPill(sv0); if (sp2) h.appendChild(sp2); }
+        }
         else { var fd = formDots(gs); if (fd) a.appendChild(fd); }
         if (off) seasonRecap(a, T);
         else {
@@ -1279,6 +1307,10 @@
     rail.appendChild(main); rail.appendChild(lgs);
 
     var out = $("out"); out.textContent = "";
+    // Entrance animations play when you arrive somewhere new, not on the quiet once-a-minute refreshes.
+    var vk = [S.tab, S.ysub, S.view && (S.view.g ? S.view.g.id : S.view.id), S.settings ? 1 : 0].join("|");
+    if (vk !== RK) { RK = vk; out.classList.add("enter"); clearTimeout(RT); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500); }
+    else if (!RT) out.classList.remove("enter");
     var about = "Following: " + C.followed.join(", ") + ".";
     if (C.noFeed.length) about += " " + C.noFeed.join(", ") + " " + (C.noFeed.length > 1 ? "are" : "is") + " on the list, but there is no data feed for " + (C.noFeed.length > 1 ? "them" : "it") + " yet.";
     $("about").textContent = about;
@@ -1539,5 +1571,5 @@
   load(true);
   var l0 = leagueOf(S.tab); if (l0 && l0.lazy) loadLeague(S.tab);
   // Offline-ready app shell and cached logos (sw.js). Failure is harmless.
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=41").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=43").catch(function () {}); } catch (e) {} });
 })();
