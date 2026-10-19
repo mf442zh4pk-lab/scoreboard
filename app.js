@@ -78,6 +78,18 @@
     if (txt != null) e.textContent = txt;
     return e;
   }
+  // A search box with its own clear button (×), shown only while there's text. Clearing fires "input", so every
+  // box's own handler redraws as if the text had been deleted by hand; the keyboard stays up.
+  function clearable(inp) {
+    var w = el("span", "tq"), x = el("button", "tq-x", "\u00d7");
+    x.type = "button"; x.tabIndex = -1; x.setAttribute("aria-label", "Clear search");
+    var sync = function () { w.classList.toggle("has", !!inp.value); };
+    inp.addEventListener("input", sync);
+    x.addEventListener("pointerdown", function (e) { e.preventDefault(); });   // don't steal focus (keeps the phone keyboard open)
+    x.onclick = function (e) { e.preventDefault(); e.stopPropagation(); buzz(4); inp.value = ""; inp.dispatchEvent(new Event("input", { bubbles: true })); try { inp.focus(); } catch (er) {} };
+    w.appendChild(inp); w.appendChild(x); sync(); setTimeout(sync, 0);
+    return w;
+  }
   // Team name with its top-25 ranking in front ("#5 Georgia Bulldogs"), for text lines; rankedName() does the same for card rows.
   function tn(t) { return (t[6] ? "#" + t[6] + " " : "") + t[0]; }
   function rankedName(t) {
@@ -1293,7 +1305,7 @@
       var hit = Object.keys(names).filter(function (n) { return n.toLowerCase() === q.toLowerCase(); })[0] || q;
       if (!fpHas(hit)) setFp(C.fp.concat([hit])); else toast("Already following " + hit + ".");
     };
-    f.appendChild(inp); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
+    f.appendChild(clearable(inp)); f.appendChild(add); f.appendChild(dl); box.appendChild(f);
     return box;
   }
   function peopleStatus() {
@@ -1367,8 +1379,8 @@
     inp.onfocus = function () { teamIndex().then(fill); if (!inp.value.trim()) fill(); };
     inp.onblur = function () { setTimeout(function () { if (!inp.value.trim() && D0.activeElement !== inp && inp.isConnected) res.textContent = ""; }, 150); };
     inp.oninput = fill;
-    inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); var r = res.querySelector(".find-tm"); if (r) r.onclick(); } if (e.key === "Escape") { inp.value = ""; fill(); inp.blur(); } };
-    box.appendChild(inp); box.appendChild(res);
+    inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); var r = res.querySelector(".find-tm"); if (r) r.onclick(); } if (e.key === "Escape") { inp.value = ""; inp.dispatchEvent(new Event("input")); inp.blur(); } };
+    box.appendChild(clearable(inp)); box.appendChild(res);
     if (st.q) { teamIndex().then(fill); fill(); }
     if (TFF === key) { TFF = ""; requestAnimationFrame(function () { try { inp.focus({ preventScroll: true }); } catch (e) {} }); }
     return box;
@@ -2484,9 +2496,9 @@
   function closeFind() { if (!FIND) return; var f = FIND; FIND = null; f.classList.remove("in"); document.body.classList.remove("find-on"); setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 220); }
   function openFind() {
     if (FIND) return;
-    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "\u2715"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026");
+    var ov = el("div", "find"), top = el("div", "find-top"), inp = el("input", "find-q"), x = el("button", "find-x", "Cancel"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team or athlete in any sport, a league, or \u201clive\u201d, \u201ctoday\u201d\u2026");
     inp.type = "search"; inp.placeholder = "Find a game, team or athlete"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Find a game, team or athlete"); x.type = "button"; x.setAttribute("aria-label", "Close"); x.onclick = closeFind;
-    top.appendChild(inp); top.appendChild(x); ov.appendChild(top); ov.appendChild(hint); ov.appendChild(res);
+    top.appendChild(clearable(inp)); top.appendChild(x); ov.appendChild(top); ov.appendChild(hint); ov.appendChild(res);
     var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {};
     // The core-league index (instant, cached a week) loads with Find; ESPN search covers everything else as you type.
     teamIndex().then(function () { if (FIND === ov) fill(); });
@@ -2574,7 +2586,7 @@
     }
     inp.oninput = fill;
     inp.onkeydown = function (e) { if (e.key === "Enter" && cur.length) { e.preventDefault(); pickLeague(cur[0]); } };
-    box.appendChild(inp); box.appendChild(res); fill();
+    box.appendChild(clearable(inp)); box.appendChild(res); fill();
     setTimeout(function () { try { inp.focus(); } catch (e) {} }, 0);
     return box;
   }
@@ -2824,7 +2836,7 @@
   setInterval(stampTick, 30000);
   window.SB_SET = function () { S.settings = true; S.view = null; clearHash(); render(); };
   // Public surface for add-ons and future features (read-only state, hooks, and a few actions). See README.md.
-  window.SB = { v: FV.replace(/^v=/, ""), on: on, state: S, config: C, render: renderSoon, open: openGame, tab: goTab, toast: toast, allGames: allGames, isFollowed: isFollowed, el: el };
+  window.SB = { v: FV.replace(/^v=/, ""), on: on, state: S, config: C, render: renderSoon, open: openGame, tab: goTab, toast: toast, allGames: allGames, isFollowed: isFollowed, el: el, clearable: clearable };
   // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
   (function () {
     var ptr = $("ptr"), ring = ptr.querySelector(".ring"), lbl = ptr.querySelector(".pl"), y0 = null, pull = 0, armed = false, TH = 80;
