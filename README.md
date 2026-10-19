@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=74` → `?v=75` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=75` → `?v=76` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. The service worker picks up the new version on the next open.
 
 ## Motion system
@@ -68,7 +68,7 @@ Defaults live in the `PREF` object; whatever the person changes is saved under `
 
 ## Yesterday tab layout
 
-Three sub-tabs. **Yesterday**: your teams' results, the quick Scoreboard (`quickScores`: every big-four final from yesterday plus college football games with a ranked team, ordered by `qsHeat`: your teams, upsets, overtime, one-score finishes, ranked matchups; primetime games (6:30pm local or later) get the gradient edge and show their tip-off time, one-score games get the lavender ring), then the overview (scores, form guide, next 7 days). **Week**: last 7 days, top performances, then the next 30 days. **Recap**: the day's stories (soccer only when it's a final, World Cup, title decider or a followed side: `bigSoccer`), then the news feed.
+Three sub-tabs. **Yesterday**: your teams' results, the quick Scoreboard (`quickScores`: every big-four final from yesterday plus college football games with a ranked team, ordered by `qsHeat`: your teams, upsets, overtime, one-score finishes, ranked matchups; primetime games (6:30pm local or later) get the solid slate frame, corner notch and a slate time pill; one-score games get the floating lavender ring and a "by n" pill; tapping any row opens the game, with `syncFromHash` falling back to `S.yf` for finals already trimmed from the list), then the overview (scores, form guide, next 7 days). **Week**: last 7 days, top performances, then the next 30 days. **Recap**: the day's stories (soccer only when it's a final, World Cup, title decider or a followed side: `bigSoccer`), then the news feed.
 
 ## Week (Yesterday → Week)
 
