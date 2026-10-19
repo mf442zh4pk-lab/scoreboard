@@ -398,3 +398,55 @@ button.sub-h:hover .lgh-t{text-decoration:underline;text-underline-offset:3px}
 .rsm span{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rss{font:800 20px var(--hd);font-variant-numeric:tabular-nums}
 .rs.w .rss{color:var(--win)} .rs.l .rss{color:var(--live)}
+/* v43: fun stuff. Everything is transform/opacity, plays once, and is switched off for reduced motion. */
+@property --a{syntax:"<angle>";inherits:false;initial-value:0deg}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}55%{transform:scale(1.25);opacity:1}100%{transform:scale(1)}}
+@keyframes droop{0%{transform:translateY(-6px) rotate(0)}30%{transform:translateX(-4px) rotate(-5deg)}60%{transform:translateX(3px) rotate(3deg)}100%{transform:none}}
+@keyframes burst{0%{transform:translate(0,0) rotate(0) scale(.3);opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(1);opacity:0}}
+@keyframes ring{to{--a:360deg}}
+@keyframes glowf{50%{box-shadow:0 0 22px rgba(255,140,30,.55)}}
+@keyframes glowc{50%{box-shadow:0 0 20px rgba(90,200,250,.5)}}
+@keyframes flick{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(5deg) scale(1.18)}}
+@keyframes barx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes growy{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes dotp{from{transform:scale(0)}60%{transform:scale(1.5)}to{transform:scale(1)}}
+/* arriving somewhere new: cards rise in one after another */
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(1){animation:rise .38s cubic-bezier(.2,.7,.2,1) backwards}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+2){animation:rise .38s cubic-bezier(.2,.7,.2,1) .06s backwards}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+3){animation-delay:.12s}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+4){animation-delay:.18s}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+5){animation-delay:.24s}
+.enter :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni):nth-child(n+7){animation-delay:.3s}
+/* wins pop, losses droop */
+.enter .recap.w .res,.enter .pill.final.w,.enter .rs.w .rsb{animation:pop .5s .15s cubic-bezier(.3,1.5,.5,1) backwards}
+.enter .recap.l .res,.enter .pill.final.l,.enter .rs.l .rsb{animation:droop .6s .15s ease-out backwards}
+.enter .recap.w .rh h3{animation:pop .45s cubic-bezier(.3,1.5,.5,1) backwards}
+.recap.w,.recap.l{position:relative}
+.recap.l .res{color:var(--live)}
+.cf{position:absolute;right:46px;top:30px;width:0;height:0;pointer-events:none}
+.cf i{position:absolute;left:0;top:0;width:7px;height:10px;border-radius:2px;background:var(--c);opacity:0}
+.enter .cf i{animation:burst .9s cubic-bezier(.15,.7,.3,1) forwards}
+/* streak borders: 3+ is a warm/cool ring that circles twice, 5+ keeps going and glows */
+.fire3,.fire5,.cold3,.cold5{border-color:transparent!important;border-width:2px!important;border-left-width:4px!important;border-style:solid!important}
+.fire3,.fire5{background:linear-gradient(var(--card),var(--card)) padding-box,conic-gradient(from var(--a),#ff7a18,#ffd200,#ff3d00,#ffb300,#ff7a18) border-box}
+.cold3,.cold5{background:linear-gradient(var(--card),var(--card)) padding-box,conic-gradient(from var(--a),#5ac8fa,#e0f7ff,#4f6dff,#9ad7ff,#5ac8fa) border-box}
+.fire3{animation:ring 3s linear 2}
+.cold3{animation:ring 5s linear 2}
+.fire5{animation:ring 2.4s linear infinite,glowf 2s ease-in-out infinite}
+.cold5{animation:ring 6s linear infinite,glowc 3s ease-in-out infinite}
+.stk{font-size:11px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.stk.hot{background:rgba(255,140,30,.16);color:#ff9a3d}
+.stk.ice{background:rgba(90,200,250,.16);color:#5ac8fa}
+.card .stk{margin-left:auto}
+/* charts draw themselves */
+.enter .hbar i{transform-origin:left;animation:barx .7s .15s cubic-bezier(.2,.7,.2,1) backwards}
+.enter .dvt i{transform-origin:left;animation:barx .6s .15s backwards}
+.enter .tsv rect{transform-box:fill-box;transform-origin:50% 100%;animation:growy .5s calc(var(--i,0)*28ms + .1s) cubic-bezier(.2,.7,.2,1) backwards}
+.enter .tsv rect.t-l{transform-origin:50% 0}
+.enter .t-line{stroke-dasharray:1;animation:draw .9s .2s ease-out backwards}
+.enter .t-dot{animation:pop .4s 1s backwards;transform-box:fill-box;transform-origin:center}
+.enter .fgd i,.enter .tdots i{animation:dotp .35s calc(var(--i,0)*45ms + .2s) backwards}
+.card.click:active,.story.click:active,.recap[role=button]:active{transform:scale(.985)}
+.rh{flex-wrap:wrap}
