@@ -1629,8 +1629,8 @@
     if (pp) { $("prof").textContent = pp.n.charAt(0).toUpperCase(); $("prof").className = "on"; }
   } catch (e) {}
   window.addEventListener("load", function () {
-    var go = function () { ensureFun(function () {}); };
+    var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=55").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=56").catch(function () {}); } catch (e) {} });
 })();
