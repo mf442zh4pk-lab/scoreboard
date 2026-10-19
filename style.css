@@ -27,16 +27,15 @@ header{display:flex;gap:12px;align-items:center;justify-content:space-between;pa
 .mark{width:40px;height:40px;flex:none;border-radius:12px;cursor:pointer;box-shadow:0 4px 14px -4px rgba(45,58,85,.55)}
 h1{display:flex;flex-direction:column;gap:3px;margin:0;min-width:0;overflow:hidden;text-transform:uppercase;line-height:.95}
 h1 .t1{font:700 12px/1 var(--bd);letter-spacing:.34em;color:var(--ter);padding-left:2px}
-h1 .t2{white-space:nowrap;font:800 clamp(24px,calc((100vw - 190px) / 5),34px)/.95 var(--hd);letter-spacing:.035em;background:linear-gradient(100deg,var(--pri) 20%,var(--ter));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:1px}
+h1 .t2{white-space:nowrap;font:800 clamp(22px,calc((100vw - 232px) / 4.8),34px)/.95 var(--hd);letter-spacing:.035em;background:linear-gradient(100deg,var(--pri) 20%,var(--ter));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:1px}
 .ctl{display:flex;align-items:center;gap:6px;flex:none}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#stamp{font:700 12px/1 var(--bd);color:var(--mute);letter-spacing:.02em;margin-right:-2px;min-width:1ch;text-align:right}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--mute)}
 .dot.fresh{background:var(--win);box-shadow:0 0 0 3px color-mix(in srgb,var(--win) 25%,transparent)} .dot.stale{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 25%,transparent)}
 #refresh{background:var(--card);border:1px solid var(--line);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;padding:0;cursor:pointer}
 #refresh:disabled{cursor:default}
 body.ld #refresh .dot{animation:dpulse .9s ease-in-out infinite}
 @keyframes dpulse{50%{transform:scale(.55);opacity:.5}}
-.about{color:var(--mute);font-size:13px;margin:0 0 10px}
 
 .rail{position:sticky;top:0;background:var(--bg);z-index:5;padding:6px 0 10px;transition:transform .22s ease}
 .rail.hide{transform:translateY(-105%)}
