@@ -272,6 +272,7 @@
   }
 
   // ---------- home ----------
+  function openSet() { close(); if (window.SB_SET) SB_SET(); }
   function vHome(body, arg) {
     var a = active(), P = profiles(), p = a && P[a];
     if (p) {
@@ -281,19 +282,16 @@
       summary(body);
       body.appendChild(btn("Open Collection Log", "pm-b pri", function () { show("log"); }));
       body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
+      body.appendChild(btn("Settings", "pm-b", openSet));
       body.appendChild(btn("Log out", "pm-b", logout));
-      var dz = el("details", "pm-dz"); dz.appendChild(el("summary", null, "More"));
-      var dm = msg(dz), db = btn("Delete this profile", "pm-b dng", function () {
-        if (db.dataset.c !== "1") { db.dataset.c = "1"; db.textContent = "Tap again to delete for good"; return; }
-        removeProfile(); show("home");
-      });
-      dz.appendChild(db); dz.appendChild(el("p", "pm-note", "Deleting removes the login and its saved copy here. Your current scores, teams and cards stay as a guest.")); body.appendChild(dz);
+
       return;
     }
     body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log saved online, and to join the leaderboard. Log in on any device to get it all back."));
     summary(body);
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
+    body.appendChild(btn("Settings", "pm-b", openSet));
     var tabs = el("div", "pm-seg"), mode = "login", form = el("div", "pm-form");
     var bl = btn("Log in", "on"), bc = btn("Create profile", "");
     tabs.appendChild(bl); tabs.appendChild(bc); body.appendChild(tabs); body.appendChild(form);
@@ -320,7 +318,7 @@
   }
 
   // ---------- collection log ----------
-  var filter = "all", RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
+  var filter = "all", lq = "", lst = "all", lr = {}, RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
   function pad(n) { return ("00" + n).slice(-3); }
   function vLog(body, arg) {
     var col = F.col(), found = F.count(), t = F.total;
@@ -328,31 +326,61 @@
     var chips = el("div", "pm-chips"), grid = el("div", "pm-grid");
     function fresh() { return F.CAT.filter(function (c) { return col.i[c[0]] && !col.s[c[0]]; }); }
     var nw = fresh(); if (filter === "new" && !nw.length) filter = "all";
-    if (nw.length) body.appendChild(btn("✨ Review " + nw.length + " new card" + (nw.length > 1 ? "s" : ""), "pm-b pri", function () { detail(nw[0], nw); }));
+    if (nw.length) body.appendChild(btn("✨ Review " + nw.length + " new card" + (nw.length > 1 ? "s" : ""), "pm-b pri", function () { detail(nw[0], nw, "New cards"); }));
     function chip(k, label) { var b = btn(label, "pm-chip" + (filter === k ? " on" : ""), function () { filter = k; draw(); }); chips.appendChild(b); }
-    function draw() {
-      chips.innerHTML = ""; grid.innerHTML = "";
+    var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
+    var fl = el("div", "pm-chips pm-fl"), cnt = el("p", "pm-note pm-cnt"), qt = 0;
+    qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawFl(); drawGrid(); }, 70); };
+    function active2() { return !!(lq.trim() || lst !== "all" || Object.keys(lr).length); }
+    function drawFl() {
+      fl.innerHTML = "";
+      [["all", "All"], ["got", "Found"], ["miss", "Missing"]].forEach(function (x) { fl.appendChild(btn(x[1], "pm-chip" + (lst === x[0] ? " on" : ""), function () { lst = x[0]; drawFl(); drawGrid(); })); });
+      ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) {
+        var b = el("button", "pm-chip pm-rc r" + k + (lr[k] ? " on" : "")); b.type = "button"; b.appendChild(el("i", null, k)); b.appendChild(D.createTextNode(F.RAR[k]));
+        b.onclick = function () { if (lr[k]) delete lr[k]; else lr[k] = 1; drawFl(); drawGrid(); }; fl.appendChild(b);
+      });
+      if (active2()) fl.appendChild(btn("Clear", "pm-chip", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; drawFl(); drawGrid(); }));
+    }
+    function vis(c) {
+      var id = c[0], got = !!col.i[id];
+      if (filter === "new") { if (!(got && !col.s[id])) return false; }
+      else if (filter !== "all" && c[1] !== filter) return false;
+      if (lst === "got" && !got) return false; if (lst === "miss" && got) return false;
+      if (Object.keys(lr).length && !lr[c[2]]) return false;
+      var q = lq.trim().toLowerCase();
+      if (q) {
+        var hay = (c[4] + " " + F.CATS[c[1]] + " " + F.RAR[c[2]] + " " + (F.KW[id] || []).join(" ") + (got || id.indexOf("mo_") === 0 ? " " + c[5] : "")).toLowerCase();
+        if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) >= 0; })) return false;
+      }
+      return true;
+    }
+    function draw() { drawChips(); drawFl(); drawGrid(); }
+    function drawChips() {
+      chips.innerHTML = "";
       var all = F.CAT.length; chip("all", "All " + found + "/" + all);
       if (nw.length) chip("new", "New " + nw.length);
       Object.keys(F.CATS).forEach(function (k) {
         var tot = 0, fnd = 0; F.CAT.forEach(function (c) { if (c[1] === k) { tot++; if (col.i[c[0]]) fnd++; } });
         chip(k, F.CATS[k] + " " + fnd + "/" + tot);
       });
-      F.CAT.forEach(function (c) {
-        if (filter === "new") { if (!(col.i[c[0]] && !col.s[c[0]])) return; }
-        else if (filter !== "all" && c[1] !== filter) return;
+    }
+    function drawGrid() {
+      grid.innerHTML = ""; var vl = F.CAT.filter(vis), lb = filter === "new" ? "New cards" : "Results", sub = active2() || filter !== "all";
+      cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" : ""; cnt.hidden = !sub;
+      if (!vl.length) { grid.appendChild(el("p", "pm-note pm-none", "No cards match.")); return; }
+      vl.forEach(function (c) {
         var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button";
         b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
         b.appendChild(F.art(c, "tcm-art", 84, got));
         b.appendChild(el("span", "tcm-n", c[4]));
         b.appendChild(el("i", "tcm-r", RAR(c[2])));
         if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
-        b.onclick = function () { detail(c, null); };
+        b.onclick = function () { detail(c, sub ? vl : null, lb); };
         grid.appendChild(b);
       });
     }
     function RAR(k) { return RL[k]; }
-    body.appendChild(chips); body.appendChild(grid); draw();
+    body.appendChild(qi); body.appendChild(fl); body.appendChild(chips); body.appendChild(cnt); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
     var lg = el("div", "pm-key");
     ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
@@ -360,9 +388,9 @@
     body.dataset.keep = "1";
   }
 
-  var dRoot = null, dCur = null, dList = null;
-  function detail(c, list) {
-    if (list !== undefined) dList = list;
+  var dRoot = null, dCur = null, dList = null, dLbl = "New cards";
+  function detail(c, list, lbl) {
+    if (list !== undefined) { dList = list; dLbl = lbl || "Results"; }
     var col = F.col(), got = !!col.i[c[0]], L = dList || F.CAT, idx = L.indexOf(c);
     if (got) F.seen(c[0]);
     if (dRoot && dRoot.parentNode) dRoot.parentNode.removeChild(dRoot);
@@ -389,7 +417,7 @@
     var sx = null;
     ov.addEventListener("touchstart", function (ev) { sx = ev.touches.length === 1 ? ev.touches[0].clientX : null; }, { passive: true });
     ov.addEventListener("touchend", function (ev) { if (sx == null) return; var dx = ev.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 60) nav(dx < 0 ? 1 : -1); }, { passive: true });
-    if (dList) wrap.appendChild(el("div", "tcd-q", "New cards · " + (idx + 1) + " of " + L.length));
+    if (dList) wrap.appendChild(el("div", "tcd-q", dLbl + " · " + (idx + 1) + " of " + L.length));
     wrap.appendChild(card);
     var ctl = el("div", "tcd-c");
     function nav(d) {
