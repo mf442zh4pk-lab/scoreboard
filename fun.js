@@ -61,7 +61,7 @@
     ["c_ufo","c","R","🛸","Visitor","They came for the highlights.",HC],
     ["c_train","c","R","🚂","Hype Train","All aboard.",HC],
     ["c_rocket","c","R","🚀","Rocket","Going to the moon, or at least the end of the page.",HC],
-    ["c_unicorn","c","E","🦄","Unicorn","Seen by almost no one.",HC],
+    ["c_unicorn","c","L","🦄","Unicorn","Seen by almost no one.",HC],
     ["b_football","b","C","🏈","Football","Rolls on in.",HB],["b_basketball","b","C","🏀","Basketball","Bounces through.",HB],["b_hockey","b","C","🏒","Puck","Slides by.",HB],["b_baseball","b","C","⚾","Baseball","Pitch comes in.",HB],
     ["b_soccer","b","U","⚽","Soccer Ball","Goal. Of the page.",HB],["b_volley","b","U","🏐","Volleyball","Bump, set.",HB],["b_tennis","b","U","🎾","Tennis Ball","Fault. Let's go again.",HB],["b_softball","b","R","🥎","Softball","The odd one out.",HB],
     ["g_logo_spin","g","C","🌀","Logo Spin","Tap a team logo.","Tap team logos."],["g_logo_bounce","g","C","🏀","Logo Bounce","A boing for a logo.","Tap team logos."],["g_logo_wobble","g","C","🫨","Logo Wobble","Shake it off.","Tap team logos."],
@@ -93,7 +93,7 @@
     ["golden","x","R","🪙","Golden Card","One card turned to gold.","Sometimes a card shines gold."],
     ["hold","x","R","🧢","Lucky Number","Press and hold on a good luck charm.","Press and hold the title."],
     ["off","x","R","📡","Off The Grid","You went offline.","Lose your connection."],
-    ["legend","x","E","👑","Legendary Win","The whole screen celebrates.","A very rare celebration after a win."],
+    ["legend","x","L","👑","Legendary Win","The whole screen celebrates.","A very rare celebration after a win."],
     ["d_ny","d","U","🎆","New Year","Fresh season energy.","Visit on January 1st."],
     ["d_j4","d","U","🗽","Fourth of July","Fireworks and baseball.","Visit on July 4th."],
     ["d_xmas","d","U","🎄","Christmas Day","Basketball and snow.","Visit on December 25th."],
@@ -101,7 +101,7 @@
     ["d_pi","d","R","🥧","Pi Day","3.14 games to go.","Visit on March 14th."],
     ["d_hween","d","R","🎃","Trick Or Treat","Treat yourself to the scores.","Visit on October 31st."],
     ["d_f13","d","R","🐈‍⬛","Friday the 13th","Unlucky for someone.","Visit on a Friday the 13th."],
-    ["d_leap","d","E","🐸","Leap Day","Once every four years.","Visit on February 29th."],
+    ["d_leap","d","L","🐸","Leap Day","Once every four years.","Visit on February 29th."],
     ["t_lunch","t","C","🥪","Lunch Break","Scores with a sandwich.","Visit around noon."],
     ["t_early","t","U","🌅","Early Bird","Checking scores at sunrise.","Visit between 5 and 7 AM."],
     ["t_mid","t","R","🌙","Midnight Oil","Past the witching hour.","Visit just after midnight."],
@@ -109,7 +109,7 @@
     ["t_d30","t","E","🎟️","Season Ticket","Thirty different days. Dedicated.","Come back on thirty different days."],
     ["m10","m","U","📒","Rookie Collector","Ten cards in the binder.","Collect 10 cards."],
     ["m25","m","R","🗂️","Veteran Collector","Twenty-five and counting.","Collect 25 cards."],
-    ["m50","m","E","📚","Hall Of Famer","Fifty cards. Impressive.","Collect 50 cards."],
+    ["m50","m","L","📚","Hall Of Famer","Fifty cards. Impressive.","Collect 50 cards."],
     ["gt","m","M","🎫","Golden Ticket","One in four hundred, every time the page changes. Nobody finds this on purpose.","It's in the air. Keep moving around."],
     ["all","m","M","💎","Completionist","Every card. Every one.","Find every other card."]
   ];
@@ -124,7 +124,7 @@
   var saveT = 0;
   function save() { clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem("sb-col", JSON.stringify(col)); } catch (e) {} }, 700); }
   function count() { var n = 0; for (var k in col.i) if (IDX[k]) n++; return n; }
-  function say(msg, go) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = go ? "show go" : "show"; t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
+  function say(msg, go, cls) { var t = $("toast"); if (!t) return; t.textContent = msg; t.className = (go ? "show go" : "show") + (cls ? " " + cls : ""); t.onclick = go ? function () { t.className = ""; t.onclick = null; go(); } : null; clearTimeout(say.h); say.h = setTimeout(function () { t.className = ""; t.onclick = null; }, go ? 5500 : 3800); }
   var newQ = [], newT = 0;
   function disc(id) {
     var c = IDX[id]; if (!c) return;
@@ -134,12 +134,71 @@
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
       var cid = q.length === 1 ? q[0][0] : null;
-      say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); });
-      if (q.some(function (c) { return c[2] === "M" || c[2] === "L"; })) gConfetti(60, ["💎", "✨", "⭐", "🎫"]);
-    }, 450);
+      if (reveal(q)) return;
+      var mt = Math.max.apply(null, q.map(tier)); if (mt === 1 && !RM) gConfetti(10, ["✨"]);
+      say((q.length === 1 ? "✨ New card: " + q[0][4] + " · " + RAR[q[0][2]] : "✨ " + q.length + " new cards in your Collection Log") + " ›", function () { if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", cid ? { card: cid } : null); }); }, "r" + "CURELM".charAt(mt));
+          }, newQ.some(function (c) { return tier(c) >= 3; }) ? 1100 : 450);
     var n = count(); if (n >= 10) disc("m10"); if (n >= 25) disc("m25"); if (n >= 50) disc("m50");
     if (id !== "all" && n >= TOTAL - 1) disc("all");
   }
+
+  // ---------- new-card reveal (scales with rarity) ----------
+  var CH = [0, 0, 250, 850, 1350, 1900], RVW = ["", "", "RARE", "EPIC", "LEGENDARY", "MYTHIC"], RVC = { R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d" }, rvO = null;
+  function E(t, c, x) { var e = D.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+  function tier(c) { return "CURELM".indexOf(c[2]); }
+  function vib(p) { try { if (!RM && navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+  function revealClose() {
+    if (!rvO) return; var o = rvO; rvO = null; clearTimeout(o._a); clearTimeout(o._c);
+    D.body.classList.remove("rv-on"); o.classList.remove("in"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 260);
+  }
+  function reveal(q, replay) {
+    var c = q.slice().sort(function (a, b) { return tier(b) - tier(a); })[0], t = tier(c);
+    if (t < 2) return false;
+    revealClose();
+    var o = E("div", "rv r" + c[2] + " t" + t), done = false, ok = false, col2 = RVC[c[2]];
+    rvO = o; o.setAttribute("role", "dialog"); o.setAttribute("aria-label", "New card: " + c[4]);
+    o.appendChild(E("div", "rv-bg"));
+    if (t === 5) { var st = E("div", "rv-st"), sh = []; for (var i = 0; i < 36; i++) sh.push(rnd(100) + "vw " + rnd(100) + "vh 0 " + rnd(2) + "px #fff"); st.style.boxShadow = sh.join(","); o.appendChild(st); }
+    o.appendChild(E("div", "rv-fl"));
+    var ttl = E("div", "rv-t"); ttl.appendChild(E("div", "rv-s", replay ? "CARD" : "NEW CARD"));
+    var w = E("div", "rv-w"); RVW[t].split("").forEach(function (ch, k) { var l = E("i", null, ch); l.style.setProperty("--i", k); w.appendChild(l); }); ttl.appendChild(w); o.appendChild(ttl);
+    var cw = E("div", "rv-cw"), chg = E("div", "rv-ch"), flip = E("div", "rv-flip");
+    chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
+    flip.appendChild(E("div", "rv-bk", "?"));
+    var card = E("div", "tc r" + c[2] + " got"), hd = E("div", "tc-h"); hd.appendChild(E("span", null, "No. " + ("00" + c.n).slice(-3) + " / " + ("00" + TOTAL).slice(-3))); hd.appendChild(E("span", null, CATS[c[1]])); card.appendChild(hd);
+    var art = E("div", "tc-art"); art.appendChild(E("span", "tc-em", c[3])); card.appendChild(art);
+    card.appendChild(E("h3", "tc-n", c[4]));
+    var rb = E("div", "tc-rar"); rb.appendChild(E("i", null, c[2])); rb.appendChild(D.createTextNode(RAR[c[2]])); card.appendChild(rb);
+    card.appendChild(E("p", "tc-d", c[5])); card.appendChild(E("span", "tc-foil"));
+    flip.appendChild(card); chg.appendChild(flip); cw.appendChild(chg); o.appendChild(cw);
+    var ctl = E("div", "rv-c");
+    if (!replay) { var b1 = E("button", "pm-b pri", "View in log"); b1.type = "button"; b1.onclick = function () { revealClose(); if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", { card: c[0] }); }); }; ctl.appendChild(b1); }
+    var b2 = E("button", "pm-b", "Continue"); b2.type = "button"; b2.onclick = revealClose; ctl.appendChild(b2); o.appendChild(ctl);
+    if (q.length > 1) o.appendChild(E("div", "rv-m", "+" + (q.length - 1) + " more new card" + (q.length > 2 ? "s" : "") + " in your log"));
+    if (!RM) chg.classList.add("chg");
+    function burst() {
+      if (done) return; done = true; clearTimeout(o._c);
+      chg.classList.remove("chg"); flip.classList.add("fl"); o.classList.add("go");
+      if (!replay) { col.s[c[0]] = 1; save(); }
+      if (!RM) {
+        var cx = innerWidth / 2, cy = innerHeight * .42;
+        if (t >= 3) { o.classList.add("shk"); setTimeout(function () { o.classList.remove("shk"); }, 520); }
+        gBurst(cx, cy, col2, [0, 0, 14, 26, 38, 44][t]);
+        if (t === 2) { gConfetti(16, ["✨", "💠"]); vib(30); }
+        else if (t === 3) { gConfetti(44, ["✨", "🔮", "💜"]); vib([30, 40, 70]); }
+        else if (t === 4) { gConfetti(90, ["✨", "⭐", "🪙", "🏆", "👑"]); setTimeout(function () { gBurst(cx, cy, "#fff3b0", 30); }, 220); vib([40, 30, 40, 30, 140]); }
+        else { gFireworks(); gConfetti(140, ["💎", "✨", "🌈", "⭐", "🎫", "🔥"]); setTimeout(function () { gBurst(cx, cy, "#ffffff", 40); }, 260); vib([60, 40, 60, 40, 60, 40, 240]); }
+      }
+      setTimeout(function () { ok = true; o.classList.add("ok"); }, RM ? 0 : 650);
+      if (t === 2) o._a = setTimeout(revealClose, 5200); else if (t === 3) o._a = setTimeout(revealClose, 9000);
+    }
+    o.onclick = function (e) { if (e.target.closest && e.target.closest("button")) return; if (!done) burst(); else if (ok) revealClose(); };
+    D.body.appendChild(o); D.body.classList.add("rv-on");
+    requestAnimationFrame(function () { o.classList.add("in"); });
+    o._c = setTimeout(burst, RM ? 0 : CH[t]);
+    return true;
+  }
+  D.addEventListener("keydown", function (e) { if (e.key === "Escape" && rvO) { e.stopImmediatePropagation(); revealClose(); } }, true);
   var found = disc;
   function wpick(key, arr, idf) {                // weighted by rarity, never the same as the last two
     var h = hist[key] || (hist[key] = []), c, t = 0;
@@ -362,7 +421,7 @@
   }, { passive: true });
   dates();
 
-  window.FUN = { CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
+  window.FUN = { reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, col: function () { return col; }, disc: disc, saveCol: save,
     seen: function (id) { col.s[id] = 1; save(); },
     play: function (id, host) {
       var p = id.split("_"), k = p[1];
