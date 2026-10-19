@@ -292,3 +292,6 @@ body.rv-on .fxg{z-index:95}
 @media(prefers-reduced-motion:reduce){.rv,.rv *,.rv::before,#toast.go{animation:none!important;transition:none!important}.rv-w i{opacity:1!important;transform:none!important}.rv .rv-t,.rv .rv-c,.rv .rv-m{opacity:1;transform:none}.rv-flip{transform:rotateY(180deg)}}
 .tcm-art.lg{width:42px;height:42px;object-fit:contain}
 .tc-em.lg{width:100px;height:100px;object-fit:contain;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35))}
+
+.tcd-q{text-align:center;font:700 13px var(--hd,sans-serif);letter-spacing:.12em;text-transform:uppercase;color:#fff;margin-bottom:10px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.tcd-n:disabled{opacity:.35}
