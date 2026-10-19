@@ -1,7 +1,7 @@
 /* Delight layer: random celebrations, easter eggs, cameos. Loaded after first paint so it never slows startup. */
 (function () {
   "use strict";
-  var D = document, RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var D = document, RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || D.documentElement.classList.contains("rm");   // phone setting, or Animations off in Settings
   var $ = function (i) { return D.getElementById(i); };
   function rnd(n) { return Math.floor(Math.random() * n); }
   function R(a, b) { return a + Math.random() * (b - a); }
