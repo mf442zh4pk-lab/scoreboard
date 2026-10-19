@@ -114,7 +114,7 @@ Inline in `index.html` (markup, CSS and a few lines of script) so it paints befo
 
 ## Account stats
 
-Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps. Profile age comes from the profile's `c` timestamp.
+Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (last 60 visit days), `d0` first day, `dn` total days opened, `ls` longest streak, `po` packs opened, `gv` games opened, `tp` taps, `fav` the favorite card. Profile age comes from the profile's `c` timestamp. The Cards section leads with the **favorite card** the person picked (★ Favorite on any owned card's detail view; tapping the tile opens that card); with none picked, the tile is a shortcut into the Collection Log. There is no automatic "rarest" pick.
 
 ## Pop-ups
 
