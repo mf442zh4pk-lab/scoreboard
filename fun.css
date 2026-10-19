@@ -1,0 +1,116 @@
+/* Delight layer styles. Transform/opacity only, always cleaned up, off for reduced motion. */
+.fxh{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:3}
+.fxg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:40}
+/* ---- shared bits ---- */
+@keyframes fxc{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
+@keyframes fxs{0%{transform:rotate(var(--a)) translateY(0) scaleY(.2);opacity:1}70%{opacity:1}100%{transform:rotate(var(--a)) translateY(calc(var(--d)*-1)) scaleY(1);opacity:0}}
+@keyframes fxf{0%{transform:translateY(0) rotate(0);opacity:0}10%{opacity:1}100%{transform:translateY(300px) rotate(var(--r));opacity:.9}}
+@keyframes fxb{0%{transform:translate(0,0);opacity:1}50%{transform:translate(var(--sw),-150px)}100%{transform:translate(0,-360px);opacity:0}}
+@keyframes fxr{0%{transform:scale(1);opacity:.7}100%{transform:scale(13);opacity:0}}
+@keyframes fxt{0%{transform:translateY(-70px);opacity:0}15%{opacity:1}38%{transform:translateY(80px)}48%{transform:translateY(55px)}58%{transform:translateY(80px)}66%{transform:translateY(70px)}85%{opacity:1}100%{transform:translateY(80px);opacity:0}}
+@keyframes fxsh{0%{transform:skewX(-20deg) translateX(0)}100%{transform:skewX(-20deg) translateX(520%)}}
+@keyframes fxg{0%{transform:translate(0,-20px) rotate(0)}100%{transform:translate(var(--sw),112vh) rotate(var(--r))}}
+.fx-conf{position:absolute;right:46px;top:30px;width:7px;height:10px;border-radius:2px;background:var(--c);opacity:0;animation:fxc 1.1s cubic-bezier(.15,.7,.3,1) forwards}
+.fx-conf.e{background:none;width:auto;height:auto;font-size:16px;line-height:1}
+.fx-spark{position:absolute;width:3px;height:14px;margin:-14px 0 0 -1px;border-radius:2px;background:var(--c);transform-origin:50% 100%;opacity:0;animation:fxs .9s cubic-bezier(.1,.7,.3,1) forwards}
+.fxg .fx-spark{position:absolute}
+.fx-fall{position:absolute;top:-30px;left:var(--x);font-size:var(--s);opacity:0;animation:fxf var(--t) var(--dl) linear forwards}
+.fx-bal{position:absolute;bottom:-34px;left:var(--x);font-size:26px;animation:fxb var(--t) var(--dl) ease-in forwards}
+.fx-ring{position:absolute;left:50%;top:44px;width:16px;height:16px;margin:-8px;border:2px solid #ffd200;border-radius:50%;opacity:0;animation:fxr 1.1s var(--dl) ease-out forwards}
+.fx-troph{position:absolute;left:50%;top:-10px;margin-left:-24px;font-size:46px;opacity:0;animation:fxt 2s cubic-bezier(.3,0,.3,1) forwards}
+.fx-shine{position:absolute;top:0;bottom:0;left:-50%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);animation:fxsh 1.1s .1s ease-in-out 2 forwards}
+.fx-popper{position:absolute;left:8px;bottom:6px;font-size:34px;transform-origin:20% 80%;animation:pop .6s cubic-bezier(.3,1.5,.5,1) both,fxfade 1s 1.4s forwards}
+.fx-medal{position:absolute;right:12px;top:-44px;font-size:36px;animation:fxmed 2.2s cubic-bezier(.3,1.4,.5,1) forwards}
+@keyframes fxfade{to{opacity:0}}
+@keyframes fxmed{0%{transform:translateY(0) rotate(-30deg)}25%{transform:translateY(70px) rotate(10deg)}35%{transform:translateY(60px) rotate(-6deg)}75%{opacity:1;transform:translateY(64px)}100%{transform:translateY(64px);opacity:0}}
+.fx-gc{position:absolute;top:-20px;left:var(--x);width:8px;height:12px;border-radius:2px;background:var(--c);animation:fxg var(--t) var(--dl) linear forwards}
+.fx-gc.e{background:none;width:auto;height:auto;font-size:20px;line-height:1}
+/* ---- sad ones ---- */
+@keyframes fxd{0%{transform:translateY(0);opacity:0}15%{opacity:.8}100%{transform:translateY(250px);opacity:0}}
+@keyframes fxdim{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}
+@keyframes fxcrk{0%{stroke-dashoffset:1;opacity:1}40%{stroke-dashoffset:0;opacity:1}85%{opacity:1}100%{opacity:0}}
+@keyframes fxtu{0%{transform:translateX(0) rotate(0)}100%{transform:translateX(480px) rotate(900deg)}}
+@keyframes fxdf{0%{transform:translateY(-20px) scale(1) rotate(-8deg);opacity:0}15%{opacity:1}60%{transform:translateY(60px) scale(.8,.7) rotate(8deg)}100%{transform:translateY(150px) scale(.25,.2) rotate(-14deg);opacity:0}}
+@keyframes fxcry{0%{transform:scale(0);opacity:0}25%{transform:scale(1.2);opacity:1}70%{transform:scale(1)}100%{transform:scale(1);opacity:0}}
+@keyframes fxfl{0%,100%{opacity:0}8%{opacity:.75}16%{opacity:0}30%{opacity:.5}42%{opacity:0}}
+@keyframes fxbolt{0%{opacity:0;transform:scale(.4)}10%{opacity:1;transform:scale(1.4)}50%{opacity:.9}100%{opacity:0;transform:scale(1)}}
+@keyframes fxwilt{0%{transform:translateY(40px) rotate(0);opacity:0}30%{opacity:1;transform:translateY(0) rotate(0)}100%{transform:translateY(20px) rotate(55deg);opacity:0}}
+@keyframes fxtb{0%{transform:translateY(20px) rotate(0);opacity:0}20%{opacity:1}50%{transform:translateY(0) rotate(-10deg)}80%{transform:translateY(10px) rotate(6deg);opacity:1}100%{transform:translateY(30px) rotate(0);opacity:0}}
+@keyframes fxghost{0%{transform:translate(-30px,40px);opacity:0}30%{opacity:.9}100%{transform:translate(340px,-30px);opacity:0}}
+@keyframes fxsk{0%,100%{transform:none}15%{transform:translateX(-7px) rotate(-.6deg)}35%{transform:translateX(7px) rotate(.6deg)}55%{transform:translateX(-5px)}75%{transform:translateX(4px)}}
+.fx-dim{position:absolute;inset:0;background:rgba(40,55,90,.28);opacity:0;animation:fxdim 2.4s forwards}
+.fx-cloud{position:absolute;left:50%;top:-8px;margin-left:-18px;font-size:34px;opacity:0;animation:fxcry 2.4s forwards}
+.fx-drop{position:absolute;top:0;left:var(--x);width:2px;height:12px;border-radius:2px;background:rgba(120,170,255,.85);opacity:0;animation:fxd .9s var(--dl) linear 2}
+.fx-drop.big{width:5px;height:8px;border-radius:50% 50% 60% 60%;top:50%;background:rgba(90,160,255,.9);animation-iteration-count:1}
+.fx-crack{position:absolute;inset:0;width:100%;height:100%}
+.fx-crack path{fill:none;stroke:var(--fg);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;animation:fxcrk 2.2s ease-out forwards;vector-effect:non-scaling-stroke;opacity:.7}
+.fx-tum{position:absolute;bottom:8px;left:-34px;font-size:24px;animation:fxtu 2.6s linear forwards}
+.fx-defl{position:absolute;left:50%;top:0;margin-left:-14px;font-size:28px;opacity:0;animation:fxdf 2.2s ease-in forwards}
+.fx-cry{position:absolute;left:50%;top:50%;margin:-26px 0 0 -26px;font-size:52px;opacity:0;animation:fxcry 2s forwards}
+.fx-flash{position:absolute;inset:0;background:#fff;opacity:0;animation:fxfl .9s}
+.fx-bolt{position:absolute;left:var(--x);top:6px;font-size:40px;opacity:0;animation:fxbolt .9s .05s forwards}
+.fx-wilt{position:absolute;left:50%;bottom:6px;margin-left:-16px;font-size:32px;opacity:0;transform-origin:50% 100%;animation:fxwilt 2.2s forwards}
+.fx-tb{position:absolute;left:14px;bottom:8px;font-size:30px;opacity:0;animation:fxtb 2.2s forwards}
+.fx-txt{position:absolute;left:54px;bottom:12px;font-weight:700;font-size:13px;color:var(--mute);opacity:0;animation:fxcry 2.2s .2s forwards}
+.fx-ghost{position:absolute;left:0;top:30%;font-size:32px;opacity:0;animation:fxghost 2.8s ease-in-out forwards}
+.fx-shake{animation:fxsk .6s}
+/* ---- cameos ---- */
+@keyframes fxfly{0%{transform:translate(0,0) scaleX(1)}25%{transform:translate(30vw,-34px)}50%{transform:translate(60vw,22px)}75%{transform:translate(88vw,-24px)}100%{transform:translate(120vw,0)}}
+@keyframes fxbr{to{transform:translateX(115vw)}}
+@keyframes fxbn{0%{transform:translateY(0)}100%{transform:translateY(-78px)}}
+@keyframes fxro{to{transform:rotate(1080deg)}}
+.fx-fly{position:fixed;top:var(--y);left:-48px;font-size:30px;animation:fxfly 5s ease-in-out forwards}
+.fx-fly.slow{animation-duration:9s}
+.fx-ball{position:fixed;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:-44px;font-size:30px;animation:fxbr 3.2s linear forwards}
+.fx-ball b{display:block;font-weight:400}
+.fx-ball.bounce b{animation:fxbn .42s cubic-bezier(.3,.7,.5,1) infinite alternate}
+.fx-ball.roll b{animation:fxro 3.2s linear}
+/* ---- gold card ---- */
+@keyframes goldsh{0%{background-position:-120% 0}100%{background-position:220% 0}}
+.gold{box-shadow:0 0 0 2px #f5c542,0 0 20px rgba(245,197,66,.6)!important}
+.gold::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(255,236,160,.45) 50%,transparent 65%) 0 0/250% 100%;animation:goldsh 2.2s ease-in-out 4}
+/* ---- poking things ---- */
+@keyframes lgspin{to{transform:rotate(360deg)}}
+@keyframes lgbounce{0%,100%{transform:translateY(0)}30%{transform:translateY(-14px)}55%{transform:translateY(0)}75%{transform:translateY(-6px)}}
+@keyframes lgwob{0%,100%{transform:rotate(0)}20%{transform:rotate(-16deg)}40%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}80%{transform:rotate(4deg)}}
+@keyframes lggrow{0%{transform:scale(1)}40%{transform:scale(1.7)}100%{transform:scale(1)}}
+@keyframes lgjelly{0%,100%{transform:scale(1)}25%{transform:scale(1.3,.75)}50%{transform:scale(.8,1.25)}75%{transform:scale(1.1,.92)}}
+@keyframes lgflip{to{transform:rotateY(360deg)}}
+.lg-spin{animation:lgspin .7s ease-in-out} .lg-bounce{animation:lgbounce .8s} .lg-wobble{animation:lgwob .8s} .lg-grow{animation:lggrow .7s} .lg-jelly{animation:lgjelly .8s} .lg-flip{animation:lgflip .7s}
+@keyframes rfspin{to{transform:rotate(360deg)}}
+@keyframes rfboing{0%{transform:scale(1)}30%{transform:scale(1.25,.85)}60%{transform:scale(.9,1.15)}100%{transform:scale(1)}}
+@keyframes rfwig{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+@keyframes rfflip{to{transform:rotateX(360deg)}}
+.rf-spin{animation:rfspin .6s} .rf-boing{animation:rfboing .6s} .rf-wig{animation:rfwig .5s} .rf-flip{animation:rfflip .6s}
+@keyframes twob{0%,100%{transform:none}25%{transform:scale(1.06) rotate(-2deg)}60%{transform:scale(.97) rotate(1.5deg)}}
+.t-wob{animation:twob .35s}
+@keyframes dizzy{to{transform:rotate(720deg)}}
+.dizzy{animation:dizzy 1.4s ease-in-out;transform-origin:30% 50%}
+@keyframes scroll{0%{transform:translateY(0)}30%{transform:translateY(-16px) scale(1.2)}60%{transform:translateY(4px)}100%{transform:none}}
+.sc-roll{animation:scroll .6s;display:inline-block}
+body.flipped{transition:transform .9s cubic-bezier(.6,0,.3,1);transform:rotate(180deg)}
+html.retro{filter:contrast(1.15) saturate(1.7) hue-rotate(-10deg)}
+html.retro::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+html.retro body{font-family:ui-monospace,Menlo,Consolas,monospace}
+@keyframes tw{50%{opacity:.35;transform:scale(.85)}}
+#title.owl::after{content:" \1F319";font-size:.55em;display:inline-block;animation:tw 2.4s infinite}
+/* ---- random entrances (the standard "rise" stays the default) ---- */
+@keyframes fxflip{from{opacity:0;transform:perspective(600px) rotateX(-70deg)}to{opacity:1;transform:none}}
+@keyframes fxzoom{from{opacity:0;transform:scale(.78)}to{opacity:1;transform:none}}
+@keyframes fxsl{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
+@keyframes fxsr{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes fxswing{from{opacity:0;transform:rotate(-4deg) translateY(12px)}60%{transform:rotate(1.5deg)}to{opacity:1;transform:none}}
+@keyframes fxblur{from{opacity:0;filter:blur(8px)}to{opacity:1;filter:none}}
+@keyframes fxdrop{0%{opacity:0;transform:translateY(-40px)}60%{opacity:1;transform:translateY(6px)}80%{transform:translateY(-3px)}100%{transform:none}}
+@keyframes fxspin{from{opacity:0;transform:rotate(-8deg) scale(.88)}to{opacity:1;transform:none}}
+@keyframes fxtilt{from{opacity:0;transform:perspective(500px) rotateY(40deg) translateX(20px)}to{opacity:1;transform:none}}
+.enter[data-fx=flip] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxflip}
+.enter[data-fx=zoom] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxzoom}
+.enter[data-fx=slidel] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxsl}
+.enter[data-fx=slider] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxsr}
+.enter[data-fx=swing] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxswing}
+.enter[data-fx=blur] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxblur}
+.enter[data-fx=drop] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxdrop}
+.enter[data-fx=spin] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxspin}
+.enter[data-fx=tilt] :is(.card,.recap,.story,.ov,.heat,.usec,.lgbox,.ni){animation-name:fxtilt}
+@media (prefers-reduced-motion:reduce){.fxh,.fxg{display:none}}
