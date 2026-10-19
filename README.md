@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=80` → `?v=81` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=81` → `?v=82` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -66,9 +66,9 @@ Defaults live in the `PREF` object; whatever the person changes is saved under `
 
 About a minute into first use with no profile signed in (`sb-active`), `app.js` shows one card ("Want to keep your cards?") that says an account only saves the Collection Log and joins the leaderboard, with Make an account / No thanks. It waits if a sheet, the finder or the share bar is open, and it is shown once ever (`sb-acct-ask`).
 
-## Find a game and the portal
+## Find a game or team, the team page, and the portal
 
-`openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text). Picking a result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
+`openFind()` in `app.js` builds a full-screen type-ahead over every loaded game (`hay(x)` is the searchable text) **and over every team**. Opening Find loads the team index for the core leagues (`ESPN.fetchTeams()`: one standings request per league, cached a week in `sb-tm` with id, name, abbreviation and logo); "Search every league" adds the extra leagues (`sb-tm2`) on demand. Team hits open the team page, `#team/<league>/<id>` (`openTeam`, `openTeamRoute`, `renderTeamPage`): a Follow/Unfollow button plus the same block My teams uses (`teamBlock`: record, standing, trends, next and last games), loaded only when opened (`fetchTeamInfo`, cached in `sb-tcache`). Schedule rows are tappable: `parseSchedule` keeps the opponent's abbreviation, logo and id (`o`) and the team's own (`me`), `schedGame` turns a row into a game object, and `syncFromHash` finds it in `SG` so `#game/…` opens even when the game isn't in any list. Picking a game result calls `portal(card, x)`: the card spirals into a vortex (`.portal`, `.hole`, `.pghost` in `style.css`), the game opens with the View Transition skipped (`NOVT`), and `#out.emerge` scales the page out of the hole.
 
 ## Yesterday tab layout
 
