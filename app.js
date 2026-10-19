@@ -190,7 +190,7 @@
   var SESS = { FP1: "Practice 1", FP2: "Practice 2", FP3: "Practice 3", SS: "Sprint qualifying", SR: "Sprint race", Qual: "Qualifying", Race: "Race" };
   function sessName(n) { return SESS[n] || n; }
   function card(x) {
-    if (x.g.ev) return evCard(x);
+    if (x.g.ev) { var ec = evCard(x); lpCopy(ec, x); return ec; }
     var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : "") + (isFollowed(g) ? strCls(streakOf(C.followed.indexOf(g.h[0]) >= 0 ? g.h[0] : g.a[0])) : ""));
     var top = el("div", "top");
     var ptxt = g.s === "live" ? "Live · " + (g.c || "") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
@@ -222,9 +222,22 @@
       if (has) row.appendChild(el("span", "sc", String(r[1])));
       c.appendChild(row);
     });
+    lpCopy(c, x);
     return c;
   }
-  var UCOL = {};
+  // Press and hold any game card for copy, pin and share.
+  function lpCopy(c, x) {
+    var t = 0, sx = 0, sy = 0, fired = false;
+    function start(e) { var p = e.touches ? e.touches[0] : e; sx = p.clientX; sy = p.clientY; fired = false; clearTimeout(t); t = setTimeout(function () { fired = true; c.classList.add("lp"); setTimeout(function () { c.classList.remove("lp"); }, 480); try { if (navigator.vibrate) navigator.vibrate(18); } catch (e2) {} lpMenu(x); }, 520); }
+    function move(e) { var p = e.touches ? e.touches[0] : e; if (Math.abs(p.clientX - sx) > 9 || Math.abs(p.clientY - sy) > 9) clearTimeout(t); }
+    function end() { clearTimeout(t); }
+    c.addEventListener("touchstart", start, { passive: true }); c.addEventListener("touchmove", move, { passive: true });
+    c.addEventListener("touchend", end); c.addEventListener("touchcancel", end);
+    c.addEventListener("mousedown", start); c.addEventListener("mousemove", move); c.addEventListener("mouseup", end); c.addEventListener("mouseleave", end);
+    c.addEventListener("click", function (e) { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    c.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+  var UCOL = {}, SCY = {};
   try { UCOL = JSON.parse(localStorage.getItem("sb-ucol") || "{}") || {}; } catch (e) {}
   function group(title, cls, items, big, split) {
     if (!items.length) return null;
@@ -481,7 +494,7 @@
     c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
     c.onclick = function () { openGame(x); };
     c.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGame(x); } };
-    prefetchOn(c, x);
+    lpCopy(c, x); prefetchOn(c, x);
   }
   // ESPN's AP recap for a finished game: a short lede that expands to the first few paragraphs. Fills in when it arrives (cached), nothing if ESPN has none.
   function narrBlock(x, onHead, max) {
@@ -1026,19 +1039,48 @@
   }
 
   // One tap: copies a clean score line, ready to paste into Discord or a text.
-  function copyScore() {
-    var x = S.view.x, g = x.g, pa = (leagueOf(x.lk) || {}).path || "", em = /^football/.test(pa) ? "🏈" : /^basketball/.test(pa) ? "🏀" : /^hockey/.test(pa) ? "🏒" : /^baseball/.test(pa) ? "⚾" : /^australian/.test(pa) ? "🏉" : /^soccer/.test(pa) ? "⚽" : /^volleyball/.test(pa) ? "🏐" : /^lacrosse/.test(pa) ? "🥍" : /^field-hockey/.test(pa) ? "🏑" : "";
+  function scoreLine(x0) {
+    var x = x0 || S.view.x, g = x.g, pa = (leagueOf(x.lk) || {}).path || "", em = /^football/.test(pa) ? "🏈" : /^basketball/.test(pa) ? "🏀" : /^hockey/.test(pa) ? "🏒" : /^baseball/.test(pa) ? "⚾" : /^australian/.test(pa) ? "🏉" : /^soccer/.test(pa) ? "⚽" : /^volleyball/.test(pa) ? "🏐" : /^lacrosse/.test(pa) ? "🥍" : /^field-hockey/.test(pa) ? "🏑" : "";
     if (g.ev) {
       var top = g.ev === "mma" ? (g.x.fights[0] && g.x.fights[0].win >= 0 ? g.x.fights[0].n[g.x.fights[0].win] + " won the main event" : "") : (((g.x.sess.filter(function (s) { return /^race$/i.test(s.n); })[0] || { rows: [] }).rows[0] || [])[1] || "");
       var etx = (g.ev === "mma" ? "🥊 " : "🏁 ") + g.h[0] + " · " + (g.s === "final" ? "Final" + (top ? " · " + (g.ev === "mma" ? top : "Winner: " + top) : "") : g.s === "live" ? g.c || "Live" : when(g.t));
-      try { navigator.clipboard.writeText(etx).then(function () { toast("Copied: " + etx); }, function () { toast("Could not copy"); }); } catch (e) { toast("Could not copy"); }
+      return etx;
       return;
     }
     var txt = g.s === "up" ? g.a[0] + " at " + g.h[0] + " · " + when(g.t)
       : g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2] + " · " + (g.s === "final" ? "Final" : g.c || "Live");
     txt = (em ? em + " " : "") + txt;
-    try { navigator.clipboard.writeText(txt).then(function () { toast("Copied: " + txt); }, function () { toast("Could not copy"); }); }
-    catch (e) { toast("Could not copy"); }
+    return txt;
+  }
+  function copyText(t, msg) {
+    try { navigator.clipboard.writeText(t).then(function () { toast(msg || "Copied: " + t); }, function () { toast("Could not copy"); }); } catch (e) { toast("Could not copy"); }
+  }
+  function copyScore(x) { copyText(scoreLine(x || S.view.x)); }
+  function sharePlay(x) {
+    var t = scoreLine(x);
+    if (navigator.share) { navigator.share({ title: x.g.a[0] + " at " + x.g.h[0], text: t }).catch(function () {}); return; }
+    copyText(t, "Copied to share: " + t);
+  }
+  function togglePin(x) {
+    var k = pinKey(x), i = PINS.indexOf(k);
+    if (i >= 0) PINS.splice(i, 1); else PINS.push(k);
+    savePins(); toast(i >= 0 ? "Unpinned" : "Pinned to the top of every list");
+    if (!S.settings) render();
+  }
+  // Long-press menu: copy, pin or share the game.
+  var LPM = null;
+  function lpClose() { if (!LPM) return; var o = LPM; LPM = null; o.classList.remove("in"); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 180); }
+  function lpMenu(x) {
+    lpClose();
+    var g = x.g, ov = el("div", "lpm"), sh = el("div", "lpm-s");
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Game actions");
+    sh.appendChild(el("div", "lpm-t", g.a[0] + " at " + g.h[0]));
+    [["Copy score", function () { copyScore(x); }], [isPinned(x) ? "Unpin" : "Pin to top", function () { togglePin(x); }], ["Share", function () { sharePlay(x); }]].forEach(function (r) {
+      var b = el("button", "lpm-b", r[0]); b.type = "button"; b.onclick = function () { lpClose(); r[1](); }; sh.appendChild(b);
+    });
+    var cn = el("button", "lpm-b lpm-c", "Cancel"); cn.type = "button"; cn.onclick = lpClose; sh.appendChild(cn);
+    ov.appendChild(sh); ov.onclick = function (e) { if (e.target === ov) lpClose(); };
+    document.body.appendChild(ov); LPM = ov; requestAnimationFrame(function () { ov.classList.add("in"); });
   }
   function shareGame() {
     var g = S.view.x.g, data = { title: g.a[0] + " at " + g.h[0], url: location.href };
@@ -1151,17 +1193,7 @@
     var v = S.view, g = v.x.g, d = v.d, lg = leagueOf(v.x.lk);
     var back = el("button", "back", "← All scores"); back.type = "button"; back.onclick = closeGame;
     var nav = el("div", "navbar"); nav.appendChild(back);
-    var acts = el("div", "acts");
-    var cpb = el("button", "back", "Copy"); cpb.type = "button"; cpb.onclick = copyScore; acts.appendChild(cpb);
-    var pnb = el("button", "back", isPinned(v.x) ? "★ Pinned" : "☆ Pin"); pnb.type = "button";
-    pnb.onclick = function () {
-      var k = pinKey(v.x), i = PINS.indexOf(k);
-      if (i >= 0) PINS.splice(i, 1); else PINS.push(k);
-      savePins(); pnb.textContent = i >= 0 ? "☆ Pin" : "★ Pinned"; toast(i >= 0 ? "Unpinned" : "Pinned to the top of every list");
-    };
-    acts.appendChild(pnb);
-    var shb = el("button", "back", "Share ↗"); shb.type = "button"; shb.onclick = shareGame; acts.appendChild(shb);
-    nav.appendChild(acts);
+
     out.appendChild(nav);
     var hd = el("div", "dhead"); hd.appendChild(card(v.x)); out.appendChild(hd);
     if (g.ev) { renderEvent(out, g); return; }
@@ -1297,11 +1329,15 @@
       b.appendChild(el("span", "lbl", label));
       if (count != null) b.appendChild(el("span", "n", String(count)));
       b.onclick = function () {
+        try { if (navigator.vibrate) navigator.vibrate(6); } catch (e2) {}
+        if (key === S.tab && !S.settings && !S.view) { if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // tap the active tab to jump to the top
+        if (!S.view && !S.settings) SCY[S.tab] = window.scrollY;
         S.tab = key; S.view = null; S.settings = false; S.more = false; clearHash();
         if (key === "yesterday") loadLeaders();
         var lz = leagueOf(key); if (lz && lz.lazy) loadLeague(key);
         try { localStorage.setItem("sb-tab", S.tab); } catch (e) {}
         render();
+        var y0 = SCY[key] || 0; if (y0) requestAnimationFrame(function () { window.scrollTo({ top: y0, behavior: "instant" }); });   // each tab remembers where you were
       };
       return b;
     }
@@ -1523,7 +1559,12 @@
   })();
   $("refresh").onclick = function () { load(true); };
   window.addEventListener("hashchange", syncFromHash);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && S.view) closeGame(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && LPM) { lpClose(); return; }
+    if (e.key === "Escape" && S.view) { closeGame(); return; }
+    var t = e.target, tg = t && t.tagName; if (e.metaKey || e.ctrlKey || e.altKey || tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT" || (t && t.isContentEditable) || document.body.classList.contains("pm-open")) return;
+    if (e.key === "r" && !S.loading) load(true); else if (e.key === "p") openProf(); else if (e.key === "t") window.scrollTo({ top: 0, behavior: "smooth" });
+  });
   // Rail hides while scrolling down (more room for scores), returns on scroll up.
   (function () {
     var ly = 0, tk = false, rl = $("rail");
@@ -1632,5 +1673,5 @@
     var go = function () { ensureFun(function () {}); try { if (localStorage.getItem("sb-lb") && localStorage.getItem("sb-active")) setTimeout(function () { SB_LOAD(function () { PROF.pull(); }); }, 3000); } catch (e) {} };
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 2000);
   });
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=61").catch(function () {}); } catch (e) {} });
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { try { navigator.serviceWorker.register("sw.js?v=62").catch(function () {}); } catch (e) {} });
 })();
