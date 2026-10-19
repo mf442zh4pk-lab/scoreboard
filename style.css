@@ -629,6 +629,19 @@ body.cmp .ab.lg img{width:22px;height:22px}
 .find-q{flex:1;min-width:0;border:2px solid var(--ter);background:var(--card);color:var(--fg);border-radius:14px;padding:12px 14px;font:600 17px var(--bd);outline:none}
 .find-x{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--mute);font-size:15px;cursor:pointer;flex:none}
 .find-h{color:var(--mute);font-size:13px;margin:6px 2px 10px}
+.find-sh{margin:18px 2px 8px;font:700 14px var(--hd);letter-spacing:.08em;text-transform:uppercase;color:var(--ter)}
+.find-tms{display:flex;flex-direction:column;gap:6px}
+.find-tm{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 12px 7px 8px;cursor:pointer;animation:rise .26s var(--ease) both}
+.find-tm:hover{border-color:var(--pri)}
+.find-tw{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}.find-tw b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.find-tw small{color:var(--mute);font-size:12px}
+.find-go{color:var(--mute);font-size:22px;line-height:1;padding-right:2px}
+.find-more{display:block;width:100%;margin:14px 0 2px;padding:10px 14px;border:1px dashed var(--line);border-radius:10px;background:none;color:var(--pri);font:600 14px var(--bd);cursor:pointer}
+.find-more:disabled{color:var(--mute);cursor:default}
+.tpbar{display:flex;align-items:center;gap:10px;margin:6px 0 12px}
+.tpf{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font:700 14px var(--bd);color:var(--pri);cursor:pointer}.tpf.on{background:var(--pri);color:var(--card);border-color:var(--pri)}
+.tpl{color:var(--mute);font-size:13px}
+.recap.tp{border-left-color:var(--pri)}
+.tg.click{cursor:pointer;border-radius:8px;margin:0 -6px;padding-left:6px;padding-right:6px}.tg.click:hover,.tg.click:focus-visible{background:var(--pri-soft);outline:none}
 .find-res .grid{grid-template-columns:1fr}
 .find-res .card{animation:rise .26s var(--ease) both}
 body.find-on{overflow:hidden}
