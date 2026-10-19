@@ -380,6 +380,7 @@
     var pb = btn("‹", "pm-b tcd-n", function () { nav(-1); }); pb.setAttribute("aria-label", "Previous card"); ctl.appendChild(pb);
     var pl = /^[wlcb]_/.test(c[0]);
     if (got && pl) ctl.appendChild(btn("▶ Replay", "pm-b", function () { F.play(c[0], card); }));
+    if (got && /^[RELM]$/.test(c[2])) ctl.appendChild(btn("✨ Reveal", "pm-b", function () { F.reveal(c); }));
     ctl.appendChild(btn("Close", "pm-b", closeD));
     var nb = btn("›", "pm-b tcd-n", function () { nav(1); }); nb.setAttribute("aria-label", "Next card"); ctl.appendChild(nb);
     wrap.appendChild(ctl); ov.appendChild(wrap); (root || D.body).appendChild(ov);
