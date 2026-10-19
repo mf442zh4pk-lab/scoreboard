@@ -1,12 +1,63 @@
-# Scoreboard
+# Mack's Scoreboard
 
-Live scores for my teams. Static site, no build step, data straight from ESPN's public API.
+A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON for data, no build step, no framework.
 
-| File | What to change |
-|---|---|
-| config.js | Followed teams, leagues, refresh timing, timezone |
-| style.css | Colors (tokens at the top), spacing, fonts |
-| espn.js | ESPN fetching and box-score parsing (only touch if ESPN changes) |
-| app.js | Tabs, cards, detail page layout and section order |
+## Files
 
-After editing, bump the ?v= numbers in index.html so phones skip their cache. GitHub Pages rebuilds in about a minute.
+| File | What it owns |
+| --- | --- |
+| `index.html` | App shell. **The only place the build number lives** (`?v=N` on the four URLs). `app.js` reads its own `?v=` and reuses it for `sw.js`, `fun.js`, `fun.css`, `profile.js`. |
+| `config.js` | Leagues, default followed teams, timezone, refresh interval. Add a league here and it shows up in "More". |
+| `espn.js` | Everything ESPN-specific: fetching, normalizing games/events, box scores, recaps, "Get caught up", team pages. Nothing else knows ESPN's shapes. |
+| `app.js` | State, rendering, routing, the rail, cards, detail pages, settings, long-press menu, stat tooltips, keyboard shortcuts. |
+| `style.css` | Theme tokens (top), layout, and the motion system (bottom, "v1"). |
+| `fun.js` / `fun.css` | Collection Log cards, holiday calendar and animations, quips. Lazy-loaded on idle. |
+| `profile.js` | Profiles, Collection Log UI, leaderboard (Firebase REST). Lazy-loaded on first open. |
+| `sw.js` | Offline app shell + logo cache. Never caches ESPN data. |
+
+## Shipping a change
+
+1. Edit the files.
+2. Bump `?v=63` → `?v=64` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+3. Pages serves it within a minute. The service worker picks up the new version on the next open.
+
+## Motion system
+
+`style.css` defines the tokens every ordinary interaction uses:
+
+```
+--t1 110ms   taps, presses
+--t2 200ms   colour / border / fade
+--t3 320ms   sheets, the rail highlight, bigger moves
+--ease       cubic-bezier(.2,.7,.2,1)
+--spring     cubic-bezier(.34,1.4,.44,1)
+```
+
+Buttons, tabs, chips and sheets already get press feedback and transitions from the shared rules. Collapsible sections tween open and closed (`app.js`, "Collapsible sections"). Opening or leaving a game uses the View Transitions API where available. Everything respects `prefers-reduced-motion`. The fun layer's animations are independent and sit on top.
+
+## Extension points (`window.SB`)
+
+```js
+SB.v                       // build number, e.g. "64"
+SB.state, SB.config        // live state and config (read, don't poke)
+SB.on("render", out => …)  // after every render; `out` is the <main> node
+SB.on("data", key => …)    // after scores arrive (key = league, or null for a full refresh)
+SB.on("view", x => …)      // a game page opened (x) or closed (null)
+SB.render()                // ask for a render (coalesced to one per frame)
+SB.open(x) / SB.tab(key)   // open a game / switch tab
+SB.toast(msg)
+SB.allGames(), SB.isFollowed(g), SB.el(tag, cls, text)
+```
+
+Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; async arrivals call `renderSoon()` so many in one frame become one render. Cards carry their game on `card._x`; one set of listeners on `#out` handles press-and-hold, prefetch and tooltips for all of them.
+
+## Adding things
+
+- **A league**: one line in `config.js`. `kind: "mma" | "race" | "golf"` makes it an event sport (cards and detail pages adapt).
+- **A stat tooltip**: add to `TIPS` in `app.js` (`"ABBR": "meaning"`, or `"context:ABBR"` for sport-specific meanings).
+- **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`).
+- **A detail section**: build it in `renderDetail` / `renderEvent` with `sec(title, node, open)`.
+
+## Data keys (localStorage)
+
+`sb-tab`, `sb-followed`, `sb-fp` (people), `sb-pins`, `sb-theme`, `sb-cache` (last scores), `sb-tcache` (team pages), `sb-eager` (extra leagues to load), `sb-col` (Collection Log), `sb-profiles`, `sb-active`, `sb-lb`.
