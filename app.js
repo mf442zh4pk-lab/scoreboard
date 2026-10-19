@@ -1018,27 +1018,27 @@
     body.appendChild(g); box.appendChild(body);
     return box;
   }
-  // Active win streaks across the teams you follow, longest first.
+  // Active streaks across the teams you follow, wins and losses alike, longest first.
   function heatCheck(rows) {
     if (!rows.length) return null;
-    var hot = rows.filter(function (r) { return r.s.cur.t === "W" && r.s.cur.n >= 1 && !r.off; }).sort(function (p, q) { return q.s.cur.n - p.s.cur.n || q.s.heat - p.s.heat; });
-    var cold = rows.filter(function (r) { return hot.indexOf(r) < 0; });
-    var box = el("section", "heat"); box.appendChild(el("h2", null, "Active win streaks"));
-    if (!hot.length) box.appendChild(el("p", "rb", "No one you follow is on a win streak right now."));
+    var on = rows.filter(function (r) { return !r.off && r.s.cur.t !== "T" && r.s.cur.n >= (r.s.cur.t === "W" ? 1 : 2); }).sort(function (p, q) { return q.s.cur.n - p.s.cur.n || q.s.heat - p.s.heat; });
+    var rest = rows.filter(function (r) { return on.indexOf(r) < 0; });
+    var box = el("section", "heat"); box.appendChild(el("h2", null, "Active streaks"));
+    if (!on.length) box.appendChild(el("p", "rb", "No one you follow is on a streak right now."));
     else {
-      var ul = el("ol", "hl"), mx = hot[0].s.cur.n;
-      hot.forEach(function (r, i) {
-        var li = el("li");
+      var ul = el("ol", "hl"), mx = on[0].s.cur.n;
+      on.forEach(function (r, i) {
+        var w = r.s.cur.t === "W", li = el("li", w ? "" : "cold");
         li.appendChild(el("span", "hn", String(i + 1)));
         var mid = el("div", "hm"); mid.appendChild(el("div", "hname", r.name));
-        var bar = el("div", "hbar"), fill = el("i", "up"); fill.style.width = Math.max(8, Math.round(r.s.cur.n / mx * 100)) + "%"; bar.appendChild(fill); mid.appendChild(bar);
+        var bar = el("div", "hbar"), fill = el("i", w ? "up" : "down"); fill.style.width = Math.max(8, Math.round(r.s.cur.n / mx * 100)) + "%"; bar.appendChild(fill); mid.appendChild(bar);
         li.appendChild(mid);
-        var rt = el("div", "hr"); rt.appendChild(el("b", null, (r.s.cur.n >= 5 ? "\uD83D\uDD25 " : "") + "W" + r.s.cur.n)); rt.appendChild(el("span", "tsub", "best " + r.s.best));
+        var rt = el("div", "hr"); rt.appendChild(el("b", null, (r.s.cur.n >= 5 ? (w ? "\uD83D\uDD25 " : "\u2744\uFE0F ") : "") + r.s.cur.t + r.s.cur.n)); rt.appendChild(el("span", "tsub", w ? "best " + r.s.best : "losing"));
         li.appendChild(rt); ul.appendChild(li);
       });
       box.appendChild(ul);
     }
-    if (cold.length) box.appendChild(el("p", "hcold", "No active streak: " + cold.map(function (r) { return r.name + (r.s.cur.t === "L" && r.s.cur.n > 1 ? " (L" + r.s.cur.n + ")" : ""); }).join(", ")));
+    if (rest.length) box.appendChild(el("p", "hcold", "No streak: " + rest.map(function (r) { return r.name; }).join(", ")));
     return box;
   }
   // Where a followed person stands right now: live event first, else the next one coming up, else the latest result.
@@ -1238,7 +1238,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.2 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.3 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
@@ -1933,6 +1933,7 @@
   function load(full, only) {
     if (S.loading) return;
     S.loading = true;
+    var spT = !S.ready ? setTimeout(function () { if (!S.ready) splash(0, true); }, 350) : 0;
     var btn = $("refresh"); btn.disabled = true; btn.setAttribute("aria-busy", "true"); stampTick();
     document.body.classList.add("ld");
     var offsets = [];
@@ -1996,7 +1997,7 @@
       $("stamp").textContent = "off"; $("refresh").title = "Could not reach the score server"; $("dot").className = "dot stale";
     }).then(function () {
       S.loading = false; btn.disabled = false; btn.removeAttribute("aria-busy"); stampTick();
-      document.body.classList.remove("ld");
+      document.body.classList.remove("ld"); clearTimeout(spT); splashOff();
       if (window.ptrDone) window.ptrDone();
     });
   }
@@ -2009,8 +2010,17 @@
     if (w.length) { var a = document.createElement("span"); a.className = "t1"; a.textContent = w.join(" "); t.appendChild(a); }
     var b = document.createElement("span"); b.className = "t2"; b.textContent = last; t.appendChild(b);
     t.setAttribute("aria-label", C.title);
-    $("mark").onclick = function () { t.click(); };
   })();
+  // The splash can replay: on the M mark, and whenever the app has nothing to show yet while it loads.
+  var SPT = 0;
+  function splash(ms, hold) {
+    var sp = $("sp"); if (!sp || RM && !hold) return;
+    sp.classList.remove("off"); clearTimeout(SPT);
+    [].forEach.call(sp.querySelectorAll(".m,.sh,.w,.t"), function (n) { n.style.animation = "none"; void n.offsetWidth; n.style.animation = ""; });
+    if (!hold) SPT = setTimeout(splashOff, ms || 1000);
+  }
+  function splashOff() { var sp = $("sp"); if (sp) sp.classList.add("off"); clearTimeout(SPT); }
+  $("mark").onclick = function () { buzz(8); splash(1000); S.tab = "pinned"; S.view = null; S.settings = false; S.more = false; clearHash(); try { localStorage.setItem("sb-tab", "pinned"); } catch (e) {} render(); window.scrollTo(0, 0); };
   // Tapping the title goes home (Following tab).
   (function () {
     var ti = $("title"), home = function () {
