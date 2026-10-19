@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=73` → `?v=74` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=74` → `?v=75` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. The service worker picks up the new version on the next open.
 
 ## Motion system
@@ -55,7 +55,7 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 
 - **A league**: one line in `config.js`. `kind: "mma" | "race" | "golf"` makes it an event sport (cards and detail pages adapt).
 - **A stat tooltip**: add to `TIPS` in `app.js` (`"ABBR": "meaning"`, or `"context:ABBR"` for sport-specific meanings).
-- **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`).
+- **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`). Card fields: `[id, category, rarity, emoji, name, description, hint]`; the description shows on every card, found or not (the hint is kept in data but no longer shown). The 100 famous moments in `MOMS` carry full write-ups, and the card goes into `story` layout when the text runs long.
 - **A detail section**: build it in `renderDetail` / `renderEvent` with `sec(title, node, open)`.
 
 ## Settings (`PREF` in `app.js`)
