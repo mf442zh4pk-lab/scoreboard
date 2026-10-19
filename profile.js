@@ -44,12 +44,13 @@
     return hashPw(pw, salt, ITER).then(function (h) {
       P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() };
       putProfiles(P); s("sb-active", l);
-      lbJoin(name, pw, true);
+      lbJoin.changed = false;
+      return Promise.race([lbJoin(name, pw, true, true), new Promise(function (r) { setTimeout(r, 2500); })]).then(function () { if (lbJoin.changed) location.reload(); });
     });
   }
   function login(name, pw) {
     var P = profiles(), p = P[name.toLowerCase()];
-    if (!p) return Promise.reject("No profile with that name on this device.");
+    if (!p) return remoteLogin(name, pw);
     return hashPw(pw, p.s, p.it || ITER).then(function (h) {
       if (h !== p.h) throw "Wrong password.";
       var guest = parse(g("sb-col")), blob = p.d || {}, merged = mergeCol(parse(blob["sb-col"]), guest);
@@ -60,7 +61,10 @@
     });
   }
   function saveActive() { var a = active(); if (!a) return; var P = profiles(); P[a].d = snapshot(); putProfiles(P); }
-  function logout() { saveActive(); applyBlob(null); s("sb-active", null); s("sb-lb", null); location.reload(); }
+  function logout() {
+    saveActive(); var go = function () { applyBlob(null); s("sb-active", null); s("sb-lb", null); location.reload(); };
+    Promise.race([savePush().catch(function () {}), new Promise(function (r) { setTimeout(r, 2500); })]).then(go, go);
+  }
   function removeProfile() { var a = active(), P = profiles(); if (a) { delete P[a]; putProfiles(P); s("sb-active", null); s("sb-lb", null); } }
 
 
@@ -80,10 +84,10 @@
     return jpost("https://identitytoolkit.googleapis.com/v1/accounts:" + (mode === "create" ? "signUp" : "signInWithPassword") + "?key=" + FB.key, { email: name.toLowerCase() + "@scoreboard.app", password: pw, returnSecureToken: true })
       .then(function (j) { var o = { uid: j.localId, rt: j.refreshToken, it: j.idToken, exp: Date.now() + (+j.expiresIn - 60) * 1000, name: name }; lbPut(o); return o; });
   }
-  function lbJoin(name, pw, sync) {            // one login for both: try to create the online account, else sign in
+  function lbJoin(name, pw, sync, rw) {            // one login for both: try to create the online account, else sign in
     if (!/^[A-Za-z0-9_.\-]{3,16}$/.test(name) || pw.length < 6) return Promise.resolve(false);
     return lbAuth("create", name, pw).catch(function (e) { if (/EMAIL_EXISTS/.test(String(e))) return lbAuth("login", name, pw); throw e; })
-      .then(function () { lbCache = null; return sync ? lbSync(true) : 0; }).then(function () { return true; }, function () { return false; });
+      .then(function () { lbCache = null; return sync ? pullApply(!!rw).then(function (c) { lbJoin.changed = c; return lbSync(true); }).then(function () { return savePush(true); }) : 0; }).then(function () { return true; }, function () { return false; });
   }
   function lbToken() {
     var o = lbGet(); if (!o) return Promise.reject("NOAUTH");
@@ -99,6 +103,62 @@
       return fetch(DOC + "/scores/" + o.uid, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + o.it }, body: JSON.stringify({ fields: f }) })
         .then(function (r) { if (!r.ok) throw "WRITE"; var o2 = lbGet() || o; o2.last = m.score; lbPut(o2); });
     });
+  }
+  // ---------- cloud save (whole profile in Firestore saves/{uid}, so any device can log in) ----------
+  function sh(str) { var h = 0; for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return h; }
+  function mergeMax(a, b) {                      // sync-safe union: earliest find, highest count (never inflates)
+    var o = { i: {}, s: {}, d: [] };
+    [a, b].forEach(function (c) {
+      if (!c) return;
+      for (var k in (c.i || {})) { var e = c.i[k], x = o.i[k]; var n = x ? [Math.min(x[0], e[0]), Math.max(x[1], e[1])] : [e[0], e[1]]; if ((x && x[2]) || e[2]) n.push((x && x[2]) || e[2]); o.i[k] = n; }
+      for (var k2 in (c.s || {})) o.s[k2] = 1;
+      (c.d || []).forEach(function (d) { if (o.d.indexOf(d) < 0) o.d.push(d); });
+    });
+    o.d.sort(); o.d = o.d.slice(-60); return o;
+  }
+  function saveGet(o) {
+    return fetch(DOC + "/saves/" + o.uid, { headers: { Authorization: "Bearer " + o.it } }).then(function (r) {
+      if (r.status === 404) return null; if (!r.ok) throw "READ";
+      return r.json().then(function (j) { return j && j.fields && j.fields.d ? parse(j.fields.d.stringValue) : null; });
+    });
+  }
+  function savePush(force) {
+    var o0 = lbGet(); if (!o0 || !active()) return Promise.resolve();
+    saveActive(); var d = JSON.stringify(snapshot()), h = sh(d);
+    if (!force && o0.sv === h) return Promise.resolve();
+    return lbToken().then(function (o) {
+      return fetch(DOC + "/saves/" + o.uid, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + o.it }, body: JSON.stringify({ fields: { d: { stringValue: d }, ts: { integerValue: String(Date.now()) } } }) })
+        .then(function (r) { if (!r.ok) throw "WRITE"; var o2 = lbGet() || o; o2.sv = h; lbPut(o2); });
+    });
+  }
+  function pullApply(remoteWins) {                // merge the cloud copy into this device; resolves true if anything changed
+    return lbToken().then(saveGet).then(function (rb) {
+      if (!rb) return false;
+      var lb = snapshot(), o2 = lbGet() || {}, nb = {}, changed = false;
+      PK.forEach(function (k) { nb[k] = lb[k]; });
+      var lc = parse(lb["sb-col"]), mc = JSON.stringify(mergeMax(lc, parse(rb["sb-col"])));
+      if (mc !== JSON.stringify(mergeMax(lc, null))) changed = true;
+      nb["sb-col"] = mc;
+      if (remoteWins || (o2.sv != null && o2.sv === sh(JSON.stringify(lb)))) {
+        PK.forEach(function (k) { if (k !== "sb-col" && rb[k] != null && rb[k] !== lb[k]) { nb[k] = rb[k]; changed = true; } });
+      }
+      if (changed) { applyBlob(nb); saveActive(); }
+      return changed;
+    });
+  }
+  function remoteLogin(name, pw) {                // no local profile: sign in online, then build one from the cloud save
+    if (!validName(name) || pw.length < 6) return Promise.reject("No profile with that name here. Create one first.");
+    return lbAuth("login", name, pw).then(function (o) { return saveGet(o); }, function (e) { throw /EMAIL_NOT_FOUND|INVALID_LOGIN|INVALID_PASSWORD|INVALID_EMAIL/.test(String(e)) ? "Wrong username or password." : lbErr(e); })
+      .then(function (rb) {
+        var salt = b64(crypto.getRandomValues(new Uint8Array(16))), l = name.toLowerCase();
+        return hashPw(pw, salt, ITER).then(function (h) {
+          var blob = rb || {}, merged = mergeCol(parse(blob["sb-col"]), parse(g("sb-col")));
+          blob["sb-col"] = JSON.stringify(merged); applyBlob(blob);
+          var P = profiles(); P[l] = { n: name, s: salt, h: h, it: ITER, d: snapshot(), c: Date.now() }; putProfiles(P); s("sb-active", l);
+          var go = function () { location.reload(); };
+          Promise.race([lbSync(true).then(function () { return savePush(true); }), new Promise(function (r) { setTimeout(r, 2500); })]).then(go, go);
+        });
+      });
   }
   var lbCache = null;
   function lbTop(force) {
@@ -226,7 +286,7 @@
       dz.appendChild(db); dz.appendChild(el("p", "pm-note", "Deleting removes the login and its saved copy here. Your current scores, teams and cards stay as a guest.")); body.appendChild(dz);
       return;
     }
-    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log together, and to join the leaderboard. "));
+    body.appendChild(el("p", "pm-lead", "Make a profile to keep your teams, settings and Collection Log saved online, and to join the leaderboard. Log in on any device to get it all back."));
     summary(body);
     body.appendChild(btn("Open Collection Log", "pm-b", function () { show("log"); }));
     body.appendChild(btn("Leaderboard", "pm-b", function () { show("lb"); }));
@@ -248,7 +308,7 @@
       pw[1].onkeydown = function (e) { if (e.key === "Enter") go.onclick(); };
       form.appendChild(go);
       if (mode === "create") form.appendChild(el("p", "pm-note", "Username: letters, numbers, _ . - (3 to 16). Password 6+. Your current teams, settings and cards become this profile's starting point, and it joins the online leaderboard."));
-      if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Create one to get started."));
+      if (mode === "login" && !hasAny) form.appendChild(el("p", "pm-note", "No profiles on this device yet. Log in with an existing account, or create one."));
     }
     bl.onclick = function () { mode = "login"; draw(); }; bc.onclick = function () { mode = "create"; draw(); };
     if (arg && arg.name) mode = "login"; else if (!hasAny) mode = "create";
@@ -344,11 +404,13 @@
     b.setAttribute("aria-label", p ? "Profile: " + p.n : "Profile and Collection Log");
   }
   D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
+  D.addEventListener("visibilitychange", function () { if (D.hidden && lbGet() && active()) savePush().catch(function () {}); });
   window.PROF = {
     open: function (v, a) {
       open(v, a);
     },
-    refresh: refreshBtn, sync: function () { return lbSync().catch(function () {}); }
+    refresh: refreshBtn, sync: function () { return lbSync().catch(function () {}).then(function () { return savePush(); }).catch(function () {}); },
+    pull: function () { if (!lbGet() || !active()) return; pullApply().then(function (c) { if (c && !D.body.classList.contains("rv-on")) location.reload(); else return PROF.sync(); }, function () {}); }
   };
   refreshBtn();
 })();
