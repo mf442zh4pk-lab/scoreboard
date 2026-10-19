@@ -533,18 +533,19 @@
     });
     rows.sort(function (a, b) { return b.h - a.h; });
     rows.forEach(function (r, i) {
-      var g = r.g, row = el("div", "qs" + (isFollowed(g) ? " fol" : "") + (i < 3 && r.h >= 40 ? " hot" : "")), aw = g.a[2] > g.h[2];
+      var g = r.g, st = new Date(g.t), pm = st.getHours() >= 19 || (st.getHours() === 18 && st.getMinutes() >= 30), close = Math.abs(g.h[2] - g.a[2]) <= (TIGHT[r.lk] || 2);
+      var row = el("div", "qs" + (isFollowed(g) ? " fol" : "") + (pm ? " prime" : "") + (close ? " close" : "")), aw = g.a[2] > g.h[2];
       row.tabIndex = 0; row.setAttribute("role", "button"); row.setAttribute("aria-label", r.ll + ": " + g.a[0] + " " + g.a[2] + ", " + g.h[0] + " " + g.h[2]);
       var a = el("span", "qst" + (aw ? " w" : "")); a.appendChild(el("i", null, (g.a[6] ? g.a[6] + " " : "") + g.a[1])); a.appendChild(el("u", null, String(g.a[2]))); row.appendChild(a);
       row.appendChild(el("span", "qsat", "@"));
       var h = el("span", "qst" + (aw ? "" : " w")); h.appendChild(el("i", null, (g.h[6] ? g.h[6] + " " : "") + g.h[1])); h.appendChild(el("u", null, String(g.h[2]))); row.appendChild(h);
-      var f = el("span", "qsf"); f.appendChild(el("em", null, r.lk === "ncaafb" ? "CFB" : r.ll)); f.appendChild(el("b", null, g.o ? "F/OT" : "F")); row.appendChild(f);
+      var f = el("span", "qsf"); f.appendChild(el("em", null, (r.lk === "ncaafb" ? "CFB" : r.ll) + (pm ? " \u00b7 " + st.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !PREF.h24 }) : ""))); f.appendChild(el("b", null, g.o ? "F/OT" : "F")); row.appendChild(f);
       var go = function () { openGame({ lk: r.lk, g: g }); };
       row.onclick = go; row.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
       body.appendChild(row);
     });
     if (!rows.length) body.appendChild(el("p", "rb", "No NFL, NBA, NHL, MLB or ranked college football finals yesterday."));
-    box.appendChild(ovSection("Scoreboard", rows.length ? rows.length + " final" + (rows.length === 1 ? "" : "s") + " \u00b7 biggest first" : "yesterday", body));
+    box.appendChild(ovSection("Scoreboard", null, body));
     return box;
   }
   // ---------- Tomorrow: a month of what's coming for your teams, summarized (schedules already on the phone) ----------
@@ -1394,7 +1395,7 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 1.7 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 1.8 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
