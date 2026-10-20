@@ -498,3 +498,28 @@ img.pk-em{width:28px;height:28px;object-fit:contain}
 .ac-fav.none>b{font-size:30px;color:var(--mute);width:56px;text-align:center}
 .ac-fav.rE,.ac-fav.rL,.ac-fav.rM,.ac-fav.rS{border-color:color-mix(in srgb,#e0a800 55%,var(--line))}
 .tcd-fav.on{color:#e0a800;border-color:color-mix(in srgb,#e0a800 60%,var(--line))}
+
+/* Collection Log polish: off-screen tiles skip layout and paint */
+.tcm{content-visibility:auto;contain-intrinsic-size:auto 120px 168px}
+.pm-none{display:flex;flex-direction:column;align-items:center;gap:10px}
+.tcm-x{top:auto;right:auto;bottom:5px;left:6px}   /* the rarity badge owns the top-right corner */
+
+/* Trade in dupes */
+.trd{max-height:88vh;max-height:88dvh;overflow-y:auto;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:18px;width:min(92vw,360px);display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px -12px rgba(0,0,0,.6)}
+.trd-h{margin:0;font:800 22px var(--hd);letter-spacing:.03em;text-align:center}
+.trd-n{margin:0;font-size:13px;color:var(--mute);text-align:center}
+.trd-i{font-size:44px;text-align:center;line-height:1}
+.trd-rows{display:flex;flex-direction:column;gap:6px}
+.trd-r{display:flex;align-items:center;gap:10px;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:9px 12px;font-weight:700;color:var(--mute);cursor:pointer;opacity:.6;text-align:left}
+.trd-r i{font-style:normal;font-weight:800;font-size:10px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--rc);color:#10141f}
+.trd-r span{flex:1}
+.trd-r.on{opacity:1;border-color:var(--rc);color:var(--fg);background:color-mix(in srgb,var(--rc) 14%,var(--card))}
+.trd-q{margin:0;text-align:center;font-weight:700;font-size:14px;color:var(--mute)}
+.trd-q.ok{color:var(--win)}
+.trd .tcd-c{justify-content:center}
+.trd .pm-b:disabled{opacity:.4}
+.trd-ch{flex-wrap:nowrap}
+.trd-keep{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:var(--mute)}
+.trd-keep .pm-seg{flex:1;max-width:230px}
+.trd-w{margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--live)}
+.trd-keep .pm-seg{grid-template-columns:repeat(3,1fr)}
