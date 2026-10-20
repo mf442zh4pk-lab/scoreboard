@@ -2142,7 +2142,7 @@
   // What a query's search shows, and what still needs asking. When ESPN has nothing for the whole query (a word
   // half-typed: "uconn huski", "man unit"), the answer for the words before it is reused, kept to the hits that have a
   // word starting with the last one, in their name, league or sport. At most one more small request, often none.
-  function wordsOf(x) { return " " + String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, " "); }
+  function wordsOf(x) { return " " + String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " "); }   // "Montréal" matches "montreal"
   function searchState(q0) {
     var sq = sportQ(q0), q = sq.q, r = ESPN.peekSearch(q), st = { sq: sq, q: q, r: r, need: null };
     if (!r) { if (q.length >= 2) st.need = q; return st; }
@@ -2577,9 +2577,59 @@
     // Short words must be a whole word ("f1", "gp", "ufc"); three letters on, the start of one is enough.
     return LG.filter(function (l) { var w = lgWords(l) + " "; return toks.every(function (t) { return w.indexOf(" " + t + (t.length < 3 ? " " : "")) >= 0; }); });
   }
-  function hay(x) {
+  // A game's searchable words (names, abbreviations, league and sport words, event name, network, entrants), spaced so a
+  // word start is " " + word.
+  function hayW(x) {
     var g = x.g, lg = leagueOf(x.lk) || {};
-    return [g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lgWords(lg), g.n, g.b, g.s === "live" ? "live now" : g.s === "final" ? "final" : "upcoming", (g.pp || []).join(" "), ESPN.dayKey(new Date(g.t)) === ESPN.dayKey(new Date()) ? "today" : ""].filter(Boolean).join(" ").toLowerCase();
+    return wordsOf([g.h[0], g.h[1], g.a[0], g.a[1], x.ll, lgWords(lg), g.n, g.b, (g.pp || []).join(" ")].filter(Boolean).join(" ")) + " ";
+  }
+  // The search language loads the first time search is used (and on an idle moment after start), then stays cached.
+  var SQW = [];
+  function ensureSQ(cb) {
+    if (window.SQ) { if (cb) cb(); return; }
+    if (cb) SQW.push(cb); if (ensureSQ.on) return; ensureSQ.on = 1;
+    addScript("search.js", function () { var q = SQW; SQW = []; q.forEach(function (f) { f(); }); });
+  }
+  var SQX = { tz: C.timezone, path: function (lk) { return (leagueOf(lk) || {}).path || ""; }, isClose: function (x) { return isClose(x); }, isFollowed: function (x) { return isFollowed(x.g); } };
+  function parseQ(raw) {
+    if (window.SQ) { SQX.now = new Date(); return SQ.parse(raw, SQX); }
+    // until search.js arrives (a moment, once): plain words, each matched by word start
+    var groups = wordsOf(raw).trim().split(" ").filter(Boolean).map(function (w) { return [w]; });
+    return { groups: groups, tq: raw, chips: [], lkf: [], lks: [], days: [], dayOffs: [], intent: false, timed: false, sep: 0,
+      test: function (x, hw) { return groups.every(function (g) { return hw.indexOf(" " + g[0]) >= 0; }); } };
+  }
+  // Games fetched just for a search: a day outside the loaded window, or a league that isn't loaded. Kept for the session.
+  var FX = {}, FXS = {};   // FXS["lk|day"]: 1 while its request is out, 2 once answered
+  function fxGames() { var o = []; Object.keys(FX).forEach(function (k) { FX[k].forEach(function (g) { o.push({ g: g, lk: g.lk, ll: (leagueOf(g.lk) || {}).label || "" }); }); }); return o; }
+  // Looks for what the words name and isn't on hand (at most 3 leagues x 3 days), and starts those fetches after a
+  // typing pause. True while any of them are out, so the list says "Looking that up" instead of "nothing".
+  function planFetch(P, raw) {
+    var lks = P.lks.slice(); leagueHits(P.tq || "").forEach(function (l) { if (lks.indexOf(l.key) < 0) lks.push(l.key); });
+    lks = lks.filter(function (k) { return leagueOf(k); }).slice(0, 3);
+    var offs = P.dayOffs.filter(function (o) { return o >= -7 && o <= 14; }).slice(0, 3), jobs = [], busy = false;
+    lks.forEach(function (k) {
+      var l = leagueOf(k), st = S.lgState[k], loaded = !l.lazy || st === "done";
+      if (st === "loading") busy = true;
+      if (!loaded) {   // a league that isn't loaded loads whole (event leagues always do: one request covers weeks)
+        if (st !== "loading" && st !== "failed") { busy = true; jobs.push(function () { loadLeague(k); }); }
+        if (l.kind || !offs.length) return;
+      }
+      if (l.kind) return;
+      var need = offs.filter(function (o) { return !(loaded && o >= -1 && o <= C.daysAhead); });
+      need.forEach(function (o) { if (FXS[k + "|" + o] === 1) busy = true; });
+      var todo = need.filter(function (o) { return !FXS[k + "|" + o]; });
+      if (!todo.length) return;
+      busy = true;
+      jobs.push(function () {
+        todo.forEach(function (o) { FXS[k + "|" + o] = 1; });
+        ESPN.fetchScores(todo, [k]).then(function (r) { FX[k + "|" + todo.join(",")] = r.byLeague[k] || []; }, function () {}).then(function () {
+          todo.forEach(function (o) { FXS[k + "|" + o] = 2; }); if (FIND && FIND._fresh) FIND._fresh();
+        });
+      });
+    });
+    clearTimeout(planFetch.t);
+    if (jobs.length) planFetch.t = setTimeout(function () { if (FIND && FINDQ && FINDQ.value.trim().toLowerCase() === raw) jobs.forEach(function (j) { j(); }); }, 350);
+    return busy;
   }
   // A team's schedule for Find, once per team per session; it also fills S.teams so its page opens without waiting.
   // A team's games for Find: what's on hand (a team page already loaded, or an earlier lookup) comes back at once;
@@ -2636,11 +2686,28 @@
     var rail = $("rail"), inp = FINDQ, ov = el("div", "find rfp"), res = el("div", "find-res"), hint = el("p", "find-h", "Any team, athlete or league. Add a sport to narrow it: \u201cboston college football\u201d.");
     ov.appendChild(hint); ov.appendChild(res);
     rail.classList.remove("hide"); rail.classList.add("finding");
-    var all = allGames().map(function (g) { return { x: g, h: hay(g) }; }), cur = [], ctl = {}, st = 0;
+    var all = allGames().map(function (g) { return { x: g, w: hayW(g) }; }), cur = [], ctl = {}, st = 0;
+    ensureSQ(function () { if (FIND === ov && inp.value.trim()) fill(); });
+    // every game Find can show: loaded ones plus any fetched just for a search (deduped)
+    function pool() {
+      var o = all.slice(), have = {}; all.forEach(function (e) { have[e.x.lk + "_" + e.x.g.id] = 1; });
+      fxGames().forEach(function (x) { var k = x.lk + "_" + x.g.id; if (!have[k]) { have[k] = 1; o.push({ x: x, w: hayW(x) }); } });
+      return o;
+    }
+    var VOC = null;
+    function vocab() {   // the typo repair's dictionary: team and league names on hand plus the search language's own words
+      if (VOC) return VOC; VOC = window.SQ ? SQ.words() : {};
+      var addW = function (str, wt) { wordsOf(str).trim().split(" ").forEach(function (w) { if (w.length >= 3 && !(VOC[w] > wt)) VOC[w] = wt; }); };
+      (TEAMS || []).forEach(function (t) { addW(t.name, 3); });
+      all.forEach(function (e) { addW(e.x.g.h[0] + " " + e.x.g.a[0], 3); });
+      LG.forEach(function (l) { addW(l.label, 2); });
+      REC.forEach(function (r) { addW(r.name, 4); });
+      return VOC;
+    }
     teamIndex().then(function () { if (FIND === ov) fill(); });
     ctl.redraw = function () { if (FIND === ov) fill(); };
     // New scores while the panel is open: the result cards update in place (scroll position kept).
-    ov._fresh = function () { if (FIND !== ov || document.querySelector(".portal") || !inp.value.trim()) return; all = allGames().map(function (g) { return { x: g, h: hay(g) }; }); var y = ov.scrollTop; fill(); ov.scrollTop = y; };
+    ov._fresh = function () { if (FIND !== ov || document.querySelector(".portal") || !inp.value.trim()) return; all = allGames().map(function (g) { return { x: g, w: hayW(g) }; }); var y = ov.scrollTop; fill(); ov.scrollTop = y; };
     function open(c, gx) { portal(c, gx); }
     function gameCard(gx, grid) {
       var c = card(gx); c.classList.add("click"); c.tabIndex = 0; c.setAttribute("role", "button");
@@ -2659,51 +2726,77 @@
       });
       res.appendChild(row);
     }
-    function fill() {
-      var raw = inp.value.trim().toLowerCase(), sq = sportQ(raw), toks = sq.q.split(/\s+/).filter(Boolean); res.textContent = ""; cur = [];
-      if (!toks.length) { hint.hidden = false; chips(); drawRecent(res); return; }
+    // One query, start to finish. The search language (search.js) turns the words into filters ("monday night
+    // football", "pats tonight", "close games", "on espn") plus words left to match; games come from what's loaded,
+    // from the best team matches' schedules, and from a day or league fetched just for this search. Nothing found:
+    // fix a typo, then loosen the words, then offer one-tap starts; the list is never just empty.
+    function fill(over, note, depth) {
+      var raw0 = inp.value.trim(), raw = (over || raw0).toLowerCase(); res.textContent = ""; cur = [];
+      if (!raw) { hint.hidden = false; chips(); drawRecent(res); return; }
       hint.hidden = true;
-      var hits = all.filter(function (e) { return sq.ok((leagueOf(e.x.lk) || {}).path) && toks.every(function (t) { return e.h.indexOf(t) >= 0; }); });
-      var rk = { live: 0, up: 1, final: 2 };
-      hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - Date.now()) - Math.abs(Date.parse(b.x.g.t) - Date.now()); });
-      var seen = {}, grid = el("div", "grid");
-      hits.slice(0, 12).forEach(function (e) { seen[e.x.lk + "_" + e.x.g.id] = 1; gameCard(e.x, grid); });
-      // Games from the best team matches' own schedules, for teams whose games aren't loaded.
-      var tms = mergeTeams(sq.q, searchState(raw).r).filter(function (t) { return !t.dl && t.id && leagueOf(t.lk) && sq.ok(pathOfTeam(t)); }).slice(0, 2), waiting = false;
-      var pend = [];
+      var P = parseQ(raw), shown = 0, waiting = false;
+      if (note) res.appendChild(el("p", "find-fix", note));
+      if (P.chips.length) { var ir = el("div", "find-int"); ir.appendChild(el("span", null, "Showing")); P.chips.forEach(function (c) { ir.appendChild(el("b", null, c)); }); res.appendChild(ir); }
+      // games on hand
+      var hits = pool().filter(function (e) { return P.test(e.x, e.w); });
+      var rk = { live: 0, up: 1, final: 2 }, now = Date.now();
+      if (P.status === "final") hits.sort(function (a, b) { return Date.parse(b.x.g.t) - Date.parse(a.x.g.t); });
+      else if (P.timed) hits.sort(function (a, b) { return rk[a.x.g.s] - rk[b.x.g.s] || (a.x.g.s === "final" ? Date.parse(b.x.g.t) - Date.parse(a.x.g.t) : Date.parse(a.x.g.t) - Date.parse(b.x.g.t)); });
+      else hits.sort(function (a, b) { return (isFollowed(b.x.g) ? 1 : 0) - (isFollowed(a.x.g) ? 1 : 0) || rk[a.x.g.s] - rk[b.x.g.s] || Math.abs(Date.parse(a.x.g.t) - now) - Math.abs(Date.parse(b.x.g.t) - now); });
+      var lim = P.intent ? 24 : 12, seen = {}, grid = el("div", "grid");
+      hits.slice(0, lim).forEach(function (e) { seen[e.x.lk + "_" + e.x.g.id] = 1; gameCard(e.x, grid); });
+      // what isn't on hand: a named day or league is fetched once the typing pauses
+      if (planFetch(P, raw)) waiting = true;
+      // the best team matches' own schedules (a matchup searches its first team and keeps games against the second)
+      var tq = P.sep && P.groups.length >= 2 ? P.groups[0][0] : P.tq, TS = tq ? searchState(tq) : null;
+      var tms = TS ? mergeTeams(TS.q, TS.r).filter(function (t) { return !t.dl && t.id && leagueOf(t.lk) && TS.sq.ok(pathOfTeam(t)); }).slice(0, 2) : [], pend = [];
       tms.forEach(function (t) {
         var T = findSched(t);
         if (!T) { pend.push(t); return; }
-        schedPicks(T).forEach(function (g) {
-          var sg = schedGame(g, T, t.lk); if (!sg || seen[t.lk + "_" + sg.id]) return; seen[t.lk + "_" + sg.id] = 1;
-          var gx = { lk: t.lk, g: sg, ll: (leagueOf(t.lk) || {}).label || "" }; SG[t.lk + "_" + sg.id] = sg; gameCard(gx, grid);
-        });
+        var lbl = (leagueOf(t.lk) || {}).label || "";
+        var xs = (T.games || []).map(function (g) { var sg = schedGame(g, T, t.lk); return sg && { lk: t.lk, g: sg, ll: lbl }; }).filter(Boolean);
+        var picks;
+        if (P.intent || P.groups.length > 1) {   // keep the schedule games the words describe: "pats monday", "bruins vs leafs"
+          picks = xs.filter(function (x) { return P.test(x, hayW(x)); });
+          var lv = picks.filter(function (x) { return x.g.s === "live"; }), up = picks.filter(function (x) { return x.g.s === "up"; }).sort(function (a, b) { return byTime(a.g, b.g); }), fn = picks.filter(function (x) { return x.g.s === "final"; }).sort(function (a, b) { return byTime(b.g, a.g); });
+          picks = P.status === "final" ? fn.slice(0, 3) : lv.concat(up.slice(0, 2)).concat(fn.slice(0, P.status === "up" ? 0 : 1));
+        } else { var ids = schedPicks(T).map(function (g) { return g.id; }); picks = xs.filter(function (x) { return ids.indexOf(x.g.id) >= 0; }); }
+        picks.forEach(function (x) { var k = t.lk + "_" + x.g.id; if (seen[k]) return; seen[k] = 1; SG[k] = x.g; gameCard(x, grid); });
       });
-      // Schedules are looked up only once typing pauses, so "b", "bo", "bos"... don't each fetch a different team.
-      clearTimeout(ctl.st);
-      if (pend.length && raw.length >= 3) {
+      clearTimeout(ctl.st);   // schedules only after a typing pause, so "b", "bo", "bos"... don't each fetch a team
+      if (pend.length && tq.length >= 3) {
         waiting = true;
         ctl.st = setTimeout(function () {
-          if (FIND !== ov || inp.value.trim().toLowerCase() !== raw) return;
-          Promise.all(pend.map(function (t) { findSched(t, true); return FG[t.lk + "_" + t.id].p; })).then(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw) fill(); });
+          if (FIND !== ov || inp.value.trim().toLowerCase() !== raw0.toLowerCase()) return;
+          Promise.all(pend.map(function (t) { findSched(t, true); return FG[t.lk + "_" + t.id].p; })).then(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw0.toLowerCase()) fill(); });
         }, 350);
       }
-      // Leagues the words name: a row each (tap for its tab), and a league that isn't loaded yet loads in the background
-      // (one request; its events then show up as games above, via _fresh).
-      var lgs = leagueHits(raw).slice(0, 4);
+      // leagues the words name (tap for the tab); one that isn't loaded loads behind (its games then appear via _fresh)
+      var lgs = leagueHits(tq || raw);   // with only filter words left ("golf", "f1 this weekend"), the words as typed still name leagues
+      P.lkf.forEach(function (k) { var l = leagueOf(k); if (l && lgs.indexOf(l) < 0) lgs.push(l); });
+      lgs = lgs.slice(0, 4);
       if (lgs.length) {
         res.appendChild(el("h4", "find-sh", lgs.length > 1 ? "Leagues" : "League"));
         var lw = el("div", "find-tms"); lgs.forEach(function (l) { lw.appendChild(leagueRow(l)); }); res.appendChild(lw);
         clearTimeout(ctl.lt);
         var cold = lgs.filter(function (l) { return l.lazy && !S.lgState[l.key]; }).slice(0, 3);
-        if (cold.length) ctl.lt = setTimeout(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw) cold.forEach(function (l) { loadLeague(l.key); }); }, 350);
+        if (cold.length) { waiting = true; ctl.lt = setTimeout(function () { if (FIND === ov && inp.value.trim().toLowerCase() === raw0.toLowerCase()) cold.forEach(function (l) { loadLeague(l.key); }); }, 350); }
       }
       if (grid.firstChild) {
-        res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid);
-        if (hits.length > 12) res.appendChild(el("p", "find-h", "+" + (hits.length - 12) + " more \u00b7 keep typing"));
-      } else if (waiting) res.appendChild(el("p", "find-h find-wait", "Looking up their schedule\u2026"));
-      var n = drawHits(res, raw, ctl, { nt: 8, heads: true, strict: lgs.length > 0 });
-      if (!grid.firstChild && !n && !lgs.length && !waiting && ctl.done) res.appendChild(el("p", "find-h", "Nothing matches \u201c" + inp.value.trim() + "\u201d."));
+        res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid); shown += grid.children.length;
+        if (hits.length > lim) res.appendChild(el("p", "find-h", "+" + (hits.length - lim) + " more \u00b7 add a word to narrow it"));
+      } else if (waiting) res.appendChild(el("p", "find-h find-wait", P.intent ? "Looking that up\u2026" : "Looking up their schedule\u2026"));
+      else if (P.intent && !tq && !lgs.length) { res.appendChild(el("p", "find-h", "No " + P.chips.join(" \u00b7 ").toLowerCase() + " games right now. Try one of these:")); chips(); ctl.done = true; return; }
+      var n = tq ? drawHits(res, tq, ctl, { nt: 8, heads: true, strict: lgs.length > 0 }) : (ctl.done = true, 0);
+      shown += n + lgs.length;
+      if (shown || waiting || !ctl.done) return;
+      // Nothing at all. 1: a typo ("celitcs", "patriats"). 2: loosen the words. 3: one-tap starts.
+      depth = depth || 0;
+      if (depth < 1 && window.SQ) { var fix = SQ.repair(raw, vocab()); if (fix && fix !== raw) return fill(fix, "Showing results for \u201c" + fix + "\u201d", depth + 1); }
+      var ws = raw.split(/\s+/);
+      if (depth < 3 && ws.length > 1) { var loose = ws.slice(0, -1).join(" "); return fill(loose, "No exact match for \u201c" + raw0 + "\u201d. Closest: \u201c" + loose + "\u201d", depth + 1); }
+      res.appendChild(el("p", "find-h", "Nothing matches \u201c" + raw0 + "\u201d. Try a team, a league, or one of these:"));
+      chips();
     }
     inp.oninput = function () { if (FIND === ov) fill(); };
     inp.onkeydown = function (e) {
@@ -3229,6 +3322,8 @@
     });
   }
   try { if (localStorage.getItem("sb-active") && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  // The search language (search.js, ~10KB) loads on an idle moment after start, so the first search is instant.
+  setTimeout(function () { (window.requestIdleCallback || setTimeout)(function () { ensureSQ(); }, { timeout: 4000 }); }, 2500);
   window.SB_LOAD = function (cb) { ensureFun(function () { if (window.PROF) cb(); else addScript("profile.js", cb); }); };
   $("prof").onclick = function () { openProf(); };
   try { // header button shows the signed-in profile's initial
