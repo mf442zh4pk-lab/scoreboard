@@ -2945,6 +2945,37 @@
     window.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = S.view && t.clientX < 28 ? t.clientX : null; y0 = t.clientY; }, { passive: true });
     window.addEventListener("touchend", function (e) { if (x0 == null) return; var t = e.changedTouches[0]; if (t.clientX - x0 > 70 && Math.abs(t.clientY - y0) < 50) closeGame(); x0 = null; }, { passive: true });
   })();
+  // Swipe right on the search screen to close it. The results follow the finger and fade; let go past about a quarter
+  // of the screen (or flick) and it slides away, otherwise it springs back. Works from anywhere on the results (they
+  // never scroll sideways); a mostly vertical move is left to scrolling.
+  (function () {
+    var sx = null, sy = 0, st = 0, dx = 0, on = false, past = false;
+    var reset = function (f) { if (f) { f.classList.remove("drag"); f.style.transform = ""; f.style.opacity = ""; } sx = null; on = false; };
+    window.addEventListener("touchstart", function (e) {
+      sx = null; if (!FIND || e.touches.length > 1 || (e.target && e.target.tagName === "INPUT")) return;
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); dx = 0; on = false; past = false;
+    }, { passive: true });
+    window.addEventListener("touchmove", function (e) {
+      if (sx == null || !FIND) return;
+      var t = e.touches[0], mx = t.clientX - sx, my = t.clientY - sy;
+      if (!on) {
+        if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { sx = null; return; }   // a scroll, not a swipe
+        if (mx > 12 && mx > Math.abs(my) * 1.5) { on = true; FIND.classList.add("drag"); try { FINDQ.blur(); } catch (er) {} } else return;
+      }
+      dx = Math.max(0, mx - 12);
+      FIND.style.transform = "translateX(" + dx + "px)"; FIND.style.opacity = String(Math.max(0.3, 1 - dx / innerWidth));
+      var p = dx > Math.min(110, innerWidth * 0.28); if (p !== past) { past = p; if (p) buzz(8); }
+    }, { passive: true });
+    var end = function () {
+      if (sx == null) return; var f = FIND;
+      if (!on || !f) { sx = null; return; }
+      var flick = dx > 40 && dx / Math.max(1, Date.now() - st) > 0.6;
+      if (past || flick) { f.classList.remove("drag"); f.style.transform = "translateX(100%)"; f.style.opacity = "0"; sx = null; on = false; closeFind(); }
+      else reset(f);
+    };
+    window.addEventListener("touchend", end, { passive: true });
+    window.addEventListener("touchcancel", function () { reset(FIND); }, { passive: true });
+  })();
   // Collapsible sections open and close with a short height tween instead of snapping (native toggle under reduced motion).
   (function () {
     var out = $("out"), E = "cubic-bezier(.2,.7,.2,1)";
@@ -3026,7 +3057,7 @@
       if (!ptr.classList.contains("busy")) return;
       show(14, "Updated", "ok"); setTimeout(hide, 900);
     };
-    window.addEventListener("touchstart", function (e) { y0 = window.scrollY <= 0 && !S.loading ? e.touches[0].clientY : null; pull = 0; armed = false; }, { passive: true });
+    window.addEventListener("touchstart", function (e) { y0 = window.scrollY <= 0 && !S.loading && !FIND && !ONB ? e.touches[0].clientY : null; pull = 0; armed = false; }, { passive: true });   // not under the search or team-picker sheets
     window.addEventListener("touchmove", function (e) {
       if (y0 == null) return;
       pull = Math.max(0, e.touches[0].clientY - y0);
