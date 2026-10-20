@@ -1399,7 +1399,7 @@
   }
   function renderTeams(out) {
     var heatRows = [], heatSlot = el("div"), ps = peopleStatus(); if (ps) out.appendChild(ps);
-    out.appendChild(teamFinder("teams", "Find any team or athlete")); out.appendChild(heatSlot);
+    out.appendChild(teamFinder("teams", "Add a team or athlete")); out.appendChild(heatSlot);
     var gr = el("div", "recaps");
     C.followed.forEach(function (name) { gr.appendChild(teamBlock(name, heatRows)); });
     var hc = heatCheck(heatRows); if (hc) heatSlot.appendChild(hc);
