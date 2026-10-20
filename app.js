@@ -2786,7 +2786,7 @@
         res.appendChild(el("h4", "find-sh", "Games")); res.appendChild(grid); shown += grid.children.length;
         if (hits.length > lim) res.appendChild(el("p", "find-h", "+" + (hits.length - lim) + " more \u00b7 add a word to narrow it"));
       } else if (waiting) res.appendChild(el("p", "find-h find-wait", P.intent ? "Looking that up\u2026" : "Looking up their schedule\u2026"));
-      else if (P.intent && !tq && !lgs.length) { res.appendChild(el("p", "find-h", "No " + P.chips.join(" \u00b7 ").toLowerCase() + " games right now. Try one of these:")); chips(); ctl.done = true; return; }
+      else if (P.intent && !tq && !lgs.length) { res.appendChild(el("p", "find-h", "Nothing " + (P.chips[0] && /^On /.test(P.chips[0]) ? "" : "matches ") + P.chips.join(" \u00b7 ") + " right now. Try one of these:")); chips(); ctl.done = true; return; }
       var n = tq ? drawHits(res, tq, ctl, { nt: 8, heads: true, strict: lgs.length > 0 }) : (ctl.done = true, 0);
       shown += n + lgs.length;
       if (shown || waiting || !ctl.done) return;
