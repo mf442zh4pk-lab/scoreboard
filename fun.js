@@ -280,7 +280,7 @@
     if (ch) { try { localStorage.setItem("sb-lg", JSON.stringify(LOGO)); } catch (e) {} }
   }
   // Every card except the Signature one turns up from taps: any button, tab or card in the app rolls once.
-  var TAPP = .02, TAPGAP = 1500, lastTap = 0, HW2 = { C: 10, U: 6, R: 4, E: 2, L: 1, M: .5 };
+  var TAPP = .05, TAPGAP = 1500, lastTap = 0, HW2 = { C: 10, U: 6, R: 4, E: 2, L: 1, M: .5 };
   function wchoice(arr, wf) { var tot = 0, ws = arr.map(function (c) { var w = wf(c); tot += w; return w; }), r = Math.random() * tot, i = 0; while (i < arr.length - 1 && r >= ws[i]) { r -= ws[i]; i++; } return arr[i]; }
   function tapRoll() {
     var n = Date.now(); if (n - lastTap < TAPGAP) return; lastTap = n;
