@@ -29,7 +29,21 @@
   var RQ = 0;
   function renderSoon() { if (RQ) return; RQ = requestAnimationFrame(function () { RQ = 0; render(); }); }
   // Page-level swaps (opening or leaving a game) crossfade when the browser can do it for free.
-  function swap(fn) { if (!RM && !NOVT && document.startViewTransition) { try { document.startViewTransition(fn); return; } catch (e) {} } fn(); }
+  // Screen changes. A tap in the app (open a game, the Back button) gets the cross-fade; a gesture (the app's edge swipe,
+  // iOS's own back swipe, the browser Back button) swaps at once, since the finger already animated it and a
+  // transition started mid-gesture can stall Safari with the page untappable. While a screen swaps in, taps on the
+  // list are held for a moment so a finger still moving can't land on the wrong game; and any transition still running
+  // is cut short the moment the screen is touched.
+  var GEST = false, VT = null, NAV = 0;
+  function swap(fn) {
+    lockTaps();
+    if (!RM && !NOVT && !GEST && document.startViewTransition) {
+      try { var t = VT = document.startViewTransition(fn); t.finished.then(function () { if (VT === t) VT = null; }, function () { if (VT === t) VT = null; }); return; } catch (e) {}
+    }
+    fn();
+  }
+  function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 280); }
+  document.addEventListener("pointerdown", function () { if (VT) { try { VT.skipTransition(); } catch (e) {} VT = null; } }, true);
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
@@ -2225,7 +2239,7 @@
     if (t.dl) addLeague(t.dl.key, t.dl.path, t.dl.label);
     remember({ k: "t", lk: t.lk, id: String(t.id), name: t.name, ab: t.ab || "", lg: t.lg || "", ll: t.ll || (leagueOf(t.lk) || {}).label || "" });
     buzz(4); if (S.view && S.view.x) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset;
-    S.pushed = true; S.tn = t; location.hash = "team/" + t.lk + "/" + t.id;
+    S.pushed = true; S.tn = t; NAV = Date.now(); location.hash = "team/" + t.lk + "/" + t.id;
   }
   function openTeamRoute(lk, id) {
     var key = "t_" + lk + "_" + id;
@@ -2253,7 +2267,7 @@
   function openPerson(p) {
     remember({ k: "p", lk: p.lk || "", id: String(p.id || "0"), name: p.name, img: p.img || "", sport: p.sport || "", ind: true, ll: p.ll || "", web: p.web || "" });
     buzz(4); if (!S.view) S.sy = window.pageYOffset;
-    S.pushed = true; S.pn = p; location.hash = "who/" + (p.lk || "na") + "/" + (p.id || "0") + "/" + encodeURIComponent(p.name);
+    S.pushed = true; S.pn = p; NAV = Date.now(); location.hash = "who/" + (p.lk || "na") + "/" + (p.id || "0") + "/" + encodeURIComponent(p.name);
   }
   function openPersonRoute(lk, id, nm) {
     var key = "p_" + lk + "_" + id + "_" + nm;
@@ -2409,9 +2423,12 @@
 
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
-  function openGame(x) { buzz(4); if (S.view && (S.view.team || S.view.person)) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset; S.pushed = true; location.hash = "game/" + x.lk + "/" + x.g.id; }
-  function closeGame() {
-    if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); syncFromHash(); }
+  function openGame(x) { buzz(4); if (S.view && (S.view.team || S.view.person)) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset; S.pushed = true; NAV = Date.now(); location.hash = "game/" + x.lk + "/" + x.g.id; }
+  // gesture: the edge swipe (no cross-fade). A tap on Back marks the hash change as the app's own (cross-fade).
+  function closeGame(gesture) {
+    gesture = gesture === true;   // Back buttons pass their click event here
+    NAV = gesture ? 0 : Date.now();
+    if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); if (gesture) GEST = true; syncFromHash(); GEST = false; }
   }
   function clearHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} S.pushed = false; }
   function syncFromHash() {
@@ -3030,7 +3047,13 @@
     ti.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); home(); } };
   })();
   $("refresh").onclick = function () { load(true); };
-  window.addEventListener("hashchange", syncFromHash);
+  // A hash change the app didn't just make is a gesture or the browser's Back: no cross-fade. Leaving a page that way
+  // also clears S.pushed, so a later Back can't step out of the app.
+  window.addEventListener("hashchange", function () {
+    GEST = Date.now() - NAV > 1200; NAV = 0;
+    if (GEST && !/^#(game|team|who)\//.test(location.hash)) S.pushed = false;
+    try { syncFromHash(); } finally { GEST = false; }
+  });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && LPM) { lpClose(); return; }
     if (e.key === "Escape" && TIPB && TIPB.classList.contains("in")) { tipHide(); return; }
@@ -3045,9 +3068,13 @@
   });
   // Swipe in from the left edge of a game page to go back (home-screen apps have no browser gesture).
   (function () {
-    var x0 = null, y0 = 0;
-    window.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = S.view && t.clientX < 28 ? t.clientX : null; y0 = t.clientY; }, { passive: true });
-    window.addEventListener("touchend", function (e) { if (x0 == null) return; var t = e.changedTouches[0]; if (t.clientX - x0 > 70 && Math.abs(t.clientY - y0) < 50) closeGame(); x0 = null; }, { passive: true });
+    var x0 = null, y0 = 0, h0 = "";
+    window.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = S.view && !FIND && t.clientX < 28 ? t.clientX : null; y0 = t.clientY; h0 = location.hash; }, { passive: true });
+    window.addEventListener("touchend", function (e) {
+      if (x0 == null) return; var t = e.changedTouches[0], go = t.clientX - x0 > 70 && Math.abs(t.clientY - y0) < 50; x0 = null;
+      // iOS's own back swipe may already have gone back during this same touch: then there's nothing left to do
+      if (go && S.view && location.hash === h0) closeGame(true);
+    }, { passive: true });
   })();
   // Swipe right on the search screen to close it. The results follow the finger and fade; let go past about a quarter
   // of the screen (or flick) and it slides away, otherwise it springs back. Works from anywhere on the results (they
