@@ -18,7 +18,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=97` → `?v=98` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=98` → `?v=99` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -87,6 +87,13 @@ About a minute into first use with no profile signed in (`sb-active`), `app.js` 
 ## Yesterday tab layout
 
 Three sub-tabs. **Yesterday**: your teams' results, the quick Scoreboard (`quickScores`: every big-four final from yesterday plus college football games with a ranked team, ordered by `qsHeat`: your teams, upsets, overtime, one-score finishes, ranked matchups; primetime games (6:30pm local or later) get the amber frame, corner notch and an amber time pill; one-score games get the floating lavender ring and a "by n" pill; tapping any row opens the game, with `syncFromHash` falling back to `S.yf` for finals already trimmed from the list), then the overview (scores, form guide, next 7 days). **Week**: last 7 days, top performances, then the next 30 days. **Recap**: the day's stories (soccer only when it's a final, World Cup, title decider or a followed side: `bigSoccer`), then the news feed.
+
+## Preseason and polish rules
+
+- **Preseason** (`fetchTeamInfo` in `espn.js`, big four only): once a team's regular schedule is known, preseason games (season type 1) drop out, and until a regular-season or playoff game has been played the standings are left out (ESPN's are preseason numbers then: a "4-0, 1st" before opening night) and `pre: true` is set. My teams and the team page then say "Season starts <date>" and the story says who they open against. Score cards hide an all-zero record ("0-0").
+- **Game page**: Latest plays skip filler (faceoffs, stoppages, timeouts, period starts) and repeats; when the AP story is shown, the narrative's "The story" section (the same opening paragraph) is skipped. `[hidden]` always hides (`.ap-more`'s `display:contents` had been showing whole articles), and recap paragraphs keep their spacing.
+- **Labels**: "American/National Football Conference" read as AFC/NFC; a streak of 3+ shows only as the badge on My teams (not again in the line under it); the trend summary is "4-1 in last 5" (its separate season count disagreed with the header once playoffs counted); the season-recap numbers sit in one row of five.
+- **Settings** has a header (Back, Settings) and opens at the top; long segmented choices drop under their label; the clock/haptics/animations/splash toggles sit under "Feel". The More panel only auto-focuses its search with a real keyboard.
 
 ## My teams loading
 
