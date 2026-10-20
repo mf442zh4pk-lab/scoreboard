@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=106` → `?v=107` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=107` → `?v=108` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -56,7 +56,7 @@ Rendering is cheap and stateless: every view is rebuilt from `S` by `render()`; 
 
 - **A league**: one line in `config.js`. `kind: "mma" | "race" | "golf"` makes it an event sport (cards and detail pages adapt).
 - **A stat tooltip**: add to `TIPS` in `app.js` (`"ABBR": "meaning"`, or `"context:ABBR"` for sport-specific meanings).
-- **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`). Card fields: `[id, category, rarity, emoji, name, description, hint]`; the description shows on every card, found or not (the hint is kept in data but no longer shown). The 100 famous moments in `MOMS` carry full write-ups, and the card goes into `story` layout when the text runs long.
+- **A collection card / holiday**: `fun.js` (`HD`, `HOLS`, `HFX`). Card fields: `[id, category, rarity, emoji, name, description]`; the description shows on every card, found or not. There are no hint texts (they were removed; the description does that job). The 100 famous moments in `MOMS` carry full write-ups, and the card goes into `story` layout when the text runs long.
 - **A detail section**: build it in `renderDetail` / `renderEvent` with `sec(title, node, open)`.
 
 ## Settings (`PREF` in `app.js`)
@@ -122,7 +122,7 @@ Settings → "Copy share link" makes `?add=<base64 {t:[teams], p:[people]}>`. On
 
 ## Card packs
 
-Packs come from points for using the app: 20 for the day's first open (and when it comes back to the foreground on a new day), 1 per tap, 3 per arrival, capped at 100 a day, and every 100 points is a pack (`COST`, `DAYCAP`, `DAY0`), so about one a day and never more. Points are never shown to the user (no meter, count or hint anywhere): a pack just turns up as a surprise. The day's pack also brings a holiday pack while a holiday window is on, at most once a week (`hl`). `sb-col` keeps this as counts that only go up, so the cloud sync's "highest wins" merge can't bring back an opened pack: `pt` points earned (packs earned = `pt / COST`) / `ro` opened, `he` holiday keys earned / `ho` opened, `ue` today's points, `ld` last first-open bonus. `pv: 2` marks saves moved off the old meters (`pk`/`hk`/`cr`/`hc`, where a synced copy's count could undo an open); the move kept at most one waiting pack of each kind. **Odds** are per tier (`TIER`), split evenly inside each tier, for pack cards and tap drops alike: Common 62.8%, Uncommon 25%, Rare 9%, Epic 2.5%, Legendary 0.6%, Mythic 0.1% a card (about 1 pack in 100 has a Mythic). Holiday packs use `HW2`. Each holiday has 7–11 cards (`HD` in `fun.js`): the themed filler plus moments from that time of year, many from outside the big four (Indy 500, Six Nations, Wimbledon, the Derby, the Ice Bowl). `drawPack` is flat: every card has the same odds whether you own it or not, and duplicates show as a ×n count in the Collection Log. Cards are granted the moment a pack opens, so skipping never loses anything. Entry points: the pop-up when a pack is earned, the "Open pack" button in the profile, and the gold dot on the profile button.
+Packs come from points for using the app: 20 for the day's first open (and when it comes back to the foreground on a new day), 1 per tap, 3 per arrival, capped at 100 a day, and every 100 points is a pack (`COST`, `DAYCAP`, `DAY0`), so about one a day and never more. Points are never shown to the user (no meter, count or hint anywhere): a pack just turns up as a surprise. The day's pack also brings a holiday pack while a holiday window is on, at most once a week (`hl`). `sb-col` keeps this as counts that only go up, so the cloud sync's "highest wins" merge can't bring back an opened pack: `pt` points earned (packs earned = `pt / COST`) / `ro` opened, `he` holiday keys earned / `ho` opened, `ue` today's points, `ld` last first-open bonus. `pv: 2` marks saves moved off the old meters (`pk`/`hk`/`cr`/`hc`, where a synced copy's count could undo an open); the move kept at most one waiting pack of each kind. **Odds** are per tier (`TIER`), split evenly inside each tier, for pack cards and tap drops alike: Common 62.8%, Uncommon 25%, Rare 9%, Epic 2.5%, Legendary 0.6%, Mythic 0.1% a card (about 1 pack in 100 has a Mythic). Holiday packs use `HW2`. **Trade in dupes** (Collection Log → "Trade in dupes", `tradeSheet` in `profile.js`, `tradeQuote`/`tradeIn` in `fun.js`): spare copies (copies beyond what you keep, 1 to 3 per card) trade for packs. Each rarity is worth a hidden amount (`TV`: C 2, U 5, R 14, E 34, L 85, M 220 against `COST` 100, so a pack's cards trade back for about half a pack); the user only ever sees spare-card counts and "Trade N spare cards for P card packs", never points, and nothing is taken when it wouldn't make a pack. Filters: presets (Commons, Up to Rare, Everything, None), per-rarity toggles, a group (teams, moments, holidays, effects) and Keep 1/2/3 copies; they're remembered while the page is open, and picking Legendary or Mythic shows a warning. The ledgers only go up like the pack ones: `tr` copies traded per card, `tv` total traded value (packs bought = `tv / COST`), merged with the highest value in `profile.js` (`mergeExtra`), so a stale device can't bring back traded copies. `owned(id)` = copies found minus traded, `spare(id)` = owned minus 1; the log's ×N badge, Dupes filter and the stats page use these. Milestone cards (`AUTO`) and Signature never trade. Each holiday has 7–11 cards (`HD` in `fun.js`): the themed filler plus moments from that time of year, many from outside the big four (Indy 500, Six Nations, Wimbledon, the Derby, the Ice Bowl). `drawPack` is flat: every card has the same odds whether you own it or not, and duplicates show as a ×n count in the Collection Log. Cards are granted the moment a pack opens, so skipping never loses anything. Entry points: the pop-up when a pack is earned, the "Open pack" button in the profile, and the gold dot on the profile button.
 
 ## Fun layer frequency
 
@@ -131,6 +131,10 @@ Packs come from points for using the app: 20 for the day's first open (and when 
 ## Splash
 
 Inline in `index.html` (markup, CSS and a few lines of script) so it paints before anything else loads. One second, then it fades over the already-rendered app. Skipped on deep links, when the Splash setting is off, and shortened under reduced motion.
+
+## Collection Log screen (`vLog` in `profile.js`)
+
+Search over names, teams and found cards' text; status chips (All, Found, Missing, Dupes, Newest), rarity chips, category chips with a ✓ when a category is complete, a "No cards match" state with Clear filters, a Review-new button, and Trade in dupes. Kept fast: tiles use `content-visibility:auto` and the first 36 render at once, the rest a slice per frame (`gtok` cancels a stale draw). Opening a card and closing it updates the log in place (`logRefresh`): the NEW badges and counts change, the scroll position and focus stay, and nothing is rebuilt. A card shows its category progress (e.g. NFL Teams 11/32) in its header.
 
 ## Account stats
 
