@@ -34,16 +34,11 @@
   // transition started mid-gesture can stall Safari with the page untappable. While a screen swaps in, taps on the
   // list are held for a moment so a finger still moving can't land on the wrong game; and any transition still running
   // is cut short the moment the screen is touched.
-  var GEST = false, VT = null, NAV = 0;
-  function swap(fn) {
-    lockTaps();
-    if (!RM && !NOVT && !GEST && document.startViewTransition) {
-      try { var t = VT = document.startViewTransition(fn); t.finished.then(function () { if (VT === t) VT = null; }, function () { if (VT === t) VT = null; }); return; } catch (e) {}
-    }
-    fn();
-  }
+  var GEST = false, NAV = 0;
+  // Tab and view changes swap in place (the entrance animations in render() give the polish). A root view transition
+  // snapshots the whole tall page, and on iOS Safari that showed up as a zoomed-out flash that snapped down.
+  function swap(fn) { lockTaps(); fn(); }
   function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 280); }
-  document.addEventListener("pointerdown", function () { if (VT) { try { VT.skipTransition(); } catch (e) {} VT = null; } }, true);
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, depth: 0, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
