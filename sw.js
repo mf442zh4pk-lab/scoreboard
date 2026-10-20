@@ -12,7 +12,7 @@ self.addEventListener("install", function (e) {
         var urls = [], re = /(?:href|src)="([^"?]+\?v=(\d+))"/g, m, same = true;
         while ((m = re.exec(t))) { urls.push(m[1]); if (m[2] !== V) same = false; }
         if (!same) return;                 // the server's page belongs to another build; let the page handler sort it out
-        ["fun.js", "fun.css", "profile.js"].forEach(function (f) { urls.push(f + "?v=" + V); });   // loaded later by the app, same build
+        ["fun.js", "fun.css", "profile.js", "search.js"].forEach(function (f) { urls.push(f + "?v=" + V); });   // loaded later by the app, same build
         return c.put(SHELL, r).then(function () { return Promise.all(urls.map(function (u) { return c.add(new Request(u)).catch(function () {}); })); });
       });
     }).catch(function () {});
