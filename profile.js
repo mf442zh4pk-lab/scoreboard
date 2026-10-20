@@ -31,6 +31,7 @@
       Object.keys(c).forEach(function (k) {
         if (k === "i" || k === "s" || k === "d") return;
         var v = c[k], x = o[k];
+        if (k === "tr") { var tt = o[k] || (o[k] = {}); Object.keys(v || {}).forEach(function (id) { tt[id] = Math.max(tt[id] || 0, v[id] || 0); }); return; }   // copies traded in: per card, the highest count
         if (x == null) { o[k] = v; return; }
         if (typeof v === "number" && typeof x === "number") o[k] = Math.max(x, v);
         else if (k === "d0") { if (kd(v) && kd(v) < kd(x)) o[k] = v; }
@@ -320,7 +321,7 @@
     var longest = Math.max(col.ls || 0, cur), opened = Math.max(col.dn || 0, days.length);
     var owned = 0, dupes = 0, byR = {}, firstC = null, lastC = null, holo = 0;
     F.CAT.forEach(function (c) {
-      var e = col.i[c[0]]; if (!e) return; owned++; dupes += Math.max(0, e[1] - 1); byR[c[2]] = (byR[c[2]] || 0) + 1;
+      var e = col.i[c[0]]; if (!e) return; owned++; dupes += F.spare(c[0]); byR[c[2]] = (byR[c[2]] || 0) + 1;
       if (!firstC || e[0] < firstC[0]) firstC = [e[0], c]; if (!lastC || e[0] > lastC[0]) lastC = [e[0], c];
       if (c.h) holo++;
     });
@@ -431,7 +432,7 @@
   }
 
   // ---------- collection log ----------
-  var filter = "all", lq = "", lst = "all", lr = {}, RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
+  var filter = "all", lq = "", lst = "all", lr = {}, srt = false, logRefresh = null, RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
   function pad(n) { return ("00" + n).slice(-3); }
   function vLog(body, arg) {
     var col = F.col(), found = F.count(), t = F.total;
@@ -439,28 +440,33 @@
     (function () { var u = F.upcoming(), t = []; if (u.on.length) t.push("Dropping now: " + u.on.map(function (x) { return x.name + " (until " + x.end + ")"; }).join(", ") + "."); if (u.next) t.push("Next release: " + u.next.name + ", " + u.next.start + " to " + u.next.end + "."); if (t.length) body.appendChild(el("p", "pm-note pm-hol", "🎉 " + t.join(" "))); })();
     var chips = el("div", "pm-chips"), grid = el("div", "pm-grid");
     function fresh() { return F.CAT.filter(function (c) { return col.i[c[0]] && !col.s[c[0]]; }); }
-    var nw = fresh(); if (filter === "new" && !nw.length) filter = "all";
-    if (nw.length) body.appendChild(btn("✨ Review " + nw.length + " new card" + (nw.length > 1 ? "s" : ""), "pm-b pri", function () { detail(nw[0], nw, "New cards"); }));
+    var nw = fresh(), rv = null; if (filter === "new" && !nw.length) filter = "all";
+    function rvText() { return "\u2728 Review " + nw.length + " new card" + (nw.length > 1 ? "s" : ""); }
+    if (nw.length) { rv = btn(rvText(), "pm-b pri", function () { detail(nw[0], nw, "New cards"); }); body.appendChild(rv); }
+    var trb = btn("\u267B Trade in dupes", "pm-b", function () { tradeSheet(function (full) { if (logRefresh) logRefresh(full); }); });
+    function trShow() { trb.hidden = !Object.keys(F.spareBy().r).length; }
+    trShow(); body.appendChild(trb);
     function chip(k, label) { var b = btn(label, "pm-chip" + (filter === k ? " on" : ""), function () { filter = k; draw(); }); chips.appendChild(b); }
     var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
     var fl = el("div", "pm-chips pm-fl"), cnt = el("p", "pm-note pm-cnt"), qt = 0;
     qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
     qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawFl(); drawGrid(); }, 70); };
-    function active2() { return !!(lq.trim() || lst !== "all" || Object.keys(lr).length); }
+    function active2() { return !!(lq.trim() || lst !== "all" || srt || Object.keys(lr).length); }
     function drawFl() {
       fl.innerHTML = "";
-      [["all", "All"], ["got", "Found"], ["miss", "Missing"]].forEach(function (x) { fl.appendChild(btn(x[1], "pm-chip" + (lst === x[0] ? " on" : ""), function () { lst = x[0]; drawFl(); drawGrid(); })); });
+      [["all", "All"], ["got", "Found"], ["miss", "Missing"], ["dup", "Dupes"]].forEach(function (x) { fl.appendChild(btn(x[1], "pm-chip" + (lst === x[0] ? " on" : ""), function () { lst = x[0]; drawFl(); drawGrid(); })); });
+      fl.appendChild(btn("Newest", "pm-chip" + (srt ? " on" : ""), function () { srt = !srt; drawFl(); drawGrid(); }));
       ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) {
         var b = el("button", "pm-chip pm-rc r" + k + (lr[k] ? " on" : "")); b.type = "button"; b.appendChild(el("i", null, k)); b.appendChild(D.createTextNode(F.RAR[k]));
         b.onclick = function () { if (lr[k]) delete lr[k]; else lr[k] = 1; drawFl(); drawGrid(); }; fl.appendChild(b);
       });
-      if (active2()) fl.appendChild(btn("Clear", "pm-chip", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; drawFl(); drawGrid(); }));
+      if (active2()) fl.appendChild(btn("Clear", "pm-chip", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; srt = false; drawFl(); drawGrid(); }));
     }
     function vis(c) {
       var id = c[0], got = !!col.i[id];
       if (filter === "new") { if (!(got && !col.s[id])) return false; }
       else if (filter !== "all" && c[1] !== filter) return false;
-      if (lst === "got" && !got) return false; if (lst === "miss" && got) return false;
+      if (lst === "got" && !got) return false; if (lst === "miss" && got) return false; if (lst === "dup" && !(got && F.spare(id) > 0)) return false;
       if (Object.keys(lr).length && !lr[c[2]]) return false;
       var q = lq.trim().toLowerCase();
       if (q) {
@@ -472,30 +478,51 @@
     function draw() { drawChips(); drawFl(); drawGrid(); }
     function drawChips() {
       chips.innerHTML = "";
-      var all = F.CAT.length; chip("all", "All " + found + "/" + all);
+      var all = F.CAT.length, fnd0 = F.count(); chip("all", "All " + fnd0 + "/" + all + (fnd0 >= all ? " \u2713" : ""));
       if (nw.length) chip("new", "New " + nw.length);
       Object.keys(F.CATS).forEach(function (k) {
         var tot = 0, fnd = 0; F.CAT.forEach(function (c) { if (c[1] === k) { tot++; if (col.i[c[0]]) fnd++; } });
-        chip(k, F.CATS[k] + " " + fnd + "/" + tot);
+        chip(k, F.CATS[k] + " " + fnd + "/" + tot + (fnd >= tot ? " \u2713" : ""));
       });
+    }
+    var gtok = 0;
+    function tile(c, vl, lb, sub, n) {
+      var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button"; b.dataset.id = c[0];
+      b.setAttribute("aria-label", c[4] + ", " + F.RAR[c[2]] + (got ? (F.owned(c[0]) > 1 ? ", " + F.owned(c[0]) + " copies" : ", found") : ", not found yet"));
+      b.style.setProperty("--i", Math.min(n, 11));
+      b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
+      b.appendChild(F.art(c, "tcm-art", 84, got));
+      b.appendChild(el("span", "tcm-n", c[4]));
+      b.appendChild(el("i", "tcm-r", RAR(c[2])));
+      if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
+      if (got && F.owned(c[0]) > 1) b.appendChild(el("span", "tcm-x", "\u00d7" + F.owned(c[0])));
+      b.onclick = function () { detail(c, sub ? vl : null, lb); };
+      return b;
     }
     function drawGrid() {
-      grid.innerHTML = ""; var vl = F.CAT.filter(vis), lb = filter === "new" ? "New cards" : "Results", sub = active2() || filter !== "all";
-      cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" : ""; cnt.hidden = !sub;
-      if (!vl.length) { grid.appendChild(el("p", "pm-note pm-none", "No cards match.")); return; }
-      vl.forEach(function (c) {
-        var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button"; b.dataset.id = c[0];
-        b.style.setProperty("--i", Math.min(grid.children.length, 11));
-        b.appendChild(el("span", "tcm-no", "#" + pad(c.n)));
-        b.appendChild(F.art(c, "tcm-art", 84, got));
-        b.appendChild(el("span", "tcm-n", c[4]));
-        b.appendChild(el("i", "tcm-r", RAR(c[2])));
-        if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
-        if (got && col.i[c[0]][1] > 1) b.appendChild(el("span", "tcm-x", "\u00d7" + col.i[c[0]][1]));
-        b.onclick = function () { detail(c, sub ? vl : null, lb); };
-        grid.appendChild(b);
-      });
+      var my = ++gtok; grid.innerHTML = ""; var vl = F.CAT.filter(vis), lb = filter === "new" ? "New cards" : "Results", sub = active2() || filter !== "all";
+      if (srt) vl.sort(function (x, y) { var ex = col.i[x[0]], ey = col.i[y[0]]; return (ey ? ey[0] : 0) - (ex ? ex[0] : 0) || x.n - y.n; });
+      cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" + (srt ? " \u00b7 newest first" : "") : ""; cnt.hidden = !sub;
+      if (!vl.length) {
+        var none = el("div", "pm-none"); none.appendChild(el("p", "pm-note", "No cards match."));
+        if (sub) none.appendChild(btn("Clear filters", "pm-b", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; srt = false; filter = "all"; draw(); }));
+        grid.appendChild(none); return;
+      }
+      // The first screenful goes in at once, the rest a slice per frame (the log can hold 470+ cards).
+      var i = 0;
+      function add(n) { var end = Math.min(vl.length, i + n), fr = D.createDocumentFragment(); for (; i < end; i++) fr.appendChild(tile(vl[i], vl, lb, sub, i)); grid.appendChild(fr); }
+      add(36);
+      if (i < vl.length) requestAnimationFrame(function more() { if (my !== gtok || !grid.isConnected) return; add(120); if (i < vl.length) requestAnimationFrame(more); });
     }
+    // A card was viewed: update the log in place (no rebuild, so the scroll position and focus stay put).
+    logRefresh = function (full) {
+      trShow(); nw = fresh(); if (filter === "new" && !nw.length) filter = "all";
+      if (rv) { if (nw.length) rv.textContent = rvText(); else { rv.remove(); rv = null; } }
+      drawChips();
+      if (full || filter === "new") { drawGrid(); return; }
+      var us = grid.querySelectorAll(".tcm-new");
+      for (var k = 0; k < us.length; k++) if (col.s[us[k].parentNode.dataset.id]) us[k].remove();
+    };
     function RAR(k) { return RL[k]; }
     var stk = el("div", "pm-stk"); stk.appendChild(window.SB && SB.clearable ? SB.clearable(qi) : qi); stk.appendChild(fl); stk.appendChild(chips); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
@@ -503,6 +530,61 @@
     ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
     body.appendChild(lg);
     body.dataset.keep = "1";
+  }
+
+  // ---------- trade in dupes: spare copies for packs; what each is worth is never shown ----------
+  // The sheet remembers its last filters while the page is open. Rarities, a group (teams / moments / holidays /
+  // effects) and how many copies to keep of each card narrow what "Trade in" takes.
+  var trOv = null, trS = { r: { C: 1, U: 1, R: 1, E: 1 }, g: null, keep: 1 };
+  var TRG = { t: "Teams", m: "Moments", h: "Holidays", e: "Effects" };
+  function tradeSheet(done) {
+    if (trOv) return;
+    var ov = el("div", "tcd"), box = el("div", "trd"); ov.appendChild(box); trOv = ov;
+    function shut() { if (trOv !== ov) return; trOv = null; ov.classList.remove("in"); setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 180); }
+    ov.shut = shut; ov.onclick = function (e) { if (e.target === ov) shut(); };
+    var plural = function (n, w) { return n + " " + w + (n > 1 ? "s" : ""); }, RK = ["C", "U", "R", "E", "L", "M"];
+    function same(r) { return RK.every(function (k) { return !!trS.r[k] === !!r[k]; }); }
+    function draw() {
+      var keepY = box.scrollTop; box.innerHTML = "";
+      var cnt = F.spareBy({ g: trS.g, keep: trS.keep });
+      if (trS.g && !Object.keys(cnt.r).length) { trS.g = null; cnt = F.spareBy({ keep: trS.keep }); }   // a group with nothing spare under this keep setting
+      box.appendChild(el("h3", "trd-h", "Trade in dupes"));
+      box.appendChild(el("p", "trd-n", "Spare copies only. The rarer the card, the more it counts."));
+      var pre = el("div", "pm-chips trd-ch");
+      [["Commons", { C: 1 }], ["Up to Rare", { C: 1, U: 1, R: 1 }], ["Everything", { C: 1, U: 1, R: 1, E: 1, L: 1, M: 1 }], ["None", {}]].forEach(function (x) {
+        pre.appendChild(btn(x[0], "pm-chip" + (same(x[1]) ? " on" : ""), function () { trS.r = Object.assign({}, x[1]); draw(); }));
+      });
+      box.appendChild(pre);
+      var rows = el("div", "trd-rows");
+      RK.forEach(function (k) {
+        if (!cnt.r[k]) return;
+        var b = el("button", "trd-r r" + k + (trS.r[k] ? " on" : "")); b.type = "button"; b.setAttribute("aria-pressed", trS.r[k] ? "true" : "false");
+        b.appendChild(el("i", null, k)); b.appendChild(el("span", null, F.RAR[k])); b.appendChild(el("b", null, "\u00d7" + cnt.r[k]));
+        b.onclick = function () { if (trS.r[k]) delete trS.r[k]; else trS.r[k] = 1; draw(); }; rows.appendChild(b);
+      });
+      box.appendChild(rows);
+      var gs = Object.keys(cnt.g);
+      if (gs.length > 1 || trS.g) {
+        var gc = el("div", "pm-chips trd-ch"); gc.appendChild(btn("Everything", "pm-chip" + (!trS.g ? " on" : ""), function () { trS.g = null; draw(); }));
+        ["t", "m", "h", "e"].forEach(function (k) { if (cnt.g[k]) gc.appendChild(btn(TRG[k] + " \u00d7" + cnt.g[k], "pm-chip" + (trS.g === k ? " on" : ""), function () { trS.g = trS.g === k ? null : k; draw(); })); });
+        box.appendChild(gc);
+      }
+      var kp = el("div", "trd-keep"); kp.appendChild(el("span", null, "Keep"));
+      var seg = el("div", "pm-seg"); [1, 2, 3].forEach(function (n) { seg.appendChild(btn(n + (n > 1 ? " copies" : " copy"), n === trS.keep ? "on" : "", function () { trS.keep = n; draw(); })); }); kp.appendChild(seg); box.appendChild(kp);
+      var q = F.tradeQuote({ r: trS.r, g: trS.g, keep: trS.keep }), big = q.cards && (trS.r.L || trS.r.M) && (cnt.r.L || cnt.r.M);
+      box.appendChild(el("p", "trd-q" + (q.packs ? " ok" : ""), q.packs ? "Trade " + plural(q.cards, "spare card") + " for " + plural(q.packs, "card pack") + "." : (q.cards ? "That's not enough for a pack yet." : "Nothing picked to trade in.")));
+      if (big) box.appendChild(el("p", "trd-w", "This includes Legendary or Mythic cards."));
+      var row = el("div", "tcd-c");
+      var go = btn(q.packs ? "Trade in" : "Not yet", "pm-b pri", function () { var res = F.tradeIn({ r: trS.r, g: trS.g, keep: trS.keep }); if (!res) return; if (done) done(true); result(res); }); go.disabled = !q.packs;
+      row.appendChild(go); row.appendChild(btn("Cancel", "pm-b", shut)); box.appendChild(row);
+      box.scrollTop = keepY;
+    }
+    function result(res) {
+      box.innerHTML = ""; box.appendChild(el("div", "trd-i", "\uD83C\uDF81")); box.appendChild(el("h3", "trd-h", plural(res.packs, "card pack") + " added"));
+      box.appendChild(el("p", "trd-n", "Traded in " + plural(res.cards, "spare card") + "."));
+      var row = el("div", "tcd-c"); row.appendChild(btn("Open now", "pm-b pri", function () { shut(); close(); F.openPacks(); })); row.appendChild(btn("Later", "pm-b", shut)); box.appendChild(row);
+    }
+    draw(); (root || D.body).appendChild(ov); requestAnimationFrame(function () { ov.classList.add("in"); });
   }
 
   var dRoot = null, dCur = null, dList = null, dLbl = "New cards", dFrom = null;
@@ -514,13 +596,14 @@
     var ov = dRoot && dRoot.parentNode ? dRoot : null, reuse = !!ov;
     if (!ov) { ov = el("div", "tcd"); dRoot = ov; ov.onclick = function (e) { if (e.target === ov) closeD(); }; dFrom = D.activeElement && D.activeElement.classList && D.activeElement.classList.contains("tcm") ? D.activeElement : null; }
     var wrap = el("div", "tcd-w" + (reuse && dir ? (dir > 0 ? " from-r" : " from-l") : "")), card = el("div", "tc r" + c[2] + (got ? " got" : " lock"));
-    var head = el("div", "tc-h"); head.appendChild(el("span", null, "No. " + pad(c.n) + " / " + pad(F.total))); head.appendChild(el("span", null, F.CATS[c[1]])); card.appendChild(head);
+    var head = el("div", "tc-h"); head.appendChild(el("span", null, "No. " + pad(c.n) + " / " + pad(F.total))); var cf = 0, ct = 0; F.CAT.forEach(function (x) { if (x[1] === c[1]) { ct++; if (col.i[x[0]]) cf++; } });
+    head.appendChild(el("span", null, F.CATS[c[1]] + " \u00b7 " + cf + "/" + ct)); card.appendChild(head);
     var art = el("div", "tc-art"); art.appendChild(F.art(c, "tc-em", 200, got)); card.appendChild(art);
     card.appendChild(el("h3", "tc-n", c[4]));
     var rb = el("div", "tc-rar"); rb.appendChild(el("i", null, c[2])); rb.appendChild(D.createTextNode(F.RAR[c[2]])); card.appendChild(rb);
     var dsc = el("p", "tc-d", c[5]); card.appendChild(dsc); if (c[5].length > 140) card.classList.add("story");
     if (got) {
-      var e = col.i[c[0]]; card.appendChild(el("p", "tc-f", "First found " + new Date(e[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + (e[1] > 1 ? " \u00b7 \u00d7" + e[1] + " (" + (e[1] - 1) + (e[1] > 2 ? " dupes)" : " dupe)") : "")));
+      var e = col.i[c[0]]; card.appendChild(el("p", "tc-f", "First found " + new Date(e[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + (F.owned(c[0]) > 1 ? " \u00b7 \u00d7" + F.owned(c[0]) + " (" + (F.owned(c[0]) - 1) + (F.owned(c[0]) > 2 ? " dupes)" : " dupe)") : "")));
     } else card.appendChild(el("p", "tc-f", "Not found yet."));
     card.appendChild(el("span", "tc-foil"));
     if (!F.reduced) {
@@ -568,7 +651,7 @@
     if (got && (c[2] === "L" || c[2] === "M" || c[2] === "S") && !F.reduced) F.confetti(24, ["✨", "⭐"]);
   }
   function closeD() { if (!dRoot) return; var d = dRoot, back = dFrom; dRoot = null; dList = null; dFrom = null; d.classList.remove("in"); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 180);
-    if (root) { var v = root.querySelector(".pm-grid"); if (v) { var sc = root.querySelector(".pm-sheet").scrollTop; show("log"); root.querySelector(".pm-sheet").scrollTop = sc; if (back) { var again = root.querySelector('.tcm[data-id="' + back.dataset.id + '"]'); if (again) try { again.focus({ preventScroll: true }); } catch (e) {} } } } }
+    if (root && root.querySelector(".pm-grid") && logRefresh) { logRefresh(); if (back) { var again = root.querySelector('.tcm[data-id="' + back.dataset.id + '"]'); if (again) try { again.focus({ preventScroll: true }); } catch (e) {} } } }
 
   // ---------- header button ----------
   function refreshBtn() {
@@ -578,7 +661,7 @@
     b.setAttribute("aria-label", p ? "Profile: " + p.n : "Profile and Collection Log");
     var w = D.getElementById("who"); if (w) { w.hidden = !p; if (p) { w.textContent = p.n; w.className = g("sb-lb") ? "on" : ""; } }
   }
-  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
+  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (trOv) trOv.shut(); else if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
   D.addEventListener("visibilitychange", function () { if (D.hidden && lbGet() && active()) savePush().catch(function () {}); });
   window.PROF = {
     open: function (v, a) {
