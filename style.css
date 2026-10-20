@@ -915,3 +915,7 @@ body.onb-on{overflow:hidden}
 [hidden]{display:none!important}
 /* recap paragraphs get room to breathe (.sum p's margin:0 was flattening them) */
 .sum .nh{margin:0 0 8px}.sum .ap{margin:0 0 10px;line-height:1.5}
+/* Find: how the words were read ("Showing Mon · Night · Football"), and the note when a typo was fixed or words loosened */
+.find-int{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:4px 2px 2px;font-size:12px;color:var(--mute)}
+.find-int b{font:600 12px var(--bd);color:var(--ter);background:var(--ter-soft);border-radius:999px;padding:3px 9px}
+.find-fix{margin:6px 2px 2px;font-size:13px;color:var(--mute)}
