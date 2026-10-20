@@ -904,3 +904,6 @@ body.onb-on{overflow:hidden}
 .onb-b .tq{--xi:8px}
 .find-tw small.lv-t{color:var(--live);font-weight:600}
 .tq>.msearch{margin:0}.more .tq{margin:8px 0 2px}
+/* search screen swipe-back: follows the finger while dragging, then eases out or springs back */
+.find.rfp.drag{transition:none}
+.find.rfp{transition:opacity var(--t2) var(--ease),transform var(--t3) var(--ease)}
