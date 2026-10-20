@@ -656,6 +656,7 @@
   // ---------- card packs: points from using the app, about one pack a day (never more); one holiday pack a week ----------
   // Points: 20 for the day's first open, 1 a tap, 3 an arrival, at most 100 a day = at most one pack. Kept as counts
   // that only go up (points earned vs packs opened), so the sync's "highest wins" merge can't bring back an opened pack.
+  // Points are never shown anywhere: a pack just turns up as a surprise.
   var PKO = null, pendingMs = [], WEEK = 7 * 864e5, COST = 100, DAYCAP = 100, DAY0 = 20;
   // Days in a row ending on the most recent day in the list (the list holds "Y-M-D" keys, oldest first).
   function streakDays(list) {
@@ -720,7 +721,7 @@
   }
   function openPacks() {
     pk0(); if (PKO) return;
-    var hk = null, p = packs(); if (p.r > 0) col.ro++; else if (p.h.length) { hk = p.h[0]; col.ho++; } else { say("No packs right now. Keep using the app: about one a day."); return; }
+    var hk = null, p = packs(); if (p.r > 0) col.ro++; else if (p.h.length) { hk = p.h[0]; col.ho++; } else { say("No packs right now. Another one will turn up."); return; }
     var cards = drawPack(hk), news = cards.map(grant); col.po = (col.po || 0) + 1; save(); badge();
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     packShow(hk, cards, news);
