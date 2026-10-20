@@ -2913,7 +2913,8 @@
     if (!hold) SPT = setTimeout(splashOff, ms || 1000);
   }
   function splashOff() { var sp = $("sp"); if (sp) sp.classList.add("off"); clearTimeout(SPT); }
-  $("mark").onclick = function () { buzz(8); splash(1000); S.tab = "pinned"; S.view = null; S.settings = false; S.more = false; clearHash(); try { localStorage.setItem("sb-tab", "pinned"); } catch (e) {} render(); window.scrollTo(0, 0); };
+  // The logo always lands on Following: it closes search and the long-press menu first, then resets the view.
+  $("mark").onclick = function () { buzz(8); if (FIND) closeFind(); lpClose(); splash(1000); S.tab = "pinned"; S.view = null; S.settings = false; S.more = false; clearHash(); try { localStorage.setItem("sb-tab", "pinned"); } catch (e) {} render(); window.scrollTo(0, 0); };
   // Tapping the title goes home (Following tab).
   (function () {
     var ti = $("title"), home = function () {
