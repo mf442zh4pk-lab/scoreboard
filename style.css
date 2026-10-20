@@ -907,3 +907,11 @@ body.onb-on{overflow:hidden}
 /* search screen swipe-back: follows the finger while dragging, then eases out or springs back */
 .find.rfp.drag{transition:none}
 .find.rfp{transition:opacity var(--t2) var(--ease),transform var(--t3) var(--ease)}
+/* season recap numbers: one even row of five, never four and an orphan */
+.recap>.chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.recap>.chips .chip{min-width:0;padding:0}
+.recap>.chips .chip i{font-size:11px;white-space:nowrap}
+/* hidden always hides (a display rule like .ap-more's display:contents was beating it and showing whole articles) */
+[hidden]{display:none!important}
+/* recap paragraphs get room to breathe (.sum p's margin:0 was flattening them) */
+.sum .nh{margin:0 0 8px}.sum .ap{margin:0 0 10px;line-height:1.5}
