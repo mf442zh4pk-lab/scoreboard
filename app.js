@@ -45,7 +45,7 @@
   function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 280); }
   document.addEventListener("pointerdown", function () { if (VT) { try { VT.skipTransition(); } catch (e) {} VT = null; } }, true);
 
-  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, pushed: false, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
+  var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, depth: 0, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var openState = {};   // remembers which detail sections you opened or closed
   var PINS = [], TC = {}, EAGER = [], RK = "", RT = 0;
   try { EAGER = JSON.parse(localStorage.getItem("sb-eager") || "[]") || []; } catch (e) {}
@@ -2239,7 +2239,7 @@
     if (t.dl) addLeague(t.dl.key, t.dl.path, t.dl.label);
     remember({ k: "t", lk: t.lk, id: String(t.id), name: t.name, ab: t.ab || "", lg: t.lg || "", ll: t.ll || (leagueOf(t.lk) || {}).label || "" });
     buzz(4); if (S.view && S.view.x) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset;
-    S.pushed = true; S.tn = t; NAV = Date.now(); location.hash = "team/" + t.lk + "/" + t.id;
+    S.tn = t; pushHash("team/" + t.lk + "/" + t.id);
   }
   function openTeamRoute(lk, id) {
     var key = "t_" + lk + "_" + id;
@@ -2267,7 +2267,7 @@
   function openPerson(p) {
     remember({ k: "p", lk: p.lk || "", id: String(p.id || "0"), name: p.name, img: p.img || "", sport: p.sport || "", ind: true, ll: p.ll || "", web: p.web || "" });
     buzz(4); if (!S.view) S.sy = window.pageYOffset;
-    S.pushed = true; S.pn = p; NAV = Date.now(); location.hash = "who/" + (p.lk || "na") + "/" + (p.id || "0") + "/" + encodeURIComponent(p.name);
+    S.pn = p; pushHash("who/" + (p.lk || "na") + "/" + (p.id || "0") + "/" + encodeURIComponent(p.name));
   }
   function openPersonRoute(lk, id, nm) {
     var key = "p_" + lk + "_" + id + "_" + nm;
@@ -2423,14 +2423,22 @@
 
 
   // ---------- routing (#game/<league>/<id>) so the phone's Back button works ----------
-  function openGame(x) { buzz(4); if (S.view && (S.view.team || S.view.person)) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset; S.pushed = true; NAV = Date.now(); location.hash = "game/" + x.lk + "/" + x.g.id; }
+  function openGame(x) { buzz(4); if (S.view && (S.view.team || S.view.person)) S.sy1 = window.pageYOffset; else if (!S.view) S.sy = window.pageYOffset; pushHash("game/" + x.lk + "/" + x.g.id); }
   // gesture: the edge swipe (no cross-fade). A tap on Back marks the hash change as the app's own (cross-fade).
   function closeGame(gesture) {
     gesture = gesture === true;   // Back buttons pass their click event here
     NAV = gesture ? 0 : Date.now();
-    if (S.pushed) { S.pushed = false; history.back(); } else { clearHash(); if (gesture) GEST = true; syncFromHash(); GEST = false; }
+    if (S.depth > 0) { S.depth--; history.back(); } else { clearHash(); if (gesture) GEST = true; syncFromHash(); GEST = false; }
   }
-  function clearHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} S.pushed = false; }
+  // History holds exactly one entry per page the app opened (S.depth of them above the list), never stray copies: a
+  // leftover entry is what a back swipe can land on, showing one screen while the taps go to another.
+  function pushHash(h) { if (location.hash === "#" + h) return; S.depth++; NAV = Date.now(); location.hash = h; }
+  // Leaving the open pages some other way (a tab, the logo, Settings) steps back over all of them instead of rewriting
+  // the top entry, so nothing is left behind to go back into.
+  function clearHash() {
+    if (S.depth > 0 && location.hash) { var n = S.depth; S.depth = 0; NAV = Date.now(); try { history.go(-n); } catch (e) {} return; }
+    S.depth = 0; if (location.hash) try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }
   function syncFromHash() {
     var tm = /^#team\/([a-z0-9]+)\/([\w-]+)$/.exec(location.hash);
     if (tm) { openTeamRoute(tm[1], tm[2]); return; }
@@ -3048,10 +3056,10 @@
   })();
   $("refresh").onclick = function () { load(true); };
   // A hash change the app didn't just make is a gesture or the browser's Back: no cross-fade. Leaving a page that way
-  // also clears S.pushed, so a later Back can't step out of the app.
+  // also keeps S.depth in step, so a later Back can't step out of the app.
   window.addEventListener("hashchange", function () {
     GEST = Date.now() - NAV > 1200; NAV = 0;
-    if (GEST && !/^#(game|team|who)\//.test(location.hash)) S.pushed = false;
+    if (!/^#(game|team|who)\//.test(location.hash)) S.depth = 0; else if (GEST && S.depth > 0) S.depth--;
     try { syncFromHash(); } finally { GEST = false; }
   });
   document.addEventListener("keydown", function (e) {
@@ -3066,8 +3074,10 @@
     else if (e.key === "/") { e.preventDefault(); if (!S.more) { S.more = true; S.view = null; S.settings = false; clearHash(); render(); } }
     else if (e.key === "f") { e.preventDefault(); if (S.view) closeGame(); if (S.settings) { S.settings = false; render(); } var n = 0; (function tf() { if (FINDQ && FINDQ.offsetParent) FINDQ.focus(); else if (n++ < 30) setTimeout(tf, 50); })(); }
   });
-  // Swipe in from the left edge of a game page to go back (home-screen apps have no browser gesture).
+  // Swipe in from the left edge of a game page to go back, where the system has no back swipe of its own. iOS does
+  // (Safari and home-screen apps alike), and running both stacked two Backs: the second one landed on an old entry.
   (function () {
+    if (/iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.platform) && navigator.maxTouchPoints > 1)) return;
     var x0 = null, y0 = 0, h0 = "";
     window.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = S.view && !FIND && t.clientX < 28 ? t.clientX : null; y0 = t.clientY; h0 = location.hash; }, { passive: true });
     window.addEventListener("touchend", function (e) {
