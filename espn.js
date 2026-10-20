@@ -345,7 +345,12 @@
       if (mA || mH) ln.push("Biggest leads: " + (mA ? A.abbreviation + " by " + mA : "") + (mA && mH ? ", " : "") + (mH ? H.abbreviation + " by " + mH : "") + ".");
       secs.push({ h: "How it has gone", p: ln.join(" ") });
     }
-    var last = sp.length ? sp : (d.plays || []).filter(function (p) { return p && p.text; });
+    // Latest plays skip the filler (faceoffs, stoppages, timeouts, period starts) and repeats, so the three shown matter.
+    var NOISE = /faceoff|stoppage|timeout|time out|start of|end of|beginning of|period start|period end|official|delay|substitution|jump ball|challenge/i, seenP = {};
+    var last = sp.length ? sp : (d.plays || []).filter(function (p) {
+      if (!p || !p.text || NOISE.test(p.text)) return false;
+      var k = p.text + "|" + (p.clock && p.clock.displayValue); if (seenP[k]) return false; seenP[k] = 1; return true;
+    });
     last = last.slice(-3).reverse().map(function (p) {
       var pn = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "", ck = p.clock && p.clock.displayValue ? p.clock.displayValue : "";
       return (p.text || p.shortText || "") + ([pn, ck].filter(Boolean).length ? " (" + [pn, ck].filter(Boolean).join(" ") + ")" : "");
@@ -666,7 +671,7 @@
         var ex = hasPts ? stat(x, "points") : (stat(x, "winPercent") || stat(x, "gamesBehind"));
         return { n: x.team.abbreviation || x.team.shortDisplayName || x.team.displayName, rank: isFinite(sd) ? sd : i + 1, rec: rec, ex: ex == null ? "" : ex, k: stat(x, "streak") || "", lg: logoOf(x.team), me: i === idx, id: String(x.team.id), nm: x.team.displayName };
       }).sort(function (p, q) { return p.rank - q.rank; });
-      return { group: groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT", lr: lr, gb: stat(e, "gamesBehind") };
+      return { group: ({ "American Football Conference": "AFC", "National Football Conference": "NFC" })[groups[gi].name] || groups[gi].name, rank: rank, record: stat(e, "overall") || (stat(e, "wins") + "-" + stat(e, "losses")), streak: stat(e, "streak"), logo: logoOf(e.team), rows: rows, exLabel: hasPts ? "PTS" : "PCT", lr: lr, gb: stat(e, "gamesBehind") };
     }
     return null;
   }
@@ -719,7 +724,17 @@
     var lg = labelOf(lk);
     var st = standingsOf(lg, fresh).then(function (j) { return findStanding(j, tid, /hockey|australian|soccer/.test(lg.path)); }, function () { return null; });
     var sc = scheduleOf(lk, tid, fresh).then(null, function () { return { games: [], me: null }; });
-    return Promise.all([st, sc]).then(function (r) { return { standing: r[0], games: r[1].games, me: r[1].me }; });
+    // Before a regular season starts ESPN's standings are preseason numbers (a 4-0 "1st" before opening night), so in the
+    // big four: once the regular schedule is known, preseason games drop out, and until a regular-season game has been
+    // played there are no standings, just pre: true (the app says when the season starts).
+    return Promise.all([st, sc]).then(function (r) {
+      var gs = r[1].games || [], pre = false;
+      if (/^(football|basketball|hockey|baseball)\//.test(lg.path) && gs.some(function (g) { return g.st === 2; })) {
+        gs = gs.filter(function (g) { return g.st !== 1; });
+        pre = !gs.some(function (g) { return (g.st === 2 || g.st === 3) && g.s !== "up"; });
+      }
+      return { standing: pre ? null : r[0], games: gs, me: r[1].me, pre: pre };
+    });
   }
 
   window.ESPN = { fetchScores: fetchScores, fetchGame: fetchGame, peekGame: peekGame, fetchNarrative: fetchNarrative, fetchNews: fetchNews, fetchTeams: fetchTeams, findTeam: findTeam, fetchTeamInfo: fetchTeamInfo, scheduleOf: scheduleOf, search: search, peekSearch: peekSearch, dayKey: dayKey, DAY: DAY };
