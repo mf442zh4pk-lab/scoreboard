@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=105` → `?v=106` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=106` → `?v=107` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -126,7 +126,7 @@ Packs come from points for using the app: 20 for the day's first open (and when 
 
 ## Fun layer frequency
 
-`fun.js`: `TAPP` is the per-tap card chance; `holidayFx` runs once a day (first arrival, `sb-hf` remembers the day) with a small burst; win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
+`fun.js`: `TAPP` is the per-tap card chance (5%, at most one roll every 1.5s); `holidayFx` runs once a day (first arrival, `sb-hf` remembers the day) with a small burst; win/loss effects play on at most one card per arrival about half the time; the rarer ambient effects (ball, seasonal, gold, cameo) sit under 4% combined.
 
 ## Splash
 
