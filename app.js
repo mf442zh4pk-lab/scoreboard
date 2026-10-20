@@ -308,7 +308,7 @@
       var tm = el("div", "tm");
       tm.appendChild(badge(r[0], x.lk));
       var nmw = el("span", "nmw"); nmw.appendChild(rankedName(r[0]));
-      if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
+      if (r[0][3] && !/^0(-0)+$/.test(r[0][3])) nmw.appendChild(el("span", "rec", r[0][3]));
       tm.appendChild(nmw);
       row.appendChild(tm);
       if (has) row.appendChild(el("span", "sc" + (r[3] ? " bump" : ""), String(r[1])));
@@ -858,7 +858,7 @@
         var row = el("div", "row" + (r[1] < r[2] ? " lose" : "")), tm = el("div", "tm");
         tm.appendChild(badge(r[0]));
         var nmw = el("span", "nmw"); nmw.appendChild(rankedName(r[0]));
-        if (r[0][3]) nmw.appendChild(el("span", "rec", r[0][3]));
+        if (r[0][3] && !/^0(-0)+$/.test(r[0][3])) nmw.appendChild(el("span", "rec", r[0][3]));
         tm.appendChild(nmw); row.appendChild(tm); row.appendChild(el("span", "sc", String(r[1]))); c.appendChild(row);
       });
     } else {
@@ -1236,7 +1236,7 @@
     var box = el("details", "trn"); box.open = !!first;
     var lab = momLabel(s, off), sm = el("summary", null);
     sm.appendChild(el("span", "tm " + lab[2], lab[0] + " " + lab[1]));
-    sm.appendChild(el("span", "tsub", s.l5.w + "-" + s.l5.l + (s.l5.t ? "-" + s.l5.t : "") + " in last " + s.l5.n + " \u00b7 season " + recStr(s.W, s.L, s.T)));
+    sm.appendChild(el("span", "tsub", s.l5.w + "-" + s.l5.l + (s.l5.t ? "-" + s.l5.t : "") + " in last " + s.l5.n));   // the record sits in the card header (a second "season" count disagreed with it once playoffs counted)
     var dd = el("span", "tdots");
     s.fin.slice(-5).forEach(function (g, di) { var d1 = el("i", g.my > g.op ? "w" : g.my < g.op ? "l" : "t"); d1.style.setProperty("--i", di); dd.appendChild(d1); });
     sm.appendChild(dd);
@@ -1305,7 +1305,7 @@
     var names = {};
     allGames().forEach(function (x) { (x.g.pp || []).forEach(function (n) { names[n] = 1; }); });
     var f = el("form", "add"), inp = el("input"), dl = el("datalist"), add = el("button", null, "Add");
-    inp.placeholder = C.fp.length ? "Add a fighter, driver or golfer" : "Follow a fighter, driver or golfer\u2026"; inp.setAttribute("list", "pplnames"); inp.setAttribute("aria-label", "Person name"); inp.autocomplete = "off";
+    inp.placeholder = "Fighter, driver or golfer"; inp.setAttribute("list", "pplnames"); inp.setAttribute("aria-label", "Person name"); inp.autocomplete = "off";
     dl.id = "pplnames"; add.type = "submit";
     Object.keys(names).sort().forEach(function (n) { var o = el("option"); o.value = n; dl.appendChild(o); });
     inp.addEventListener("focus", function () { LG.forEach(function (l) { if (l.kind && S.lgState[l.key] !== "done" && S.lgState[l.key] !== "loading") loadLeague(l.key); }); }, { once: true });
@@ -1346,7 +1346,9 @@
     var gsAll = T.games || [];
     var off = !!T.done && gsAll.some(function (g) { return g.s === "final"; }) && !gsAll.some(function (g) { return g.s !== "final"; });
     if (off) a.className = "recap off";
-    if (T.standing) a.appendChild(el("div", "rl", (off ? "Season recap · " : "") + ordinal(T.standing.rank) + " in " + T.standing.group + (!off && T.standing.streak ? " · streak " + T.standing.streak : "")));
+    var ups0 = gsAll.filter(function (g) { return g.s === "up"; }).sort(byTime)[0];
+    if (T.pre && ups0) a.appendChild(el("div", "rl", "Season starts " + when(ups0.t)));
+    if (T.standing) a.appendChild(el("div", "rl", (off ? "Season recap · " : "") + ordinal(T.standing.rank) + " in " + T.standing.group + (!off && T.standing.streak && (parseInt(String(T.standing.streak).replace(/\D/g, ""), 10) || 0) < 3 ? " · streak " + T.standing.streak : "")));   // 3+ already shows as the streak badge
     if (!T.done) { var tsk = el("div", "tsk"); ["w40", "", "w70", ""].forEach(function (w) { tsk.appendChild(el("div", "sk-l" + (w ? " " + w : ""))); }); tsk.appendChild(el("div", "sk-b")); a.appendChild(tsk); a.classList.add("ld"); }
     else if (T.missing || T.error) a.appendChild(el("p", "rb", "Couldn\u2019t load this team."));
     else {
@@ -1421,6 +1423,9 @@
   }
   function tcOf(T) { var o = {}; Object.keys(T).forEach(function (k) { if (k !== "done" && k !== "stale") o[k] = T[k]; }); return o; }
   function renderSettings(out) {
+    // A header like every other page: Back to where you were, and the page's name.
+    var back = el("button", "back", "\u2039 Back"); back.type = "button"; back.onclick = function () { S.settings = false; render(); window.scrollTo(0, 0); };
+    var nav = el("div", "navbar"); nav.appendChild(back); nav.appendChild(el("span", "mini-sc", "Settings")); out.appendChild(nav);
     var box = el("div", "set");
     box.appendChild(el("h3", null, "Teams you follow"));
     var ul = el("ul", "fl");
@@ -1447,7 +1452,8 @@
 
     // One row per preference: a label, a short hint and a segmented control.
     function segRow(label, hint, opts, cur, onPick) {
-      var r = el("div", "prow" + (opts.length > 3 ? " wide" : "")), lw = el("div", "pl"); lw.appendChild(el("b", null, label)); if (hint) lw.appendChild(el("small", null, hint)); r.appendChild(lw);
+      var wide = opts.length > 3 || opts.map(function (o) { return o[1]; }).join("").length > 18;   // long choices go on their own line under the label
+      var r = el("div", "prow" + (wide ? " wide" : "")), lw = el("div", "pl"); lw.appendChild(el("b", null, label)); if (hint) lw.appendChild(el("small", null, hint)); r.appendChild(lw);
       var sg = el("div", "seg");
       opts.forEach(function (o) {
         var b = el("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", String(o[0]) === String(cur) ? "true" : "false");
@@ -1481,6 +1487,7 @@
       lw.appendChild(b);
     });
     box.appendChild(lw);
+    box.appendChild(el("h3", null, "Feel"));
     box.appendChild(pref("h24", "24-hour clock", "", ONOFF, true));
     box.appendChild(pref("haptic", "Haptics", "Little taps on buttons (phones)", ONOFF));
     box.appendChild(pref("motion", "Animations", "Off makes every move instant", ONOFF));
@@ -1922,6 +1929,7 @@
     } else pv.appendChild(el("p", null, rc ? rc.head : (d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + "."))));
     if (d.h2h) pv.appendChild(el("p", "h2h", "Season series · " + d.h2h));
     (rc ? rc.secs : (d.narrative || [])).forEach(function (n) {
+      if (nv && n.h === "The story") return;   // the AP story above already opens with that paragraph
       var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); pv.appendChild(w);
     });
     if (d.link && !nv) {
@@ -2317,6 +2325,7 @@
   function teamStory(name, T, lk) {
     var lg = leagueOf(lk) || {}, st = T.standing, gs = T.games || [], ts = trendStats(gs), tier = teamTier(T), who = lg.soccer ? name : "The " + name, p = [];
     var fin = gs.filter(function (g) { return g.s === "final" && g.my != null && g.op != null; }).sort(byTime), ups = gs.filter(function (g) { return g.s !== "final"; }).sort(byTime);
+    if (T.pre && ups[0] && !fin.length) return who + " open the regular season " + (ups[0].home ? "at home against " : "at ") + ups[0].opp + ", " + when(ups[0].t) + ".";
     if (st) p.push(who + " are " + st.record + ", " + ordinal(st.rank) + " in the " + st.group + (st.gb && /^[\d.]+$/.test(st.gb) && +st.gb > 0 ? " (" + st.gb + " back)" : "") + ".");
     else if (ts) p.push(who + " are " + recStr(ts.W, ts.L, ts.T) + " so far.");
     if (ts) {
@@ -2364,7 +2373,8 @@
     if (me[2] && PREF.logos) lb.appendChild(logoImg(me[2], me[1])); else { lb.className = "ab big"; lb.textContent = me[1] || t.name.slice(0, 3).toUpperCase(); }
     hd.appendChild(lb);
     var tw = el("div", "tpw"); tw.appendChild(el("h2", null, t.name));
-    var sub = [lg.label]; if (T.standing) { sub.push(T.standing.record); sub.push(ordinal(T.standing.rank) + " in " + T.standing.group); if (T.standing.streak) sub.push("streak " + T.standing.streak); }
+    var sub = [lg.label]; if (T.pre) { var u0 = (T.games || []).filter(function (g) { return g.s === "up"; }).sort(byTime)[0]; if (u0) sub.push("season starts " + when(u0.t)); }
+    if (T.standing) { sub.push(T.standing.record); sub.push(ordinal(T.standing.rank) + " in " + T.standing.group); if (T.standing.streak) sub.push("streak " + T.standing.streak); }
     tw.appendChild(el("p", "tps", sub.filter(Boolean).join(" · ")));
     var fol = C.followed.indexOf(t.name) >= 0, fb = el("button", "tpf" + (fol ? " on" : ""), fol ? "★ Following" : "☆ Follow"); fb.type = "button";
     fb.onclick = function () { followTeam({ lk: lk, id: t.id, name: t.name }); };
@@ -2741,7 +2751,7 @@
   // Type-ahead picker for every league that is not one of the main four.
   function morePanel() {
     var box = el("div", "more"), inp = el("input", "msearch"), res = el("div", "mres"), cur = [];
-    inp.type = "search"; inp.placeholder = "Search leagues (soccer, UFC, college\u2026)"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Search leagues");
+    inp.type = "search"; inp.placeholder = "Search leagues"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Search leagues");
     function fill() {
       var q = inp.value.trim().toLowerCase(), groups = {}, order = []; cur = []; res.textContent = "";
       LG.forEach(function (l) {
@@ -2766,7 +2776,7 @@
     inp.oninput = fill;
     inp.onkeydown = function (e) { if (e.key === "Enter" && cur.length) { e.preventDefault(); pickLeague(cur[0]); } };
     box.appendChild(clearable(inp)); box.appendChild(res); fill();
-    setTimeout(function () { try { inp.focus(); } catch (e) {} }, 0);
+    if (!TOUCH) setTimeout(function () { try { inp.focus(); } catch (e) {} }, 0);   // on a phone the keyboard would cover the list you came to browse
     return box;
   }
   function stampTick() {
@@ -3045,7 +3055,7 @@
     if (gap && Date.now() - S.last >= gap - 1000) load(false, activeLeagues());
   }, 10000);
   setInterval(stampTick, 30000);
-  window.SB_SET = function () { S.settings = true; S.view = null; clearHash(); render(); };
+  window.SB_SET = function () { S.settings = true; S.view = null; clearHash(); render(); window.scrollTo(0, 0); };
   // Public surface for add-ons and future features (read-only state, hooks, and a few actions). See README.md.
   window.SB = { v: FV.replace(/^v=/, ""), on: on, state: S, config: C, render: renderSoon, open: openGame, tab: goTab, toast: toast, allGames: allGames, isFollowed: isFollowed, el: el, clearable: clearable };
   // Pull down at the top of the page to refresh (home-screen apps have no browser refresh).
