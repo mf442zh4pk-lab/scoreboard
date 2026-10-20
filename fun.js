@@ -19,7 +19,14 @@
   // [id, category, rarity, emoji, name, flavor, hint]  rarity: C common, U uncommon, R rare, E epic, L legendary, M mythic
   var CATS = { w: "Celebrations", l: "Heartbreaks", e: "Entrances", c: "Cameos", b: "Ball Drops", g: "Gestures", s: "Streaks", x: "Secrets", d: "Calendar", t: "Habits", m: "Milestones", tn: "NFL Teams", tb: "NBA Teams", tm: "MLB Teams", th: "NHL Teams", h: "Holidays", mn: "NFL Moments", mb: "NBA Moments", mm: "MLB Moments", mh: "NHL Moments" };
   var RAR = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic", S: "Signature" };
-  var RW = { C: 11, U: 3.5, R: 1.2, E: .35, L: .08, M: .012, S: 0 };
+  var RW = { C: 11, U: 3.5, R: 1.2, E: .35, L: .08, M: .012, S: 0 };   // effect picks (wpick) only
+  // Card odds are set per tier, not per card, so they hold however many cards a tier has: each card drawn (in a pack or
+  // from a tap) is Mythic 1 in 1000, so about 1 pack in 100 has one. Each step down is a bigger share.
+  var TIER = { C: .628, U: .25, R: .09, E: .025, L: .006, M: .001 };
+  function tierPick(pool) {                      // a card from pool with TIER odds, spread evenly inside each tier
+    var n = {}; pool.forEach(function (c) { n[c[2]] = (n[c[2]] || 0) + 1; });
+    return wchoice(pool, function (c) { return (TIER[c[2]] || 0) / n[c[2]]; });
+  }
   var HW = "Open a page where one of your teams just won.", HL = "Open a page where one of your teams just lost.", HE = "Switch tabs and views and watch how the page arrives.", HC = "Sometimes something wanders across the screen.", HB = "Sometimes a ball rolls or bounces by.";
   var CAT = [
     ["w_confetti","w","C","🎊","Confetti Cannon","The classic. Someone's team came through.",HW],
@@ -282,7 +289,7 @@
     var left = CAT.filter(function (c) { return !col.i[c[0]] && !AUTO[c[0]]; }); if (!left.length) return;
     var hol = left.filter(function (c) { return c.h && hActive(c.h); }), gen = left.filter(function (c) { return !c.h; }), c;
     if (hol.length && (!gen.length || Math.random() < .6)) c = wchoice(hol, function (x) { return HW2[x[2]] || 1; });
-    else if (gen.length) c = wchoice(gen, function (x) { return RW[x[2]] || 1; });
+    else if (gen.length) c = tierPick(gen);
     else return;
     TAPPING = true; try { disc(c[0], LOGO[c[0]] || ""); } finally { TAPPING = false; }
   }
@@ -646,9 +653,10 @@
     var nb = innerHeight + scrollY >= D.documentElement.scrollHeight - 6;
     if (nb) bottomAt = Date.now(); else if (scrollY < 40 && bottomAt && Date.now() - bottomAt < 2000) { bottomAt = 0; disc("whip"); }
   }, { passive: true });
-  // ---------- card packs: a hidden credit meter fills from using the app (and a daily top-up); every full meter is a pack ----------
-  // A holiday meter fills alongside it while a holiday window is on, and pays out a holiday pack from that holiday's cards.
-  var COST = 100, DAYCAP = 100, PKO = null, pendingMs = [];
+  // ---------- card packs: points from using the app, about one pack a day (never more); one holiday pack a week ----------
+  // Points: 20 for the day's first open, 1 a tap, 3 an arrival, at most 100 a day = at most one pack. Kept as counts
+  // that only go up (points earned vs packs opened), so the sync's "highest wins" merge can't bring back an opened pack.
+  var PKO = null, pendingMs = [], WEEK = 7 * 864e5, COST = 100, DAYCAP = 100, DAY0 = 20;
   // Days in a row ending on the most recent day in the list (the list holds "Y-M-D" keys, oldest first).
   function streakDays(list) {
     if (!list.length) return 0; var n = 1, prev = keyDate(list[list.length - 1]);
@@ -657,26 +665,29 @@
   }
   function keyDate(k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).getTime(); }
   function dkey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
-  function pk0() { if (col.cr == null) col.cr = 0; if (col.hc == null) col.hc = 0; if (col.pk == null) col.pk = 0; if (!col.hk) col.hk = []; }
+  function pk0() {
+    if (col.pv !== 2) {                           // the old meters: keep at most one waiting pack of each kind, drop the rest
+      col.pt = Math.min(col.pk || 0, 1) * COST + Math.min(col.cr || 0, COST - 1); col.ro = 0; col.he = (col.hk || []).filter(function (k) { return HOLS[k]; }).slice(0, 1); col.ho = 0; col.pv = 2;
+      delete col.pk; delete col.hk; delete col.cr; delete col.hc;
+    }
+    if (col.pt == null) col.pt = 0; if (col.ro == null) col.ro = 0; if (!col.he) col.he = []; if (col.ho == null) col.ho = 0;
+  }
   function holNow() {                             // the active holiday closest to today (any holiday, not only the animated ones)
     var now = new Date(), best = null, bd = 1e12;
     Object.keys(HOLS).forEach(function (k) { var w = hWin(k, now); if (!w || !w.on) return; var dd = Math.abs(w.d - now); if (dd < bd) { bd = dd; best = k; } });
     return best;
   }
-  function packs() { pk0(); return { r: col.pk, h: col.hk.slice(), n: col.pk + col.hk.length }; }
+  function packs() { pk0(); var r = Math.max(0, Math.floor(col.pt / COST) - col.ro), h = col.he.slice(col.ho); return { r: r, h: h, n: r + h.length }; }
   function badge() { var b = $("prof"); if (b) b.classList.toggle("pk", packs().n > 0); }
   function earn(n, why) {
     pk0(); var day = dkey(), hk = holNow(), gotR = false, gotH = false;
-    if (why === "daily") { if (col.ld === day) return; col.ld = day; col.cr += COST; if (hk) col.hc += COST; }
-    else {
-      if (!col.ue || col.ue.d !== day) col.ue = { d: day, n: 0 };
-      if (col.ue.n >= DAYCAP) return;
-      var add = Math.min(n, DAYCAP - col.ue.n); col.ue.n += add; col.cr += add; if (hk) col.hc += add;
-    }
-    while (col.cr >= COST) { col.cr -= COST; col.pk++; gotR = true; }
-    // Holiday packs come at most once a week: the holiday meter holds full until seven days have passed since the last one.
-    while (hk && col.hc >= COST) { if (col.hl && Date.now() - col.hl < 7 * 864e5) { col.hc = COST; break; } col.hc -= COST; col.hk.push(hk); col.hl = Date.now(); gotH = true; }
-    save(); badge();
+    if (why === "daily") { if (col.ld === day) return; col.ld = day; n = DAY0; }
+    if (!col.ue || col.ue.d !== day) col.ue = { d: day, n: 0 };
+    var add = Math.min(n, DAYCAP - col.ue.n); if (add <= 0) return;
+    var had = Math.floor(col.pt / COST); col.ue.n += add; col.pt += add; gotR = Math.floor(col.pt / COST) > had;
+    // the day's pack also brings the holiday pack while a holiday is on, at most once a week
+    if (gotR && hk && (!col.hl || Date.now() - col.hl >= WEEK)) { col.he.push(hk); col.hl = Date.now(); gotH = true; }
+    save(); if (!gotR) return; badge();
     var pop = true; try { pop = localStorage.getItem("sb-pk") !== "0"; } catch (e) {}
     if ((gotR || gotH) && pop && acct()) setTimeout(function () { packPop(gotR, gotH ? hk : null); }, why === "daily" ? 1600 : 400);
   }
@@ -698,8 +709,8 @@
   function drawPack(hk) {
     var pool = hk ? CAT.filter(function (c) { return c.h === hk; }) : CAT.filter(function (c) { return !c.h && !AUTO[c[0]] && c[2] !== "S"; });
     if (!pool.length) pool = CAT.filter(function (c) { return !AUTO[c[0]] && c[2] !== "S"; });
-    var wf = hk ? function (c) { return HW2[c[2]] || 1; } : function (c) { return RW[c[2]] || 1; }, out = [];
-    for (var i = 0; i < 10; i++) out.push(wchoice(pool, wf));   // flat rates: every card in the pool has the same odds whether you own it or not
+    var out = [];
+    for (var i = 0; i < 10; i++) out.push(hk ? wchoice(pool, function (c) { return HW2[c[2]] || 1; }) : tierPick(pool));   // flat rates: every card in the pool has the same odds whether you own it or not
     return out;
   }
   function grant(c) {
@@ -709,7 +720,7 @@
   }
   function openPacks() {
     pk0(); if (PKO) return;
-    var hk = null; if (col.pk > 0) col.pk--; else if (col.hk.length) hk = col.hk.shift(); else { say("No packs right now. Keep using the app, a new one comes every day."); return; }
+    var hk = null, p = packs(); if (p.r > 0) col.ro++; else if (p.h.length) { hk = p.h[0]; col.ho++; } else { say("No packs right now. Keep using the app: about one a day."); return; }
     var cards = drawPack(hk), news = cards.map(grant); col.po = (col.po || 0) + 1; save(); badge();
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     packShow(hk, cards, news);
@@ -777,6 +788,7 @@
   }
   D.addEventListener("keydown", function (e) { if (e.key === "Escape" && PKO) { e.stopImmediatePropagation(); packClose(); } }, true);
   setTimeout(function () { pk0(); earn(0, "daily"); badge(); }, 1200);
+  D.addEventListener("visibilitychange", function () { if (!D.hidden) earn(0, "daily"); });   // left open past midnight
   dates();
 
   window.FUN = { packs: packs, openPacks: openPacks, streak: streakDays, keyDate: keyDate, art: artEl, team: teamDrop, reveal: function (c) { reveal([c], true); }, CAT: CAT, CATS: CATS, RAR: RAR, IDX: IDX, KW: MKW, upcoming: upcoming, col: function () { return col; }, disc: disc, saveCol: save,
