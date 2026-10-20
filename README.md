@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=101` → `?v=102` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=102` → `?v=103` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -34,7 +34,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 --spring     cubic-bezier(.34,1.4,.44,1)
 ```
 
-Buttons, tabs, chips and sheets already get press feedback and transitions from the shared rules. Collapsible sections tween open and closed (`app.js`, "Collapsible sections"). Opening or leaving a game uses the View Transitions API where available. Everything respects `prefers-reduced-motion`, and the Animations switch in Settings (`PREF.motion`, `html.rm`) forces the same thing: every animation and transition lands instantly, the fun layer included. The fun layer's animations are independent and sit on top.
+Buttons, tabs, chips and sheets already get press feedback and transitions from the shared rules. Collapsible sections tween open and closed (`app.js`, "Collapsible sections"). Opening or leaving a game uses the View Transitions API where available, but only for the app's own taps (`NAV` stamps them): a swipe or the browser's Back (`GEST`, set from `hashchange`) swaps instantly, since a cross-fade started under a finger can stall on iOS. Every view swap blocks taps on `#out` for 280ms (`lockTaps`, `body.nav-lock`) so a tap can't land on the old screen, and any touch skips a running transition. The edge swipe acts only if the hash didn't change during the gesture, so it can't stack a second Back on top of iOS's own. Everything respects `prefers-reduced-motion`, and the Animations switch in Settings (`PREF.motion`, `html.rm`) forces the same thing: every animation and transition lands instantly, the fun layer included. The fun layer's animations are independent and sit on top.
 
 ## Extension points (`window.SB`)
 
