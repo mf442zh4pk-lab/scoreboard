@@ -459,8 +459,12 @@
         if (p.scoringPlay) o.sc = 1;
         if (p.shootingPlay) o.sh = 1;
         if (p.type && p.type.text) o.k = p.type.text;                   // "Jump Shot", "Defensive Rebound", "Lost Ball Turnover"
-        var co = p.coordinate;                                          // basketball: half court in feet, x across, y out from the basket (non-shots carry a huge negative sentinel)
-        if (co && co.x != null && co.y != null && co.x >= 0 && co.y >= 0) o.c = [Math.round(co.x * 10) / 10, Math.round(co.y * 10) / 10];
+        // Where it happened, in feet. Basketball: half court, x across and y out from the basket. Hockey: the whole rink,
+        // center ice at 0,0 (x -100..100 along the boards, y -42.5..42.5). Plays with no spot carry a huge negative sentinel.
+        var co = p.coordinate;
+        if (co && co.x != null && co.y != null && co.x > -500 && co.y > -500) o.c = [Math.round(co.x * 10) / 10, Math.round(co.y * 10) / 10];
+        if (p.period && p.period.number != null) o.pr = p.period.number;
+        var stx = p.strength && p.strength.text; if (stx && !/even/i.test(stx)) o.st = stx;   // hockey: "Power Play", "Short Handed", "Empty Net"
         return o;
       }).filter(function (p) { return p.x; });
       return out;
