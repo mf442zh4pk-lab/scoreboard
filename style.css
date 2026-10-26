@@ -946,3 +946,12 @@ html:not(.rm) .card.s-live:nth-child(-n+4)::before{animation:ember 5.5s ease-in-
 .grid>.card{content-visibility:auto;contain-intrinsic-size:auto 110px}
 .grid.big>.card{contain-intrinsic-size:auto 150px}
 .qs,.recap,.story{content-visibility:auto;contain-intrinsic-size:auto 70px}
+/* Live panel: the last ten plays */
+.lv10{gap:0}.lv10>summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;padding:2px 0}.lv10>summary::-webkit-details-marker{display:none}
+.lv10 .lvc{margin-left:auto;font-style:normal;color:var(--mute);transition:transform var(--t2) var(--ease)}.lv10:not([open]) .lvc{transform:rotate(-90deg)}
+.lvl{display:flex;flex-direction:column;gap:6px;padding-top:6px}
+.lvr{display:flex;gap:8px;align-items:baseline;font-size:13px;line-height:1.35}
+.lvab{flex:none;min-width:34px;font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--ter)}
+.lvx{flex:1;min-width:0}.lvr.scp .lvx{font-weight:700;color:var(--fg)}
+.lvt{flex:none;font-size:11px;color:var(--mute);white-space:nowrap}
+.lvr.new{animation:lvin .5s var(--ease)}
