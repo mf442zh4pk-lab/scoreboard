@@ -432,42 +432,70 @@
   }
 
   // ---------- collection log ----------
-  var filter = "all", lq = "", lst = "all", lr = {}, srt = false, logRefresh = null, RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
+  var filter = "all", lq = "", lst = "all", lr = {}, srt = false, logRefresh = null, fOv = null, RL = { C: "C", U: "U", R: "R", E: "E", L: "L", M: "M", S: "S" };
   function pad(n) { return ("00" + n).slice(-3); }
   function vLog(body, arg) {
-    var col = F.col(), found = F.count(), t = F.total;
+    var col = F.col(), RK = ["C", "U", "R", "E", "L", "M", "S"];
     summary(body);
-    (function () { var u = F.upcoming(), t = []; if (u.on.length) t.push("Dropping now: " + u.on.map(function (x) { return x.name + " (until " + x.end + ")"; }).join(", ") + "."); if (u.next) t.push("Next release: " + u.next.name + ", " + u.next.start + " to " + u.next.end + "."); if (t.length) body.appendChild(el("p", "pm-note pm-hol", "🎉 " + t.join(" "))); })();
-    var chips = el("div", "pm-chips"), grid = el("div", "pm-grid");
+    (function () {
+      var u = F.upcoming(), t = [];
+      if (u.on.length) t.push("<b>Dropping now:</b> " + u.on.map(function (x) { return x.name + " until " + x.end; }).join(", "));
+      if (u.next) t.push("<b>Next:</b> " + u.next.name + ", " + u.next.start + " to " + u.next.end);
+      if (t.length) { var h = el("p", "pm-hol"); h.innerHTML = t.join("<span>·</span>"); body.appendChild(h); }
+    })();
+    var grid = el("div", "pm-grid");
     function fresh() { return F.CAT.filter(function (c) { return col.i[c[0]] && !col.s[c[0]]; }); }
-    var nw = fresh(), rv = null; if (filter === "new" && !nw.length) filter = "all";
-    function rvText() { return "\u2728 Review " + nw.length + " new card" + (nw.length > 1 ? "s" : ""); }
-    if (nw.length) { rv = btn(rvText(), "pm-b pri", function () { detail(nw[0], nw, "New cards"); }); body.appendChild(rv); }
-    var trb = btn("\u267B Trade in dupes", "pm-b", function () { tradeSheet(function (full) { if (logRefresh) logRefresh(full); }); });
-    function trShow() { trb.hidden = !Object.keys(F.spareBy().r).length; }
-    trShow(); body.appendChild(trb);
-    function chip(k, label) { var b = btn(label, "pm-chip" + (filter === k ? " on" : ""), function () { filter = k; draw(); }); chips.appendChild(b); }
-    var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
-    var fl = el("div", "pm-chips pm-fl"), cnt = el("p", "pm-note pm-cnt"), qt = 0;
-    qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
-    qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawFl(); drawGrid(); }, 70); };
-    function active2() { return !!(lq.trim() || lst !== "all" || srt || Object.keys(lr).length); }
-    function drawFl() {
-      fl.innerHTML = "";
-      [["all", "All"], ["got", "Found"], ["miss", "Missing"], ["dup", "Dupes"]].forEach(function (x) { fl.appendChild(btn(x[1], "pm-chip" + (lst === x[0] ? " on" : ""), function () { lst = x[0]; drawFl(); drawGrid(); })); });
-      fl.appendChild(btn("Newest", "pm-chip" + (srt ? " on" : ""), function () { srt = !srt; drawFl(); drawGrid(); }));
-      ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) {
-        var b = el("button", "pm-chip pm-rc r" + k + (lr[k] ? " on" : "")); b.type = "button"; b.appendChild(el("i", null, k)); b.appendChild(D.createTextNode(F.RAR[k]));
-        b.onclick = function () { if (lr[k]) delete lr[k]; else lr[k] = 1; drawFl(); drawGrid(); }; fl.appendChild(b);
-      });
-      if (active2()) fl.appendChild(btn("Clear", "pm-chip", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; srt = false; drawFl(); drawGrid(); }));
+    var nw = fresh(); if (lst === "new" && !nw.length) lst = "all";
+    // New cards and trade-in sit side by side; each hides when there's nothing to do, the other takes the full row.
+    var acts = el("div", "pm-acts");
+    var rv = btn("", "pm-b pri pm-rv", function () { if (nw.length) detail(nw[0], nw, "New cards"); });
+    var trb = btn("♻ Trade in dupes", "pm-b", function () { tradeSheet(function (full) { if (logRefresh) logRefresh(full); }); });
+    acts.appendChild(rv); acts.appendChild(trb); body.appendChild(acts);
+    function actShow() {
+      rv.hidden = !nw.length; rv.textContent = "✨ " + nw.length + " new card" + (nw.length > 1 ? "s" : "");
+      trb.hidden = !Object.keys(F.spareBy().r).length; acts.hidden = rv.hidden && trb.hidden;
+      acts.classList.toggle("two", !rv.hidden && !trb.hidden);
     }
-    function vis(c) {
+    actShow();
+    // Search, the Show switch (always one row, no sideways scrolling) and a Filters button for set, rarity and sort.
+    var qi = el("input", "pm-q"); qi.type = "search"; qi.placeholder = "Search cards, teams, moments"; qi.value = lq; qi.autocomplete = "off"; qi.spellcheck = false; qi.setAttribute("aria-label", "Search cards");
+    qi.onkeydown = function (e) { if (e.key === "Escape") { e.stopPropagation(); if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); } else qi.blur(); } else if (e.key === "Enter") qi.blur(); };
+    var qt = 0; qi.oninput = function () { lq = qi.value; clearTimeout(qt); qt = setTimeout(function () { drawPills(); drawGrid(); }, 70); };
+    var fbtn = el("button", "pm-fb"); fbtn.type = "button"; fbtn.setAttribute("aria-label", "Filters");
+    fbtn.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M6 10h8M8.5 15h3"/></svg><span>Filters</span><b></b>';
+    fbtn.onclick = function () { filterSheet(); };
+    var srow = el("div", "pm-srow"); srow.appendChild(window.SB && SB.clearable ? SB.clearable(qi) : qi); srow.appendChild(fbtn);
+    var seg = el("div", "pm-show"), pills = el("div", "pm-pills"), cnt = el("p", "pm-note pm-cnt");
+    function nExtra() { return (filter !== "all" ? 1 : 0) + Object.keys(lr).length + (srt ? 1 : 0); }
+    function active2() { return !!(lq.trim() || lst !== "all" || nExtra()); }
+    function reset() { lq = ""; qi.value = ""; lst = "all"; lr = {}; srt = false; filter = "all"; }
+    function drawSeg() {
+      seg.innerHTML = "";
+      var opts = [["all", "All"], ["new", "New"], ["got", "Found"], ["miss", "Missing"], ["dup", "Dupes"]];
+      opts.forEach(function (x) {
+        if (x[0] === "new" && !nw.length) return;
+        var b = btn("", lst === x[0] ? "on" : "", function () { if (lst === x[0]) return; lst = x[0]; drawSeg(); drawPills(); drawGrid(); });
+        b.appendChild(D.createTextNode(x[1])); if (x[0] === "new") b.appendChild(el("i", null, String(nw.length)));
+        b.setAttribute("aria-pressed", lst === x[0] ? "true" : "false"); seg.appendChild(b);
+      });
+      seg.style.setProperty("--n", seg.children.length);
+    }
+    function pill(label, cls, fn) { var b = btn(label, "pm-pill" + (cls ? " " + cls : ""), fn); pills.appendChild(b); return b; }
+    function drawPills() {
+      pills.innerHTML = ""; var n = nExtra(), fb = fbtn.querySelector("b"); fb.textContent = n || ""; fbtn.classList.toggle("on", n > 0);
+      if (filter !== "all") pill(F.CATS[filter] + " ✕", null, function () { filter = "all"; drawPills(); drawGrid(); });
+      RK.forEach(function (k) { if (lr[k]) { var p = pill("", "r" + k, function () { delete lr[k]; drawPills(); drawGrid(); }); p.appendChild(el("i", null, k)); p.appendChild(D.createTextNode(F.RAR[k] + " ✕")); } });
+      if (srt) pill("Newest first ✕", null, function () { srt = false; drawPills(); drawGrid(); });
+      if (lst === "new" && nw.length) pill("✓ Mark all seen", "ok", function () { nw.forEach(function (c) { F.seen(c[0]); }); logRefresh(true); });
+      if (n > 1 || (n && (lq.trim() || lst !== "all"))) pill("Clear all", "clr", function () { reset(); draw(); });
+      pills.hidden = !pills.children.length;
+    }
+    function vis(c, ign) {
       var id = c[0], got = !!col.i[id];
-      if (filter === "new") { if (!(got && !col.s[id])) return false; }
-      else if (filter !== "all" && c[1] !== filter) return false;
+      if (ign !== "set" && filter !== "all" && c[1] !== filter) return false;
+      if (lst === "new" && !(got && !col.s[id])) return false;
       if (lst === "got" && !got) return false; if (lst === "miss" && got) return false; if (lst === "dup" && !(got && F.spare(id) > 0)) return false;
-      if (Object.keys(lr).length && !lr[c[2]]) return false;
+      if (ign !== "rar" && Object.keys(lr).length && !lr[c[2]]) return false;
       var q = lq.trim().toLowerCase();
       if (q) {
         var hay = (c[4] + " " + F.CATS[c[1]] + " " + F.RAR[c[2]] + " " + (F.KW[id] || []).join(" ") + (got || id.indexOf("mo_") === 0 ? " " + c[5] : "")).toLowerCase();
@@ -475,17 +503,59 @@
       }
       return true;
     }
-    function draw() { drawChips(); drawFl(); drawGrid(); }
-    function drawChips() {
-      chips.innerHTML = "";
-      var all = F.CAT.length, fnd0 = F.count(); chip("all", "All " + fnd0 + "/" + all + (fnd0 >= all ? " \u2713" : ""));
-      if (nw.length) chip("new", "New " + nw.length);
-      Object.keys(F.CATS).forEach(function (k) {
-        var tot = 0, fnd = 0; F.CAT.forEach(function (c) { if (c[1] === k) { tot++; if (col.i[c[0]]) fnd++; } });
-        chip(k, F.CATS[k] + " " + fnd + "/" + tot + (fnd >= tot ? " \u2713" : ""));
-      });
+    function draw() { drawSeg(); drawPills(); drawGrid(); }
+    // ---------- the Filters sheet: sort, set, rarity; the grid behind redraws once, when it closes ----------
+    function filterSheet() {
+      if (fOv) return;
+      var ov = el("div", "tcd fsh"), box = el("div", "flt"); ov.appendChild(box); fOv = ov;
+      var s0 = JSON.stringify([filter, lr, srt]);
+      function shut() { if (fOv !== ov) return; fOv = null; ov.classList.remove("in"); setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 200); drawPills(); if (JSON.stringify([filter, lr, srt]) !== s0) drawGrid(); try { fbtn.focus({ preventScroll: true }); } catch (e) {} }
+      ov.shut = shut; ov.onclick = function (e) { if (e.target === ov) shut(); };
+      var sy = null; box.addEventListener("touchstart", function (e) { sy = box.scrollTop <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+      box.addEventListener("touchend", function (e) { if (sy != null && e.changedTouches[0].clientY - sy > 70) shut(); sy = null; });
+      function sec(t, aside) { var h = el("div", "flt-h"); h.appendChild(el("span", null, t)); if (aside) h.appendChild(aside); box.appendChild(h); }
+      var go;
+      function paint() {
+        var y = box.scrollTop; box.innerHTML = "";
+        box.appendChild(el("i", "flt-grab"));
+        var hd = el("div", "flt-top"); hd.appendChild(el("h3", null, "Filters"));
+        hd.appendChild(btn("Reset", "flt-rs", function () { filter = "all"; lr = {}; srt = false; paint(); })); box.appendChild(hd);
+        sec("Sort");
+        var so = el("div", "pm-seg flt-so");
+        [[false, "Card number"], [true, "Newest found"]].forEach(function (x) { so.appendChild(btn(x[1], srt === x[0] ? "on" : "", function () { srt = x[0]; paint(); })); });
+        box.appendChild(so);
+        sec("Set");
+        var sets = el("div", "flt-sets");
+        var keys = ["all"].concat(Object.keys(F.CATS));
+        keys.forEach(function (k) {
+          var tot = 0, fnd = 0; F.CAT.forEach(function (c) { if (k === "all" || c[1] === k) { tot++; if (col.i[c[0]]) fnd++; } });
+          var b = el("button", "flt-set" + (filter === k ? " on" : "") + (fnd >= tot ? " done" : "")); b.type = "button";
+          b.appendChild(el("span", "flt-sn", k === "all" ? "All sets" : F.CATS[k]));
+          b.appendChild(el("span", "flt-sc", fnd + "/" + tot + (fnd >= tot ? " ✓" : "")));
+          var pg = el("i", "flt-pg"); pg.style.setProperty("--p", (fnd / tot * 100).toFixed(1) + "%"); b.appendChild(pg);
+          b.onclick = function () { filter = k; paint(); }; sets.appendChild(b);
+        });
+        box.appendChild(sets);
+        var anyR = Object.keys(lr).length;
+        sec("Rarity", anyR ? btn("Any", "flt-rs", function () { lr = {}; paint(); }) : null);
+        var rr = el("div", "flt-rar");
+        RK.forEach(function (k) {
+          var tot = 0, fnd = 0; F.CAT.forEach(function (c) { if (c[2] === k && (filter === "all" || c[1] === filter)) { tot++; if (col.i[c[0]]) fnd++; } });
+          if (!tot) return;
+          var b = el("button", "flt-r r" + k + (lr[k] ? " on" : "")); b.type = "button"; b.setAttribute("aria-pressed", lr[k] ? "true" : "false");
+          b.appendChild(el("i", null, k)); b.appendChild(el("span", null, F.RAR[k])); b.appendChild(el("em", null, fnd + "/" + tot));
+          b.onclick = function () { if (lr[k]) delete lr[k]; else lr[k] = 1; paint(); }; rr.appendChild(b);
+        });
+        box.appendChild(rr);
+        var n = F.CAT.filter(function (c) { return vis(c); }).length;
+        var ft = el("div", "flt-ft"); go = btn(n ? "Show " + n + " card" + (n > 1 ? "s" : "") : "No cards match", "pm-b pri", shut); go.disabled = !n; ft.appendChild(go); box.appendChild(ft);
+        box.scrollTop = y;
+      }
+      paint();
+      (root || D.body).appendChild(ov); requestAnimationFrame(function () { ov.classList.add("in"); });
+      try { go.focus({ preventScroll: true }); } catch (e) {}
     }
-    var gtok = 0;
+    var gtok = 0, last = null;
     function tile(c, vl, lb, sub, n) {
       var got = !!col.i[c[0]], b = el("button", "tcm r" + c[2] + (got ? " got" : " lock")); b.type = "button"; b.dataset.id = c[0];
       b.setAttribute("aria-label", c[4] + ", " + F.RAR[c[2]] + (got ? (F.owned(c[0]) > 1 ? ", " + F.owned(c[0]) + " copies" : ", found") : ", not found yet"));
@@ -495,17 +565,18 @@
       b.appendChild(el("span", "tcm-n", c[4]));
       b.appendChild(el("i", "tcm-r", RAR(c[2])));
       if (got && !col.s[c[0]]) b.appendChild(el("u", "tcm-new", "NEW"));
-      if (got && F.owned(c[0]) > 1) b.appendChild(el("span", "tcm-x", "\u00d7" + F.owned(c[0])));
+      if (got && F.owned(c[0]) > 1) b.appendChild(el("span", "tcm-x", "×" + F.owned(c[0])));
       b.onclick = function () { detail(c, sub ? vl : null, lb); };
       return b;
     }
     function drawGrid() {
-      var my = ++gtok; grid.innerHTML = ""; var vl = F.CAT.filter(vis), lb = filter === "new" ? "New cards" : "Results", sub = active2() || filter !== "all";
+      var my = ++gtok; grid.innerHTML = ""; var vl = F.CAT.filter(function (c) { return vis(c); }), lb = lst === "new" ? "New cards" : "Results", sub = active2();
+      last = [vl, lb, sub];
       if (srt) vl.sort(function (x, y) { var ex = col.i[x[0]], ey = col.i[y[0]]; return (ey ? ey[0] : 0) - (ex ? ex[0] : 0) || x.n - y.n; });
-      cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" + (srt ? " \u00b7 newest first" : "") : ""; cnt.hidden = !sub;
+      cnt.textContent = sub ? vl.length + " of " + F.CAT.length + " cards" + (srt ? " · newest first" : "") : ""; cnt.hidden = !sub;
       if (!vl.length) {
         var none = el("div", "pm-none"); none.appendChild(el("p", "pm-note", "No cards match."));
-        if (sub) none.appendChild(btn("Clear filters", "pm-b", function () { lq = ""; qi.value = ""; lst = "all"; lr = {}; srt = false; filter = "all"; draw(); }));
+        if (sub) none.appendChild(btn("Clear filters", "pm-b", function () { reset(); draw(); }));
         grid.appendChild(none); return;
       }
       // The first screenful goes in at once, the rest a slice per frame (the log can hold 470+ cards).
@@ -514,20 +585,21 @@
       add(36);
       if (i < vl.length) requestAnimationFrame(function more() { if (my !== gtok || !grid.isConnected) return; add(120); if (i < vl.length) requestAnimationFrame(more); });
     }
-    // A card was viewed: update the log in place (no rebuild, so the scroll position and focus stay put).
+    // A card was viewed (or one arrived while the log is open): update in place, keeping the scroll position.
     logRefresh = function (full) {
-      trShow(); nw = fresh(); if (filter === "new" && !nw.length) filter = "all";
-      if (rv) { if (nw.length) rv.textContent = rvText(); else { rv.remove(); rv = null; } }
-      drawChips();
-      if (full || filter === "new") { drawGrid(); return; }
+      var had = nw.length; nw = fresh(); var gone = lst === "new" && !nw.length; if (gone) lst = "all";
+      actShow(); if (!!had !== !!nw.length || gone) drawSeg(); else { var ni = seg.querySelector("i"); if (ni) ni.textContent = nw.length; }
+      drawPills();
+      if (full || gone || lst === "new") { drawGrid(); return; }
+      if (nw.length > had && last) nw.forEach(function (c) { var t0 = grid.querySelector('.tcm[data-id="' + c[0] + '"]'); if (t0 && !t0.querySelector(".tcm-new")) t0.replaceWith(tile(c, last[0], last[1], last[2], 0)); });   // a card arrived: swap just its tile
       var us = grid.querySelectorAll(".tcm-new");
       for (var k = 0; k < us.length; k++) if (col.s[us[k].parentNode.dataset.id]) us[k].remove();
     };
     function RAR(k) { return RL[k]; }
-    var stk = el("div", "pm-stk"); stk.appendChild(window.SB && SB.clearable ? SB.clearable(qi) : qi); stk.appendChild(fl); stk.appendChild(chips); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
+    var stk = el("div", "pm-stk"); stk.appendChild(srow); stk.appendChild(seg); stk.appendChild(pills); body.appendChild(stk); body.appendChild(cnt); body.appendChild(grid); draw();
     if (arg && arg.card && F.IDX[arg.card]) detail(F.IDX[arg.card], null);
     var lg = el("div", "pm-key");
-    ["C", "U", "R", "E", "L", "M", "S"].forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
+    RK.forEach(function (k) { var s2 = el("span", "r" + k); s2.appendChild(el("i", null, k)); s2.appendChild(D.createTextNode(F.RAR[k])); lg.appendChild(s2); });
     body.appendChild(lg);
     body.dataset.keep = "1";
   }
@@ -661,12 +733,13 @@
     b.setAttribute("aria-label", p ? "Profile: " + p.n : "Profile and Collection Log");
     var w = D.getElementById("who"); if (w) { w.hidden = !p; if (p) { w.textContent = p.n; w.className = g("sb-lb") ? "on" : ""; } }
   }
-  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (trOv) trOv.shut(); else if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
+  D.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (trOv) trOv.shut(); else if (fOv) fOv.shut(); else if (dRoot) closeD(); else close(); } else if (dRoot && dCur && (e.key === "ArrowRight" || e.key === "ArrowLeft")) dCur(e.key === "ArrowRight" ? 1 : -1); });
   D.addEventListener("visibilitychange", function () { if (D.hidden && lbGet() && active()) savePush().catch(function () {}); });
   window.PROF = {
     open: function (v, a) {
       open(v, a);
     },
+    changed: function () { if (root && logRefresh && root.querySelector(".pm-grid")) logRefresh(); },
     refresh: refreshBtn, sync: function () { return lbSync().catch(function () {}).then(function () { return savePush(); }).catch(function () {}); },
     pull: function () { if (!lbGet() || !active()) return; pullApply().then(function (c) { if (c && !D.body.classList.contains("rv-on")) location.reload(); else return PROF.sync(); }, function () {}); }
   };
