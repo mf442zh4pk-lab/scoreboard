@@ -1007,3 +1007,48 @@ html:not(.rm) .crt-s .halo{animation:crthalo 1.6s ease-out infinite}
 .rk-key i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-left:4px}.rk-key .kf{background:var(--mute)}.rk-key .kh{box-shadow:inset 0 0 0 2px var(--mute)}.rk-key .ko{width:7px;height:7px;background:color-mix(in srgb,var(--fg) 16%,var(--card));box-shadow:0 0 0 1.5px var(--line)}
 .lvn.oth{background:color-mix(in srgb,var(--fg) 10%,transparent);color:var(--mute)}
 .lvn.goal{box-shadow:0 0 0 2px #fff,0 0 8px rgba(255,255,255,.6)}
+/* Baseball in the live panel: field spray chart, strike zone, count */
+.bp-sit{display:inline-flex;gap:10px;align-items:center}
+.bp-c{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:var(--mute)}.bp-c b{margin-right:2px;font-size:11px}
+.bp-c i{width:8px;height:8px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line);transition:background var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
+.bp-c.b i.on{background:var(--win);box-shadow:0 0 6px color-mix(in srgb,var(--win) 70%,transparent)}
+.bp-c.s i.on{background:var(--live);box-shadow:0 0 6px color-mix(in srgb,var(--live) 70%,transparent)}
+.bp-c.o i.on{background:var(--warn);box-shadow:0 0 6px color-mix(in srgb,var(--warn) 70%,transparent)}
+.bp svg{display:block;width:100%;height:auto;font:800 9px/1 "Hanken Grotesk",system-ui,sans-serif}
+.bp-f{border-radius:12px;background:color-mix(in srgb,#9be59b 4%,var(--card))}
+.bp-l path,.bp-l circle,.bp-l rect{vector-effect:non-scaling-stroke}
+.bp-l .grass{fill:color-mix(in srgb,#5fcf93 13%,var(--card))}
+.bp-l .fence{fill:none;stroke:color-mix(in srgb,#5fcf93 45%,transparent);stroke-width:3}
+.bp-l .dirt,.bp-l .mound{fill:color-mix(in srgb,#e0a84a 20%,var(--card))}
+.bp-l .igrass{fill:color-mix(in srgb,#5fcf93 16%,var(--card))}
+.bp-l .foul,.bp-l .path{fill:none;stroke:rgba(255,255,255,.4);stroke-width:1.2}
+.bp-l .base{fill:#e8ecf4;stroke:none;opacity:.75;transition:fill var(--t2) var(--ease)}
+.bp-l .base.on{fill:var(--warn);opacity:1;filter:drop-shadow(0 0 5px var(--warn))}
+.bp-l .plate{fill:#e8ecf4;opacity:.85}
+.bp-s .arc{fill:none;stroke-width:1.6;opacity:calc(.6 - var(--k,0) * .045);stroke-linecap:round}.bp-s .arc.aw{stroke:var(--ter)}.bp-s .arc.hm{stroke:var(--warn)}.bp-s .arc.miss{stroke-dasharray:3 3}
+.bp-s .sh .dot{stroke-width:2}.bp-s .halo{stroke-width:1.5}.bp-s .gring{fill:none;stroke:#fff;stroke-width:2;filter:drop-shadow(0 0 4px rgba(255,255,255,.85))}.bp-s .goal .dot{stroke:#fff}
+.bp-s text{font-size:9px}
+.bp-ab{display:grid;grid-template-columns:minmax(0,46%) minmax(0,1fr);gap:12px;align-items:start;margin-top:10px}
+.bp-z{border-radius:12px;background:color-mix(in srgb,var(--fg) 3%,var(--card));font-size:12px!important}
+.bp-zl .zone{fill:color-mix(in srgb,var(--fg) 5%,transparent);stroke:rgba(255,255,255,.55);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.bp-zl line{stroke:rgba(255,255,255,.14);stroke-width:1;vector-effect:non-scaling-stroke}
+.bp-zl .plate{fill:#e8ecf4;opacity:.8}
+.bp-p .dot{stroke:var(--card);stroke-width:2;vector-effect:non-scaling-stroke;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
+.bp-p .ball .dot,.bp-p .hbp .dot{fill:var(--win)}.bp-p .strike .dot{fill:var(--live)}.bp-p .play .dot{fill:#5d8dff}
+.bp-p text{fill:#0f1420;font-size:11px;font-weight:800}
+.bp-p .halo{fill:none;stroke:#fff;stroke-width:1.5;transform-box:fill-box;transform-origin:center;vector-effect:non-scaling-stroke}
+html:not(.rm) .bp-p .halo{animation:crthalo 1.6s ease-out infinite}
+.bp-wait{fill:var(--mute);font-size:11px;font-weight:600}
+.bp-side{display:flex;flex-direction:column;gap:8px;min-width:0}
+.bp-mu{display:flex;flex-direction:column;gap:5px}
+.bp-who{display:flex;flex-direction:column;gap:1px;min-width:0}.bp-who em{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.bp-who b{font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bp-pl{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:7px}
+.bp-pr{display:flex;align-items:center;gap:6px;font-size:12px;min-width:0}
+.bp-pr .pc{flex:none;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:9.5px;font-weight:800;color:#0f1420}
+.bp-pr .pc.ball,.bp-pr .pc.hbp{background:var(--win)}.bp-pr .pc.strike{background:var(--live)}.bp-pr .pc.play{background:#5d8dff}
+.bp-pr .pd{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.bp-pr .pv{flex:none;font-size:11px;font-weight:700;color:var(--mute);font-variant-numeric:tabular-nums}
+.bp-pr:first-child .pd{font-weight:700}
+.bp-fin{font-size:12px;font-weight:700;color:var(--fg);padding-top:4px;border-top:1px dashed var(--line)}
+.bp-key .kb{background:var(--win)}.bp-key .ks{background:var(--live)}.bp-key .kp{background:#5d8dff}
