@@ -397,7 +397,19 @@
 
       var tm = box.teams || [];
       if (tm.length >= 2) {
-        var mp = function (t) { var m = {}; (t.statistics || []).forEach(function (z) { m[z.label || z.name] = z.displayValue; }); return m; };
+        // Most sports send a flat list of team stats. Baseball sends groups (batting, pitching, fielding) of 35-77 numbers
+        // each, which read as three empty rows; those get a short list of the numbers people actually compare.
+        var TSG = { batting: [["H", "Hits"], ["2B", "Doubles"], ["HR", "Home runs"], ["RBI", "RBI"], ["BB", "Walks"], ["SO", "Strikeouts"], ["SB", "Stolen bases"], ["LOB", "Left on base"], ["AVG", "Batting average"]],
+          pitching: [["P", "Pitches thrown"]], fielding: [["E", "Errors"], ["DP", "Double plays"]] };
+        var mp = function (t) {
+          var m = {};
+          (t.statistics || []).forEach(function (z) {
+            if (!z.stats) { m[z.label || z.name] = z.displayValue; return; }
+            var want = TSG[z.name]; if (!want) return;
+            want.forEach(function (w) { var st = z.stats.filter(function (q) { return q.abbreviation === w[0]; })[0]; if (st && !(w[1] in m)) m[w[1]] = st.displayValue; });
+          });
+          return m;
+        };
         var ma = mp(tm[0]), mh = mp(tm[1]);
         var keys = Object.keys(ma).concat(Object.keys(mh).filter(function (k) { return !(k in ma); }));
         if (keys.length) {
@@ -469,8 +481,46 @@
         var stx = p.strength && p.strength.text; if (stx && !/even/i.test(stx)) o.st = stx;   // hockey: "Power Play", "Short Handed", "Empty Net"
         return o;
       }).filter(function (p) { return p.x; });
+      if (/^baseball/.test(lg.path) && d.plays && d.plays.length) out.bb = bbOf(d.plays, ab);
       return out;
     });
+  }
+  // Baseball, pitch by pitch. The last ten plate-appearance results (the "Play Result" lines: "Turang lined out to left."),
+  // each with where the ball landed when it was put in play (hitCoordinate: a 250-wide field picture, home plate near
+  // 125,212), and the current at-bat's pitches (pitchCoordinate: the strike zone is about x 85-145, y 135-195, from the
+  // catcher's view; both worked out from a full game's called strikes and hit directions).
+  function bbOf(src, ab) {
+    function inn(p) { var pr = p.period || {}; return (/^bot/i.test(pr.type || "") ? "\u25BC" : /^top/i.test(pr.type || "") ? "\u25B2" : "") + (pr.number || ""); }
+    function xy(c) { return c && c.x != null && c.y != null && c.x > 0 && c.y > 0 ? [c.x, c.y] : null; }
+    var res = [], i, p;
+    for (i = src.length - 1; i >= 0 && res.length < 10; i--) {
+      p = src[i]; if (!p.type || p.type.text !== "Play Result" || !p.text) continue;
+      var r = { t: inn(p), x: p.text, k: /homer|home run|grand slam/i.test(p.text) ? "hr" : /singled|doubled|tripled|ground-rule|infield single|bunt single|reached on (an? )?(throwing |fielding )?error/i.test(p.text) ? "hit" : "out" };
+      var tm = p.team && ab[String(p.team.id)]; if (tm) r.tm = tm;
+      if (p.scoringPlay) r.sc = 1;
+      // The landing spot sits on the pitch that was put in play, just before this line.
+      var hc = xy(p.hitCoordinate); for (var j = i - 1; !hc && j >= 0 && j > i - 3; j--) if (src[j].atBatId === p.atBatId) hc = xy(src[j].hitCoordinate);
+      if (hc && /walk|struck out|hit by pitch|stole|caught stealing|wild pitch|passed ball|balk|picked off/i.test(p.text)) hc = null;
+      if (hc) r.hc = hc;
+      res.push(r);
+    }
+    // The at-bat in progress; between batters (or innings), the one that just ended.
+    var last = src[src.length - 1], id = last && last.atBatId, mine = function (k) { return src.filter(function (q) { return q.atBatId === k; }); };
+    var abp = mine(id), pitches = abp.filter(function (q) { return q.summaryType === "P" && q.pitchCoordinate; }), done = false;
+    if (!pitches.length) {
+      for (i = src.length - 1; i >= 0; i--) if (src[i].atBatId !== id && src[i].summaryType === "P" && src[i].pitchCoordinate) { id = src[i].atBatId; break; }
+      abp = mine(id); pitches = abp.filter(function (q) { return q.summaryType === "P" && q.pitchCoordinate; }); done = true;
+    }
+    var st = abp.filter(function (q) { return q.type && /Start Batter/.test(q.type.text) && q.text; })[0], who = st && /^(.+?) pitches to (.+)$/.exec(st.text);
+    var fin = abp.filter(function (q) { return q.type && q.type.text === "Play Result" && q.text; }).pop();
+    var lp = pitches[pitches.length - 1];
+    return { res: res, ab: {
+      pit: who ? who[1] : "", bat: who ? who[2] : "", done: done || !!fin, fin: fin ? fin.text : "",
+      cnt: lp && lp.resultCount ? [Math.min(3, lp.resultCount.balls || 0), Math.min(2, lp.resultCount.strikes || 0)] : [0, 0],
+      p: pitches.map(function (q, n) {
+        var tx = q.text || "", r = /In Play/i.test(tx) ? "play" : /hit by pitch/i.test(tx + " " + q.type.text) ? "hbp" : /^Pitch \d+ : Ball/i.test(tx) ? "ball" : "strike";
+        return { n: q.atBatPitchNumber || n + 1, x: q.pitchCoordinate.x, y: q.pitchCoordinate.y, r: r, d: (q.type.text || "").replace(/ - Confirmed| - Overturned/i, ""), pt: q.pitchType ? q.pitchType.abbreviation || "" : "", v: q.pitchVelocity || 0 };
+      }) } };
   }
 
   // Remember box scores: finished games for the whole session, others for 20 seconds. Lets a tap open instantly
