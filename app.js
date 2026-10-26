@@ -2964,7 +2964,7 @@
     var bad = S.failed.map(function (k) { return leagueOf(k).label; }), nl = 0, fl = false;
     var hot = false;
     allGames().forEach(function (x) { if (x.g.s === "live") { nl++; if (isFollowed(x.g)) fl = true; if (!hot && isClose(x)) hot = true; } });
-    if (RAIL) { RAIL.btns[0].classList.toggle("lv", fl); RAIL.btns[3].classList.toggle("lv", hot); }   // red dots: Following while one of your teams plays, Top games while any game is close and late
+    if (RAIL) { RAIL.btns[0].classList.toggle("ping", fl); RAIL.btns[3].classList.toggle("ping", hot); }   // red dots: Following while one of your teams plays, Top games while any game is close and late
     document.title = (nl ? "\u25CF " + nl + " live \u00b7 " : "") + C.title;
     $("foot").textContent = (bad.length ? "Couldn\u2019t load " + bad.join(", ") + ". " : "") + "Live games refresh every minute. Pull down for the latest.";
   }
