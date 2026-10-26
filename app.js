@@ -1902,11 +1902,13 @@
       box.open = openState[key] !== undefined ? openState[key] : true; box.addEventListener("toggle", function () { openState[key] = box.open; });
       var seen = LASTPL["lp" + g.id] || null, top = pl[0].t + "|" + pl[0].x, fresh = seen && seen !== top; LASTPL["lp" + g.id] = top;
       var hoops = /^basketball/.test(pa) && pl.some(function (p) { return p.c && p.sh; }), poss = hoops ? possOf(pl, g) : null;
-      if (hoops) w.appendChild(court(pl, g, poss));
+      var ice = /^hockey/.test(pa) && pl.some(function (p) { return p.c; });
+      if (hoops) w.appendChild(court(pl, g, poss)); else if (ice) w.appendChild(rink(pl, g));
       var ul = el("div", "lvl");
       pl.forEach(function (p, i) {
         var r = el("div", "lvr" + (p.sc ? " scp" : "") + (fresh && (p.t + "|" + p.x) !== seen && pl.slice(i + 1).some(function (q2) { return q2.t + "|" + q2.x === seen; }) ? " new" : ""));
         if (hoops) r.appendChild(el("i", "lvn" + (p.c && p.sh ? (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? "" : " miss") : ""), String(i + 1)));   // the number on the court
+        else if (ice) r.appendChild(el("i", "lvn" + (p.c ? " " + rinkCls(p, g) : ""), String(i + 1)));
         r.appendChild(el("b", "lvab", p.tm || "\u2014")); r.appendChild(el("span", "lvx", p.x)); if (p.t) r.appendChild(el("span", "lvt", p.t)); ul.appendChild(r);
       });
       box.appendChild(ul); w.appendChild(box);
@@ -1968,6 +1970,82 @@
       var k = el("span", "crt-t " + t[1]); k.appendChild(el("i", "sw")); k.appendChild(el("b", null, t[0]));
       k.appendChild(el("span", null, t[2] + " shot" + (t[2] === 1 ? "" : "s"))); lg.appendChild(k);
     });
+    wrap.appendChild(lg);
+    return wrap;
+  }
+  // ---------- hockey: the last ten plays on the rink ----------
+  // ESPN puts each play on the full rink in feet, center ice at 0,0. Teams switch ends every period, so the end each team
+  // attacks is worked out from where its shots this period landed. Every play with a spot gets the number of its row in
+  // the Last 10 plays box: goals glow, shots on net are filled, missed or blocked shots hollow, everything else (hits,
+  // faceoffs, giveaways) a small neutral chip. The header shows the strength (power play, empty net) off the latest play.
+  function rinkKind(p) { var k = p.k || ""; return /^goal/i.test(k) ? "goal" : /^shot/i.test(k) ? "shot" : /miss|block/i.test(k) ? "miss" : "oth"; }
+  function rinkCls(p, g) { var t = p.tm ? (p.tm === g.h[1] ? "hm" : "aw") : "nt", k = rinkKind(p); return k === "oth" ? "oth " + t : t + (k === "miss" ? " miss" : k === "goal" ? " goal" : ""); }
+  function rinkEnds(pl, g) {                                  // { team abbreviation: +1 or -1 }, the end of the ice it attacks this period
+    var per = pl[0] && pl[0].pr, sum = {}, n = {};
+    pl.forEach(function (p) { if (p.pr !== per || !p.c || !p.tm || rinkKind(p) === "oth") return; sum[p.tm] = (sum[p.tm] || 0) + p.c[0]; n[p.tm] = (n[p.tm] || 0) + 1; });
+    var out = {}, h = g.h[1], a = g.a[1];
+    if (n[h] && n[a]) { var dh = sum[h] / n[h], da = sum[a] / n[a]; if (dh !== da) { out[h] = dh > da ? 1 : -1; out[a] = -out[h]; } }
+    else if (n[h]) { out[h] = sum[h] > 0 ? 1 : -1; out[a] = -out[h]; }
+    else if (n[a]) { out[a] = sum[a] > 0 ? 1 : -1; out[h] = -out[a]; }
+    return out;
+  }
+  function rink(pl, g) {
+    var NS = "http://www.w3.org/2000/svg", S = 4, W = 200 * S, H = 85 * S;
+    function sv(tag, at, txt) { var n = document.createElementNS(NS, tag); for (var k in at) n.setAttribute(k, at[k]); if (txt != null) n.textContent = txt; return n; }
+    function X(x) { return (x + 100) * S; } function Y(y) { return (42.5 - y) * S; }
+    var wrap = el("div", "crt rnk"), cap = el("div", "crt-h");
+    cap.appendChild(el("span", "lvk", "On the ice \u00b7 last 10 plays"));
+    var lp = pl[0], st = lp && lp.st;
+    if (st && lp.tm) {
+      var pp = /power/i.test(st) ? lp.tm : /short/i.test(st) ? (lp.tm === g.h[1] ? g.a[1] : g.h[1]) : null;
+      var pill = el("span", "crt-p" + (pp ? (pp === g.h[1] ? " hm" : " aw") : " nt"));
+      pill.appendChild(el("i", null, pp ? "\u26A1" : "\uD83E\uDD45")); if (pp) pill.appendChild(el("b", null, pp)); pill.appendChild(document.createTextNode(pp ? " power play" : " " + st.toLowerCase()));
+      cap.appendChild(pill);
+    } else cap.appendChild(el("span", "crt-p ev", "5 on 5"));
+    wrap.appendChild(cap);
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Rink, last plays" });
+    var ln = sv("g", { "class": "rk-l" });
+    ln.appendChild(sv("rect", { x: 1, y: 1, width: W - 2, height: H - 2, rx: 28 * S, "class": "ice" }));
+    var ends = rinkEnds(pl, g);
+    [g.a[1], g.h[1]].forEach(function (t) { if (!ends[t]) return;
+      var zx = ends[t] > 0 ? X(-62) : X(62);                                                              // its name sits in the zone it defends
+      ln.appendChild(sv("text", { x: zx, y: H / 2, "class": "zn " + (t === g.h[1] ? "hm" : "aw"), "text-anchor": "middle", "dominant-baseline": "central" }, t)); });
+    ln.appendChild(sv("line", { x1: X(0), y1: 0, x2: X(0), y2: H, "class": "red" }));
+    [-25, 25].forEach(function (b) { ln.appendChild(sv("line", { x1: X(b), y1: 0, x2: X(b), y2: H, "class": "blue" })); });
+    [-89, 89].forEach(function (gl) {
+      ln.appendChild(sv("line", { x1: X(gl), y1: Y(36), x2: X(gl), y2: Y(-36), "class": "gl" }));
+      ln.appendChild(sv("path", { d: "M" + X(gl) + " " + Y(4) + "a" + (6 * S) + " " + (4 * S) + " 0 0 " + (gl > 0 ? 0 : 1) + " 0 " + (8 * S), "class": "crease" }));
+      ln.appendChild(sv("rect", { x: gl > 0 ? X(gl) : X(gl - 3.3), y: Y(3), width: 3.3 * S, height: 6 * S, rx: 4, "class": "net" }));
+      [22, -22].forEach(function (fy) { var fx = gl > 0 ? 69 : -69;                                       // end-zone faceoff circles, 20 ft out from the goal line
+        ln.appendChild(sv("circle", { cx: X(fx), cy: Y(fy), r: 15 * S, "class": "fo" })); ln.appendChild(sv("circle", { cx: X(fx), cy: Y(fy), r: 4, "class": "dotr" })); });
+    });
+    [-20, 20].forEach(function (nx) { [22, -22].forEach(function (ny) { ln.appendChild(sv("circle", { cx: X(nx), cy: Y(ny), r: 4, "class": "dotr" })); }); });
+    ln.appendChild(sv("circle", { cx: X(0), cy: Y(0), r: 15 * S, "class": "cc" })); ln.appendChild(sv("circle", { cx: X(0), cy: Y(0), r: 5, "class": "dotb" }));
+    svg.appendChild(ln);
+    var mk = sv("g", { "class": "crt-s rk-s" }), placed = [], R = 30;
+    for (var i = pl.length - 1; i >= 0; i--) {
+      var p = pl[i]; if (!p.c) continue;
+      var kd = rinkKind(p), r0 = kd === "oth" ? 23 : R, x = Math.max(r0 + 4, Math.min(W - r0 - 4, X(p.c[0]))), y = Math.max(r0 + 4, Math.min(H - r0 - 4, Y(p.c[1])));
+      for (var t = 0; t < 6; t++) {
+        var hit = placed.some(function (q) { return Math.abs(q[0] - x) < 56 && Math.abs(q[1] - y) < 56; }); if (!hit) break;
+        x += (t % 2 ? -1 : 1) * (44 + t * 12); y += t % 2 ? 28 : -20; x = Math.max(r0 + 4, Math.min(W - r0 - 4, x)); y = Math.max(r0 + 4, Math.min(H - r0 - 4, y));
+      }
+      placed.push([x, y]);
+      var grp = sv("g", { "class": "sh " + rinkCls(p, g) + (i === 0 ? " top" : ""), transform: "translate(" + x + " " + y + ")", style: "--k:" + i });
+      if (i === 0) grp.appendChild(sv("circle", { r: r0 + 5, "class": "halo" }));
+      if (kd === "goal") grp.appendChild(sv("circle", { r: R + 10, "class": "gring" }));
+      grp.appendChild(sv("circle", { r: r0, "class": "dot" }));
+      grp.appendChild(sv("text", { y: 1, "text-anchor": "middle", "dominant-baseline": "central" }, String(i + 1)));
+      mk.appendChild(grp);
+    }
+    svg.appendChild(mk); wrap.appendChild(svg);
+    var lg = el("div", "crt-k"), cnt = {};
+    pl.forEach(function (p) { if (!p.tm) return; var c = cnt[p.tm] || (cnt[p.tm] = { s: 0, g: 0 }), kd = rinkKind(p); if (kd === "shot" || kd === "goal") c.s++; if (kd === "goal") c.g++; });
+    [[g.a[1], "aw"], [g.h[1], "hm"]].forEach(function (t) {
+      var c = cnt[t[0]] || { s: 0, g: 0 }, k = el("span", "crt-t " + t[1]); k.appendChild(el("i", "sw")); k.appendChild(el("b", null, t[0]));
+      k.appendChild(el("span", null, c.s + " on net" + (c.g ? " \u00b7 " + c.g + " goal" + (c.g > 1 ? "s" : "") : ""))); lg.appendChild(k);
+    });
+    var key = el("span", "rk-key"); key.innerHTML = '<i class="kf"></i>on net <i class="kh"></i>missed <i class="ko"></i>other'; lg.appendChild(key);
     wrap.appendChild(lg);
     return wrap;
   }
