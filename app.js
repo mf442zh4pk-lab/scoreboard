@@ -2540,7 +2540,7 @@
     return h;
   }
   function byHype(a, b) { return (b._h || (b._h = hype(b))) - (a._h || (a._h = hype(a))) || byTime(a.g, b.g); }
-  var TOPN = { up: 10, fin: 6 }, TOPX = {};
+  var TOPN = { up: 6, fin: 6 }, TOPX = {};
   function renderTop(out, all) {
     var items = all.filter(function (x) { return PREF.hideL.indexOf(x.lk) < 0 || isFollowed(x.g); });
     if (!items.length) { out.appendChild(S.loading ? skel(3, true) : notice("Nothing here right now", "The biggest games across every sport show up here.")); return; }
@@ -2556,7 +2556,19 @@
       if (list.length > n) { var b = el("button", "sr-more dim2", (list.length - n) + " more \u00b7 show"); b.type = "button"; b.onclick = function () { TOPX[k] = 1; render(); }; out.appendChild(b); }
     }
     [group("Close games", "close", close, true), group("Live now", "live", live, true)].forEach(function (s) { if (s) out.appendChild(s); });
-    capped("Biggest coming up", "", up, "up"); capped("Biggest finals", "", fin, "fin");
+    // Coming up is split by day (Today, Tomorrow, then the weekday) so a game you have in mind is where you'd look for it:
+    // each day leads with its biggest games, and "more" fills in the rest of that day in time order.
+    var now = new Date(), days = [], byDay = {};
+    up.forEach(function (x) { var k = ESPN.dayKey(new Date(x.g.t)); if (!byDay[k]) { byDay[k] = []; days.push(k); } byDay[k].push(x); });
+    days.sort().forEach(function (k, i) {
+      var d = new Date(Date.parse(byDay[k][0].g.t)), off = Math.round((new Date(d).setHours(12, 0, 0, 0) - new Date(now).setHours(12, 0, 0, 0)) / DAY);
+      var title = off <= 0 ? (now.getHours() >= 17 ? "Tonight" : "Today") : off === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "long" }) + (off > 6 ? " " + d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "");
+      var list = byDay[k], key = "up" + k, n = TOPX[key] ? list.length : TOPN.up, head = list.slice(0, n);
+      if (TOPX[key]) head = head.slice(0, TOPN.up).concat(list.slice(TOPN.up).sort(function (a, b) { return byTime(a.g, b.g); }));   // the long tail reads by start time
+      out.appendChild(group(title + (i === 0 ? " \u00b7 biggest first" : ""), "", head, true));
+      if (list.length > n) { var b = el("button", "sr-more dim2", (list.length - n) + " more " + title.toLowerCase() + " \u00b7 show"); b.type = "button"; b.onclick = function () { TOPX[key] = 1; render(); }; out.appendChild(b); }
+    });
+    capped("Biggest finals", "", fin, "fin");
     if (!close.length && !live.length && !up.length && !fin.length) out.appendChild(notice("Nothing big right now", "Live, close and marquee games across every sport show up here."));
   }
 
