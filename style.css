@@ -939,3 +939,10 @@ html:not(.rm) .enter:not(.quick) .card:nth-child(-n+5)::after{animation:sheen 1.
 .card.s-live::before{content:"";position:absolute;width:170px;height:170px;right:-60px;top:-80px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--live) 24%,transparent),transparent);opacity:.55;pointer-events:none;z-index:-1}
 html:not(.rm) .card.s-live:nth-child(-n+4)::before{animation:ember 5.5s ease-in-out infinite alternate}
 @keyframes ember{to{transform:translate(-16px,12px) scale(1.18);opacity:1}}
+
+/* Offscreen cards and rows skip layout and paint until they scroll into view (content-visibility), which roughly halves
+   the cost of opening a long tab or a quiet refresh on a slow phone. The intrinsic sizes keep the scrollbar honest before
+   a card has been laid out; once it has, the browser remembers its real size. */
+.grid>.card{content-visibility:auto;contain-intrinsic-size:auto 110px}
+.grid.big>.card{contain-intrinsic-size:auto 150px}
+.qs,.recap,.story{content-visibility:auto;contain-intrinsic-size:auto 70px}
