@@ -925,15 +925,15 @@ body.nav-lock #out{pointer-events:none}
 
 /* Everyday card polish, always on. Depth is static (a faint top light and a tint for your teams, live and close games),
    so it costs nothing after the first paint. The only moving parts animate transform and opacity on pseudo-elements: a
-   one-shot sheen on the first eight cards when a screen arrives, a slow ember drifting in the corner of live cards (first
+   one-shot sheen on the first five cards when a screen arrives (skipped while flipping quickly between screens, #out.quick), a slow ember drifting in the corner of live cards (first
    four per group), and a brief highlight on press. The Animations switch (html.rm) and reduced motion turn them off. */
 .card{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(180deg,color-mix(in srgb,#fff 3%,var(--card)),var(--card) 70%);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .card.followed{background:linear-gradient(135deg,color-mix(in srgb,var(--ter) 11%,var(--card)),var(--card) 62%)}
 .card.s-live{background:linear-gradient(135deg,color-mix(in srgb,var(--live) 8%,var(--card)),var(--card) 58%)}
 .card.close{background:linear-gradient(135deg,color-mix(in srgb,var(--warn) 10%,var(--card)),var(--card) 58%);box-shadow:inset 0 0 0 1px var(--warn),inset 0 1px 0 rgba(255,255,255,.04)}
 .card.click:active{box-shadow:inset 0 0 0 999px rgba(255,255,255,.045)}
-.card::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:46%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.06) 50%,transparent);transform:translateX(-150%) skewX(-18deg);pointer-events:none;z-index:2}
-html:not(.rm) .enter .card:nth-child(-n+8)::after{animation:sheen .85s calc(var(--sd,0s) + .3s) var(--ease) both}
+.card::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:46%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.035) 50%,transparent);transform:translateX(-150%) skewX(-18deg);pointer-events:none;z-index:2}
+html:not(.rm) .enter:not(.quick) .card:nth-child(-n+5)::after{animation:sheen 1.3s calc(var(--sd,0s) + .45s) ease-in-out both}
 .card:nth-child(2){--sd:.06s}.card:nth-child(3){--sd:.12s}.card:nth-child(4){--sd:.18s}.card:nth-child(5){--sd:.24s}.card:nth-child(n+6){--sd:.3s}
 @keyframes sheen{to{transform:translateX(330%) skewX(-18deg)}}
 .card.s-live::before{content:"";position:absolute;width:170px;height:170px;right:-60px;top:-80px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--live) 24%,transparent),transparent);opacity:.55;pointer-events:none;z-index:-1}
