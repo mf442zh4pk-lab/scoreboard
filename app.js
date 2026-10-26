@@ -1478,7 +1478,7 @@
     box.appendChild(pref("logos", "Team logos", "Off shows abbreviations", ONOFF, true));
     box.appendChild(pref("text", "Text size", "", [["n", "Normal"], ["l", "Large"]]));
     box.appendChild(el("h3", null, "Behavior"));
-    box.appendChild(pref("tab0", "Open on", "Which tab the app starts on", [["last", "Last used"], ["pinned", "Following"], ["yesterday", "Yesterday"], ["teams", "My teams"]]));
+    box.appendChild(pref("tab0", "Open on", "Which tab the app starts on", [["last", "Last used"], ["pinned", "Following"], ["yesterday", "Yesterday"], ["teams", "My teams"], ["top", "Top games"]]));
     box.appendChild(pref("upwin", "Upcoming games", "How far ahead the lists go", [["1", "24 hours"], ["3", "3 days"], ["all", "Everything"]], true));
     box.appendChild(pref("alerts", "Score alerts", "Pop-ups when your teams score or finish", ONOFF));
     box.appendChild(segRow("Notify at final", "A phone notification when a followed game ends (app open or in the background)", ONOFF, PREF.notify, function (v) {
@@ -1507,16 +1507,10 @@
     rs.onclick = function () { try { localStorage.removeItem("sb-followed"); } catch (e) {} setFollowed(DEFAULT_FOLLOWED.slice()); };
     box.appendChild(rs);
     box.appendChild(el("h3", null, "App"));
-    box.appendChild(el("p", "hcold", "Version 2.0 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
+    box.appendChild(el("p", "hcold", "Version 2.0 \u00b7 build " + (FV.replace(/^v=/, "") || "dev") + ". Keys: 1 2 3 4 tabs \u00b7 f find a game \u00b7 / leagues \u00b7 r refresh \u00b7 p profile \u00b7 t top \u00b7 Esc back."));
     var rl = el("button", null, "Reload app"); rl.type = "button";
     rl.onclick = function () { try { localStorage.removeItem("sb-cache"); } catch (e) {} location.reload(); };
     box.appendChild(rl);
-    var ra = el("button", "danger", "Reset everything"); ra.type = "button"; ra.title = "Clears teams, settings, pins and the Collection Log on this device";
-    ra.onclick = function () {
-      if (ra.getAttribute("data-arm") !== "1") { ra.setAttribute("data-arm", "1"); ra.textContent = "Tap again to wipe this device"; setTimeout(function () { ra.removeAttribute("data-arm"); ra.textContent = "Reset everything"; }, 4000); return; }
-      try { localStorage.clear(); } catch (e) {} location.reload();
-    };
-    box.appendChild(document.createTextNode(" ")); box.appendChild(ra);
     if (window.FUN) { box.appendChild(el("h3", null, "Collection Log")); box.appendChild(el("p", "hcold", FUN.count() + " of " + FUN.total + " cards found. Hint: poke things, visit at odd hours, try a classic cheat code."));
       var cb = el("button", null, "Open profile and Collection Log"); cb.type = "button"; cb.onclick = function () { openProf("log"); }; box.appendChild(cb);
       box.appendChild(el("h3", null, "New card reveal"));
@@ -2479,6 +2473,7 @@
     b.onclick = function () { goTab(b.getAttribute("data-k")); };
     return b;
   }
+  var MAINTABS = ["pinned", "yesterday", "teams", "top"];
   function goTab(key) {
     buzz(6);
     if (key === S.tab && !S.settings && !S.view) { if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // tap the active tab to jump to the top
@@ -2496,6 +2491,7 @@
     main.appendChild(railBtn("pinned", "Following", "tab big", "\u2605"));
     main.appendChild(railBtn("yesterday", "Yesterday", "tab big", "\u21BA"));
     main.appendChild(railBtn("teams", "My teams", "tab big", "\u2691"));
+    main.appendChild(railBtn("top", "Top games", "tab big", "\u2197"));
     lgs.appendChild(railBtn("all", "All", "tab"));
     LG.forEach(function (l) { if (MAIN.indexOf(l.key) >= 0) lgs.appendChild(railBtn(l.key, l.label, "tab")); });
     var ex = railBtn("", "", "tab"); ex.hidden = true; lgs.appendChild(ex);
@@ -2510,10 +2506,55 @@
     var cur = S.settings || S.view ? "" : S.tab, lz = cur && MAIN.indexOf(cur) < 0 && leagueOf(cur);
     if (lz) { RAIL.ex.hidden = false; RAIL.ex.setAttribute("data-k", lz.key); RAIL.ex.querySelector(".lbl").textContent = lz.label; } else RAIL.ex.hidden = true;
     RAIL.btns.forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-k") === cur ? "true" : "false"); });
-    var bi = ["pinned", "yesterday", "teams"].indexOf(cur);
-    RAIL.ind.style.transform = "translateX(calc(" + Math.max(0, bi) + " * (100% + 8px)))"; RAIL.ind.classList.toggle("off", bi < 0);
+    var bi = MAINTABS.indexOf(cur);
+    RAIL.ind.style.transform = "translateX(calc(" + Math.max(0, bi) + " * (100% + 6px)))"; RAIL.ind.classList.toggle("off", bi < 0);
     RAIL.mb.textContent = S.more ? "Close" : "More"; RAIL.mb.setAttribute("aria-expanded", S.more ? "true" : "false");
     document.body.classList.toggle("gv", !!S.view);
+  }
+
+  // ---------- Top games: every loaded sport on one screen, the biggest games first ----------
+  // "Big" is a cheap score from what the scoreboard feed already carries, so the tab costs no extra requests: the
+  // league's draw, a national network, ranked teams, two good records, a playoff / rivalry / cup note, your teams,
+  // and for finals overtime or an upset. Close games and live games sit on top the way they do on Following; the rest
+  // is the top of the list with the long tail behind a button.
+  var LGH = { nfl: 50, nba: 40, ncaafb: 36, mlb: 34, nhl: 30, f1: 30, ufc: 30, ucl: 28, epl: 26, ncaamb: 24, pga: 20, laliga: 18, afl: 16, nascar: 16, wnba: 14, seriea: 14, bund: 14, uel: 14, mls: 12, ligue1: 12, wc: 60 };
+  var NATL = /^(NBC|CBS|FOX|ABC|ESPN|TNT|TBS|Prime|Amazon|Netflix|Peacock|Apple|NFL N|truTV|FS1|NBA TV|MLB N|NHL N|USA|Paramount|Sky|TSN|Sportsnet)/i;
+  var BIGN = /final|championship|playoff|world series|stanley cup|super bowl|game \d|bowl|cup|derby|cl[aá]sico|classic|rivalry|wild card|division|semifinal|quarterfinal|opening|opener|all-star/i;
+  function wpOf(rec) { var m = /^(\d+)-(\d+)(?:-(\d+))?/.exec(rec || ""); if (!m) return null; var w = +m[1], l = +m[2], t = +m[3] || 0, n = w + l + t; return n >= 3 ? (w + t / 2) / n : null; }
+  function hype(x) {
+    var g = x.g, h = LGH[x.lk] || 10;
+    if (g.b) h += NATL.test(g.b) ? 22 : 4;
+    var rh = g.h[6], ra = g.a[6];
+    if (rh) h += 14 + Math.max(0, 25 - rh) / 2; if (ra) h += 14 + Math.max(0, 25 - ra) / 2; if (rh && ra) h += 10;
+    var wh = wpOf(g.h[3]), wa = wpOf(g.a[3]);
+    if (wh != null && wa != null) { h += (wh + wa) * 12; if (wh >= .6 && wa >= .6) h += 10; }
+    if (g.n && BIGN.test(g.n)) h += /game 7/i.test(g.n) ? 36 : 24;
+    if (isFollowed(g)) h += 18;
+    if (g.ev) h += 8;                                           // a fight card or race weekend is its sport's whole day
+    if (g.s === "final") {
+      if (g.o) h += 8;
+      if (wh != null && wa != null && g.h[2] != null && g.a[2] != null) { var hw = g.h[2] > g.a[2]; if ((hw && wh + .15 < wa) || (!hw && wa + .15 < wh)) h += 10; }   // an upset
+    }
+    return h;
+  }
+  function byHype(a, b) { return (b._h || (b._h = hype(b))) - (a._h || (a._h = hype(a))) || byTime(a.g, b.g); }
+  var TOPN = { up: 10, fin: 6 }, TOPX = {};
+  function renderTop(out, all) {
+    var items = all.filter(function (x) { return PREF.hideL.indexOf(x.lk) < 0 || isFollowed(x.g); });
+    if (!items.length) { out.appendChild(S.loading ? skel(3, true) : notice("Nothing here right now", "The biggest games across every sport show up here.")); return; }
+    var close = items.filter(isClose).sort(function (a, b) { return Math.abs(a.g.h[2] - a.g.a[2]) - Math.abs(b.g.h[2] - b.g.a[2]) || byHype(a, b); });
+    var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; }).sort(byHype);
+    var lim = PREF.upwin === "all" ? Infinity : Date.now() + (PREF.upwin === "1" ? 1 : 3) * DAY, dayAgo = Date.now() - 1.5 * DAY;
+    var up = items.filter(function (x) { return x.g.s === "up" && Date.parse(x.g.t) <= lim; }).sort(byHype);
+    var fin = items.filter(function (x) { return x.g.s === "final" && Date.parse(x.g.t) > dayAgo; }).sort(byHype);
+    function capped(title, cls, list, k) {
+      var n = TOPX[k] ? list.length : TOPN[k], s = group(title, cls, list.slice(0, n), true); if (!s) return;
+      out.appendChild(s);
+      if (list.length > n) { var b = el("button", "sr-more dim2", (list.length - n) + " more \u00b7 show"); b.type = "button"; b.onclick = function () { TOPX[k] = 1; render(); }; out.appendChild(b); }
+    }
+    [group("Close games", "close", close, true), group("Live now", "live", live, true)].forEach(function (s) { if (s) out.appendChild(s); });
+    capped("Biggest coming up", "", up, "up"); capped("Biggest finals", "", fin, "fin");
+    if (!close.length && !live.length && !up.length && !fin.length) out.appendChild(notice("Nothing big right now", "Live, close and marquee games across every sport show up here."));
   }
 
   // ---------- main render ----------
@@ -2545,6 +2586,7 @@
     if (S.more) out.appendChild(morePanel());
     if (S.tab === "yesterday") { renderYesterday(out); emit("render", out); return; }
     if (S.tab === "teams") { renderTeams(out); emit("render", out); return; }
+    if (S.tab === "top") { renderTop(out, all); if (OLD) reuseCards(out, OLD, FK); emit("render", out); return; }
 
     var items = S.tab === "pinned" ? fol : S.tab === "all" ? all.filter(function (x) { return PREF.hideL.indexOf(x.lk) < 0 || isFollowed(x.g); }) : all.filter(function (x) { return x.lk === S.tab; });
     var pins = all.filter(isPinned);
@@ -2903,8 +2945,9 @@
     s.textContent = m < 1 ? "now" : m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d";
     d.className = "dot " + (m <= 5 ? "fresh" : "stale"); $("refresh").title = "Updated " + (m < 1 ? "just now" : s.textContent + " ago");
     var bad = S.failed.map(function (k) { return leagueOf(k).label; }), nl = 0, fl = false;
-    allGames().forEach(function (x) { if (x.g.s === "live") { nl++; if (isFollowed(x.g)) fl = true; } });
-    if (RAIL) RAIL.btns[0].classList.toggle("lv", fl);   // red dot on Following while one of your teams is playing
+    var hot = false;
+    allGames().forEach(function (x) { if (x.g.s === "live") { nl++; if (isFollowed(x.g)) fl = true; if (!hot && isClose(x)) hot = true; } });
+    if (RAIL) { RAIL.btns[0].classList.toggle("lv", fl); RAIL.btns[3].classList.toggle("lv", hot); }   // red dots: Following while one of your teams plays, Top games while any game is close and late
     document.title = (nl ? "\u25CF " + nl + " live \u00b7 " : "") + C.title;
     $("foot").textContent = (bad.length ? "Couldn\u2019t load " + bad.join(", ") + ". " : "") + "Live games refresh every minute. Pull down for the latest.";
   }
@@ -3065,7 +3108,7 @@
     if ((e.key === "Escape" || e.key === "ArrowLeft") && S.view && !e.metaKey && !e.altKey) { closeGame(); return; }
     var t = e.target, tg = t && t.tagName; if (e.metaKey || e.ctrlKey || e.altKey || tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT" || (t && t.isContentEditable) || document.body.classList.contains("pm-open")) return;
     if (e.key === "r" && !S.loading) load(true); else if (e.key === "p") openProf(); else if (e.key === "t") window.scrollTo({ top: 0, behavior: "smooth" });
-    else if (e.key === "1") goTab("pinned"); else if (e.key === "2") goTab("yesterday"); else if (e.key === "3") goTab("teams");
+    else if (e.key === "1") goTab("pinned"); else if (e.key === "2") goTab("yesterday"); else if (e.key === "3") goTab("teams"); else if (e.key === "4") goTab("top");
     else if (e.key === "/") { e.preventDefault(); if (!S.more) { S.more = true; S.view = null; S.settings = false; clearHash(); render(); } }
     else if (e.key === "f") { e.preventDefault(); if (S.view) closeGame(); if (S.settings) { S.settings = false; render(); } var n = 0; (function tf() { if (FINDQ && FINDQ.offsetParent) FINDQ.focus(); else if (n++ < 30) setTimeout(tf, 50); })(); }
   });
