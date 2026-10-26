@@ -15,8 +15,11 @@ body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--bd);
 button{font:inherit;color:inherit}
 
 header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:calc(14px + env(safe-area-inset-top,0px)) 0 10px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
-.mark{width:40px;height:40px;flex:none;border-radius:12px;cursor:pointer;box-shadow:0 4px 14px -4px rgba(45,58,85,.55)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;position:relative}
+/* The mark's rounded corners are in the SVG itself (rect rx); a CSS border-radius clip plus box-shadow on an inline SVG
+   made iOS rasterise it at low resolution at load (a blurry logo until the next repaint). The shadow sits on a pseudo-element behind it. */
+.mark{width:40px;height:40px;flex:none;cursor:pointer;display:block}
+.brand::before{content:"";position:absolute;left:0;top:50%;width:40px;height:40px;margin-top:-20px;border-radius:12px;box-shadow:0 4px 14px -4px rgba(45,58,85,.55);pointer-events:none}
 h1{display:flex;flex-direction:column;gap:3px;margin:0;min-width:0;overflow:hidden;text-transform:uppercase;line-height:.95}
 h1 .t1{font:700 12px/1 var(--bd);letter-spacing:.34em;color:var(--ter);padding-left:2px}
 h1 .t2{white-space:nowrap;font:800 clamp(20px,calc((100vw - 200px) / 7.6),34px)/.95 var(--hd);letter-spacing:.035em;background:linear-gradient(100deg,var(--pri) 20%,var(--ter));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:1px}
@@ -563,13 +566,6 @@ th[data-tip]{cursor:help;text-decoration:underline dotted;text-decoration-color:
 .tipb.in{opacity:1;transform:translate(-50%,0)}
 .tipb b{display:block;font:700 10.5px var(--bd);letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:1px}
 /* page swaps (opening and leaving a game) crossfade where the browser supports it */
-::view-transition-old(root){animation:vtOut 120ms var(--ease) both}
-::view-transition-new(root){animation:vtIn 200ms var(--ease) both}
-@keyframes vtOut{to{opacity:0}}
-@keyframes vtIn{from{opacity:0;transform:translateY(8px)}}
-header{view-transition-name:hdr}
-#toast{view-transition-name:toast}
-#ptr{view-transition-name:ptr}
 .lpx{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #toast{transition:opacity var(--t2) var(--ease),transform var(--t3) var(--spring)}
 .lpm-s{transition:transform var(--t3) var(--spring)}
@@ -577,7 +573,7 @@ header{view-transition-name:hdr}
 .more{animation:rise var(--t3) var(--ease) both}
 .lgh-c,.stn summary::after,.trn summary::after,.ov summary::after,details.sec>summary::after{transition:transform var(--t2) var(--ease)}
 .rail-lg .tab .n{display:none}
-@media (prefers-reduced-motion:reduce){.rail-ind{transition:none}::view-transition-old(root),::view-transition-new(root){animation:none}.sk-l{animation:none}}
+@media (prefers-reduced-motion:reduce){.rail-ind{transition:none}.sk-l{animation:none}}
 .subnav{background:none;padding:0;gap:14px;border-bottom:1px solid var(--line);border-radius:0;width:100%}
 .sub{padding:8px 2px;margin-bottom:-1px}
 .more .tab{border-color:transparent;background:var(--pri-soft);color:var(--pri)}
@@ -686,7 +682,7 @@ body.find-on{overflow:hidden}
 .agt.w{width:86px}
 .tmr-k{flex:none;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--ter);text-transform:uppercase;width:32px}
 /* v69: live watch panel */
-.lv{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 12px;display:flex;flex-direction:column;gap:10px;view-transition-name:none}
+.lv{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 12px;display:flex;flex-direction:column;gap:10px}
 .lvh{display:flex;align-items:center;gap:8px;font-size:14px}
 .lvd{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 50%,transparent);animation:lvp 1.6s ease-out infinite;flex:none}
 @keyframes lvp{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
