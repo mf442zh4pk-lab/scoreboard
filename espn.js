@@ -459,7 +459,7 @@
         if (p.scoringPlay) o.sc = 1;
         if (p.shootingPlay) o.sh = 1;
         if (p.type && p.type.text) o.k = p.type.text;                   // "Jump Shot", "Defensive Rebound", "Lost Ball Turnover"
-        var co = p.coordinate;                                          // basketball: half court, feet from the baseline (basket at 25, 5.25)
+        var co = p.coordinate;                                          // basketball: half court in feet, x across, y out from the basket (non-shots carry a huge negative sentinel)
         if (co && co.x != null && co.y != null && co.x >= 0 && co.y >= 0) o.c = [Math.round(co.x * 10) / 10, Math.round(co.y * 10) / 10];
         return o;
       }).filter(function (p) { return p.x; });
