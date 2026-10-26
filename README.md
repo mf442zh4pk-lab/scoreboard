@@ -19,12 +19,12 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=114` → `?v=115` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=115` → `?v=116` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
 
-**Everyday card polish** (bottom of `style.css`): every game card has static depth (a faint top light; a tint for your teams `.followed`, live `.s-live` and close `.close` games), a one-shot diagonal sheen on the first eight cards when a screen arrives (`.enter`), a slow ember glow drifting in the corner of the first four live cards per group, and a brief highlight on press. Only transforms and opacity animate, on pseudo-elements, so idle cost is a handful of compositor layers; `html.rm` (Animations off) and reduced motion stop all of it. Cards carry `s-live` / `s-up` / `s-final` from `card()`.
+**Everyday card polish** (bottom of `style.css`): every game card has static depth (a faint top light; a tint for your teams `.followed`, live `.s-live` and close `.close` games), a soft one-shot diagonal sheen on the first five cards when a screen arrives (`.enter`; skipped when the last screen change was under 2.5 s ago, `#out.quick`, so flipping through tabs stays calm), a slow ember glow drifting in the corner of the first four live cards per group, and a brief highlight on press. Only transforms and opacity animate, on pseudo-elements, so idle cost is a handful of compositor layers; `html.rm` (Animations off) and reduced motion stop all of it. Cards carry `s-live` / `s-up` / `s-final` from `card()`.
 
 `style.css` defines the tokens every ordinary interaction uses:
 
