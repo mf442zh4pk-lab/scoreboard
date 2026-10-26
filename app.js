@@ -2520,15 +2520,16 @@
   var LGH = { nfl: 50, nba: 40, ncaafb: 36, mlb: 34, nhl: 30, f1: 30, ufc: 30, ucl: 28, epl: 26, ncaamb: 24, pga: 20, laliga: 18, afl: 16, nascar: 16, wnba: 14, seriea: 14, bund: 14, uel: 14, mls: 12, ligue1: 12, wc: 60 };
   var NATL = /^(NBC|CBS|FOX|ABC|ESPN|TNT|TBS|Prime|Amazon|Netflix|Peacock|Apple|NFL N|truTV|FS1|NBA TV|MLB N|NHL N|USA|Paramount|Sky|TSN|Sportsnet)/i;
   var BIGN = /final|championship|playoff|world series|stanley cup|super bowl|game \d|bowl|cup|derby|cl[aá]sico|classic|rivalry|wild card|division|semifinal|quarterfinal|opening|opener|all-star/i;
+  var TITLE = /world series|stanley cup|super bowl|nba finals|\bfinals?\b|championship|grand final/i;   // the title game itself
   function wpOf(rec) { var m = /^(\d+)-(\d+)(?:-(\d+))?/.exec(rec || ""); if (!m) return null; var w = +m[1], l = +m[2], t = +m[3] || 0, n = w + l + t; return n >= 3 ? (w + t / 2) / n : null; }
   function hype(x) {
     var g = x.g, h = LGH[x.lk] || 10;
     if (g.b) h += NATL.test(g.b) ? 22 : 4;
     var rh = g.h[6], ra = g.a[6];
-    if (rh) h += 14 + Math.max(0, 25 - rh) / 2; if (ra) h += 14 + Math.max(0, 25 - ra) / 2; if (rh && ra) h += 10;
+    if (rh) h += 9 + Math.max(0, 25 - rh) / 3; if (ra) h += 9 + Math.max(0, 25 - ra) / 3; if (rh && ra) h += 6;
     var wh = wpOf(g.h[3]), wa = wpOf(g.a[3]);
     if (wh != null && wa != null) { h += (wh + wa) * 12; if (wh >= .6 && wa >= .6) h += 10; }
-    if (g.n && BIGN.test(g.n)) h += /game 7/i.test(g.n) ? 36 : 24;
+    if (g.n && BIGN.test(g.n)) { h += TITLE.test(g.n) ? 45 : 24; if (/game 7/i.test(g.n)) h += 12; if (/if necessary/i.test(g.n)) h -= 30; }   // a title game outranks everything; a maybe-game sinks
     if (isFollowed(g)) h += 18;
     if (g.ev) h += 8;                                           // a fight card or race weekend is its sport's whole day
     if (g.s === "final") {
@@ -2545,7 +2546,8 @@
     var close = items.filter(isClose).sort(function (a, b) { return Math.abs(a.g.h[2] - a.g.a[2]) - Math.abs(b.g.h[2] - b.g.a[2]) || byHype(a, b); });
     var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; }).sort(byHype);
     var lim = PREF.upwin === "all" ? Infinity : Date.now() + (PREF.upwin === "1" ? 1 : 3) * DAY, dayAgo = Date.now() - 1.5 * DAY;
-    var up = items.filter(function (x) { return x.g.s === "up" && Date.parse(x.g.t) <= lim; }).sort(byHype);
+    var seenM = {}, up = items.filter(function (x) { return x.g.s === "up" && Date.parse(x.g.t) <= lim; }).sort(function (a, b) { return byTime(a.g, b.g); })
+      .filter(function (x) { var k = x.lk + "|" + [x.g.h[4], x.g.a[4]].sort().join("~"); if (seenM[k]) return false; seenM[k] = 1; return true; }).sort(byHype);   // one game per series (the next one)
     var fin = items.filter(function (x) { return x.g.s === "final" && Date.parse(x.g.t) > dayAgo; }).sort(byHype);
     function capped(title, cls, list, k) {
       var n = TOPX[k] ? list.length : TOPN[k], s = group(title, cls, list.slice(0, n), true); if (!s) return;
