@@ -2566,7 +2566,7 @@
       var list = byDay[k], key = "up" + k, n = TOPX[key] ? list.length : TOPN.up, head = list.slice(0, n);
       if (TOPX[key]) head = head.slice(0, TOPN.up).concat(list.slice(TOPN.up).sort(function (a, b) { return byTime(a.g, b.g); }));   // the long tail reads by start time
       out.appendChild(group(title + (i === 0 ? " \u00b7 biggest first" : ""), "", head, true));
-      if (list.length > n) { var b = el("button", "sr-more dim2", (list.length - n) + " more " + title.toLowerCase() + " \u00b7 show"); b.type = "button"; b.onclick = function () { TOPX[key] = 1; render(); }; out.appendChild(b); }
+      if (list.length > n) { var b = el("button", "sr-more dim2", (list.length - n) + " more " + (off <= 1 ? title.toLowerCase() : title) + " \u00b7 show"); b.type = "button"; b.onclick = function () { TOPX[key] = 1; render(); }; out.appendChild(b); }
     });
     capped("Biggest finals", "", fin, "fin");
     if (!close.length && !live.length && !up.length && !fin.length) out.appendChild(notice("Nothing big right now", "Live, close and marquee games across every sport show up here."));
