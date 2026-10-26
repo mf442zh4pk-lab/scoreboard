@@ -38,7 +38,7 @@
   // Tab and view changes swap in place (the entrance animations in render() give the polish). A root view transition
   // snapshots the whole tall page, and on iOS Safari that showed up as a zoomed-out flash that snapped down.
   function swap(fn) { lockTaps(); fn(); }
-  function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 280); }
+  function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 160); }
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, depth: 0, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
   var LASTE = 0;
