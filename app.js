@@ -1882,6 +1882,8 @@
       var tos = el("span", "tos");
       if (q.at != null) tos.appendChild(toDots(g.a[1], q.at)); if (q.ht != null) tos.appendChild(toDots(g.h[1], q.ht));
       dd.appendChild(tos); w.appendChild(dd);
+    } else if (/^baseball/.test(pa) && d && d.bb) {
+      w.appendChild(ballpark(g, d.bb, q));
     } else if (/^baseball/.test(pa) && q.b) {
       var bb = el("div", "bsb"), dia = el("div", "dia");
       [1, 2, 0].forEach(function (i) { dia.appendChild(el("i", "b" + i + (q.b[i] ? " on" : ""))); });
@@ -1897,6 +1899,7 @@
     // shut it. Plays that arrived since the last refresh slide in. Before the box score answers, the scoreboard's own
     // last play stands in.
     var pl = d && d.plays && d.plays.length ? d.plays.slice(0, 10) : null;
+    var diam = /^baseball/.test(pa) && d && d.bb && d.bb.res.length > 0; if (diam) pl = d.bb.res;   // baseball: the at-bat results, not every pitch
     if (pl) {
       var key = "lv10|" + g.id, box = el("details", "lvp lv10"), sm = el("summary", null); sm.appendChild(el("span", "lvk", "Last " + pl.length + " play" + (pl.length > 1 ? "s" : ""))); sm.appendChild(el("i", "lvc", "\u25BE")); box.appendChild(sm);
       box.open = openState[key] !== undefined ? openState[key] : true; box.addEventListener("toggle", function () { openState[key] = box.open; });
@@ -1909,6 +1912,7 @@
         var r = el("div", "lvr" + (p.sc ? " scp" : "") + (fresh && (p.t + "|" + p.x) !== seen && pl.slice(i + 1).some(function (q2) { return q2.t + "|" + q2.x === seen; }) ? " new" : ""));
         if (hoops) r.appendChild(el("i", "lvn" + (p.c && p.sh ? (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? "" : " miss") : ""), String(i + 1)));   // the number on the court
         else if (ice) r.appendChild(el("i", "lvn" + (p.c ? " " + rinkCls(p, g) : ""), String(i + 1)));
+        else if (diam) r.appendChild(el("i", "lvn " + (p.hc ? bpCls(p, g) : "oth"), String(i + 1)));
         r.appendChild(el("b", "lvab", p.tm || "\u2014")); r.appendChild(el("span", "lvx", p.x)); if (p.t) r.appendChild(el("span", "lvt", p.t)); ul.appendChild(r);
       });
       box.appendChild(ul); w.appendChild(box);
@@ -2046,6 +2050,86 @@
       k.appendChild(el("span", null, c.s + " on net" + (c.g ? " \u00b7 " + c.g + " goal" + (c.g > 1 ? "s" : "") : ""))); lg.appendChild(k);
     });
     var key = el("span", "rk-key"); key.innerHTML = '<i class="kf"></i>on net <i class="kh"></i>missed <i class="ko"></i>other'; lg.appendChild(key);
+    wrap.appendChild(lg);
+    return wrap;
+  }
+  // ---------- baseball: the field, the strike zone and the count ----------
+  // The field shows where the last ten plate appearances went (numbered like the list below it: hits filled, outs as
+  // rings, home runs with a glowing ring, each tracing a faint arc from home), with the runners lit on the bases. The
+  // strike zone shows every pitch of the current at-bat in the order thrown (green ball, red strike, blue in play), next
+  // to the pitch list and the matchup. Coordinates come from espn.js (bbOf), in ESPN's own picture units.
+  function bpCls(p, g) { return (p.tm === g.h[1] ? "hm" : "aw") + (p.k === "out" ? " miss" : p.k === "hr" ? " goal" : ""); }
+  function ballpark(g, bb, q) {
+    var NS = "http://www.w3.org/2000/svg", ab = bb.ab || { p: [], cnt: [0, 0] };
+    function sv(tag, at, txt) { var n = document.createElementNS(NS, tag); for (var k in at) n.setAttribute(k, at[k]); if (txt != null) n.textContent = txt; return n; }
+    var wrap = el("div", "crt bp"), cap = el("div", "crt-h");
+    cap.appendChild(el("span", "lvk", "At the plate"));
+    // Count and outs: the scoreboard's live situation when it has one (it updates every refresh), else the last pitch.
+    var bs = q && q.bs ? q.bs.split("-").map(Number) : ab.cnt, outs = q && q.o != null ? q.o : 0, sit = el("span", "bp-sit");
+    [["B", 3, bs[0] || 0, "b"], ["S", 2, bs[1] || 0, "s"], ["O", 2, outs, "o"]].forEach(function (z) {
+      var gp = el("span", "bp-c " + z[3]); gp.appendChild(el("b", null, z[0])); for (var k = 0; k < z[1]; k++) gp.appendChild(el("i", k < z[2] ? "on" : "")); sit.appendChild(gp);
+    });
+    cap.appendChild(sit); wrap.appendChild(cap);
+    // The field: fair territory, the dirt circle and infield grass, base paths, foul lines, mound, bases.
+    var H0 = [125, 212], B1 = [153, 184], B2 = [125, 156], B3 = [97, 184], on = (q && q.b) || [0, 0, 0];
+    var fs = sv("svg", { viewBox: "0 14 250 208", role: "img", "aria-label": "Field, last ten plate appearances", "class": "bp-f" }), fl = sv("g", { "class": "bp-l" });
+    fl.appendChild(sv("path", { d: "M125 212L21 108Q125-40 229 108Z", "class": "grass" }));
+    fl.appendChild(sv("path", { d: "M21 108Q125-40 229 108", "class": "fence" }));
+    fl.appendChild(sv("circle", { cx: 125, cy: 180, r: 40, "class": "dirt" }));
+    fl.appendChild(sv("path", { d: "M125 205L147 184L125 163L103 184Z", "class": "igrass" }));
+    fl.appendChild(sv("path", { d: "M125 212L21 108M125 212L229 108", "class": "foul" }));
+    fl.appendChild(sv("path", { d: "M" + H0 + "L" + B1 + "L" + B2 + "L" + B3 + "Z", "class": "path" }));
+    fl.appendChild(sv("circle", { cx: 125, cy: 186, r: 5, "class": "mound" }));
+    [[B1, on[0]], [B2, on[1]], [B3, on[2]]].forEach(function (b) { fl.appendChild(sv("rect", { x: b[0][0] - 4, y: b[0][1] - 4, width: 8, height: 8, rx: 1.2, transform: "rotate(45 " + b[0][0] + " " + b[0][1] + ")", "class": "base" + (b[1] ? " on" : "") })); });
+    fl.appendChild(sv("path", { d: "M121 210h8v3l-4 4l-4-4z", "class": "plate" }));
+    fs.appendChild(fl);
+    var hs = sv("g", { "class": "crt-s bp-s" }), placed = [], res = bb.res || [];
+    for (var i = res.length - 1; i >= 0; i--) {
+      var p = res[i]; if (!p.hc) continue;
+      var x = Math.max(11, Math.min(239, p.hc[0])), y = Math.max(25, Math.min(205, p.hc[1]));
+      for (var t = 0; t < 6; t++) { var hit = placed.some(function (z) { return Math.abs(z[0] - x) < 17 && Math.abs(z[1] - y) < 17; }); if (!hit) break; x += (t % 2 ? -1 : 1) * (13 + t * 4); y += t % 2 ? 9 : -7; }
+      placed.push([x, y]);
+      var cls = bpCls(p, g), mx = (H0[0] + x) / 2, my = (H0[1] + y) / 2 - Math.min(40, Math.hypot(x - H0[0], y - H0[1]) * .28);
+      hs.appendChild(sv("path", { d: "M" + H0 + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), "class": "arc " + cls, style: "--k:" + i }));
+      var gp2 = sv("g", { "class": "sh " + cls + (i === 0 ? " top" : ""), transform: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")", style: "--k:" + i });
+      if (i === 0) gp2.appendChild(sv("circle", { r: 11, "class": "halo" }));
+      if (p.k === "hr") gp2.appendChild(sv("circle", { r: 12, "class": "gring" }));
+      gp2.appendChild(sv("circle", { r: 8.5, "class": "dot" })); gp2.appendChild(sv("text", { y: .5, "text-anchor": "middle", "dominant-baseline": "central" }, String(i + 1)));
+      hs.appendChild(gp2);
+    }
+    fs.appendChild(hs); wrap.appendChild(fs);
+    // The at-bat: strike zone (catcher's view) beside the matchup and the pitch list.
+    var row = el("div", "bp-ab"), zs = sv("svg", { viewBox: "20 100 190 185", role: "img", "aria-label": "Strike zone, this at-bat", "class": "bp-z" }), zl = sv("g", { "class": "bp-zl" });
+    zl.appendChild(sv("rect", { x: 85, y: 135, width: 60, height: 60, rx: 2, "class": "zone" }));
+    [105, 125].forEach(function (zx) { zl.appendChild(sv("line", { x1: zx, y1: 135, x2: zx, y2: 195 })); });
+    [155, 175].forEach(function (zy) { zl.appendChild(sv("line", { x1: 85, y1: zy, x2: 145, y2: zy })); });
+    zl.appendChild(sv("path", { d: "M100 252h30v6l-15 9l-15-9z", "class": "plate" }));
+    zs.appendChild(zl);
+    var pz = sv("g", { "class": "bp-p" }), ps = ab.p || [];
+    ps.forEach(function (pt, k) {
+      var gx = Math.max(32, Math.min(198, pt.x)), gy = Math.max(112, Math.min(272, pt.y)), last = k === ps.length - 1;
+      var gq = sv("g", { "class": "pz " + pt.r + (last ? " top" : ""), transform: "translate(" + gx + " " + gy + ")" });
+      if (last) gq.appendChild(sv("circle", { r: 13, "class": "halo" }));
+      gq.appendChild(sv("circle", { r: 10.5, "class": "dot" })); gq.appendChild(sv("text", { y: .5, "text-anchor": "middle", "dominant-baseline": "central" }, String(pt.n)));
+      pz.appendChild(gq);
+    });
+    if (!ps.length) zs.appendChild(sv("text", { x: 115, y: 230, "text-anchor": "middle", "class": "bp-wait" }, "Waiting for the pitch"));
+    zs.appendChild(pz); row.appendChild(zs);
+    var side = el("div", "bp-side");
+    var mu = el("div", "bp-mu");
+    if (ab.bat) { var r1 = el("div", "bp-who"); r1.appendChild(el("em", null, ab.done ? "Last up" : "At bat")); r1.appendChild(el("b", null, ab.bat)); mu.appendChild(r1); }
+    if (ab.pit) { var r2 = el("div", "bp-who"); r2.appendChild(el("em", null, "Pitching")); r2.appendChild(el("b", null, ab.pit)); mu.appendChild(r2); }
+    side.appendChild(mu);
+    var list = el("div", "bp-pl");
+    ps.slice().reverse().slice(0, 7).forEach(function (pt) {
+      var li = el("div", "bp-pr"); li.appendChild(el("i", "pc " + pt.r, String(pt.n))); li.appendChild(el("span", "pd", pt.d));
+      if (pt.v) li.appendChild(el("span", "pv", (pt.pt ? pt.pt + " " : "") + pt.v)); list.appendChild(li);
+    });
+    if (ab.done && ab.fin) list.appendChild(el("div", "bp-fin", ab.fin));
+    side.appendChild(list); row.appendChild(side); wrap.appendChild(row);
+    var lg = el("div", "crt-k");
+    [[g.a[1], "aw"], [g.h[1], "hm"]].forEach(function (z) { var k = el("span", "crt-t " + z[1]); k.appendChild(el("i", "sw")); k.appendChild(el("b", null, z[0])); lg.appendChild(k); });
+    var key = el("span", "rk-key bp-key"); key.innerHTML = '<i class="kf"></i>hit <i class="kh"></i>out <i class="kb"></i>ball <i class="ks"></i>strike <i class="kp"></i>in play'; lg.appendChild(key);
     wrap.appendChild(lg);
     return wrap;
   }
