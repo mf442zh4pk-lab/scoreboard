@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=126` → `?v=127` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=127` → `?v=128` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -156,7 +156,7 @@ Profile → Stats (`vStats` in `profile.js`). Counters live in `sb-col`: `d` (la
 
 ## Pop-ups
 
-Settings → "New card reveal" (Full show / Quick toast / Off, `sb-rv`) and "Card pack pop-ups" (On / Off, `sb-pk`). Off never loses anything: cards land in the log with a NEW badge and packs wait behind the gold dot. **No pop-ups before an account** (`acct()` in `fun.js`, checks `sb-active`): card reveals, new-card toasts, pack pop-ups and the golden-ticket toast stay quiet until someone signs in; the one-time account prompt is the only pop-up a signed-out person sees.
+With Full show, every new card gets the pop-up (`reveal` in `fun.js`), Commons and Uncommons included, and it stays until Close, Escape or "View in log" (no timer, and a tap on the background only skips the charge-up). A card with a long write-up (over 140 characters, like the sports moments) uses the story layout and a taller card so the text fits; on a short screen it scrolls inside the card. Settings → "New card reveal" (Full show / Quick toast / Off, `sb-rv`) and "Card pack pop-ups" (On / Off, `sb-pk`). Off never loses anything: cards land in the log with a NEW badge and packs wait behind the gold dot. **No pop-ups before an account** (`acct()` in `fun.js`, checks `sb-active`): card reveals, new-card toasts, pack pop-ups and the golden-ticket toast stay quiet until someone signs in; the one-time account prompt is the only pop-up a signed-out person sees.
 
 ## Data keys (localStorage)
 
