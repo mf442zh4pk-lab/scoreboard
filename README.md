@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=129` → `?v=130` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=130` → `?v=131` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -150,7 +150,7 @@ Inline in `index.html` (markup, CSS and a few lines of script) so it paints befo
 
 ## Collection Log screen (`vLog` in `profile.js`)
 
-Search over names, teams and found cards' text; status chips (All, Found, Missing, Dupes, Newest), rarity chips, category chips with a ✓ when a category is complete, a "No cards match" state with Clear filters, a Review-new button, and Trade in dupes. Kept fast: tiles use `content-visibility:auto` and the first 36 render at once, the rest a slice per frame (`gtok` cancels a stale draw). Opening a card and closing it updates the log in place (`logRefresh`): the NEW badges and counts change, the scroll position and focus stay, and nothing is rebuilt. A card shows its category progress (e.g. NFL Teams 11/32) in its header.
+Top: the count, the holiday drop line, then two side-by-side buttons, "✨ N new cards" (reviews them in order) and Trade in dupes; either hides when there's nothing to do and the other takes the row. Below, a sticky stack: search plus a **Filters** button (badge = number of set/rarity/sort filters on), a one-row **Show** switch (All, New N, Found, Missing, Dupes; New only when there are new cards) and removable pills for each active filter (set, rarities, Newest first, "Mark all seen" on New, Clear all). **Filters** opens a bottom sheet (`filterSheet`): Sort (card number / newest found), Set as a 2-column grid with progress bars and ✓ when complete, Rarity as toggles with found/total for the chosen set, and "Show N cards"; the grid behind redraws once, on close, only if something changed. A card counts as new until it's opened in the log (or Mark all seen): the pop-up and packs no longer mark cards seen. A card that arrives while the log is open (`PROF.changed`, called from `disc` in `fun.js`) updates the button, the New count and just that tile. Kept fast: tiles use `content-visibility:auto` and the first 36 render at once, the rest a slice per frame (`gtok` cancels a stale draw). Opening a card and closing it updates the log in place (`logRefresh`): the NEW badges and counts change, the scroll position and focus stay, and nothing is rebuilt. A card shows its category progress (e.g. NFL Teams 11/32) in its header.
 
 ## Account stats
 
