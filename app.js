@@ -41,6 +41,7 @@
   function lockTaps() { var b = document.body; if (!b) return; b.classList.add("nav-lock"); clearTimeout(lockTaps.t); lockTaps.t = setTimeout(function () { b.classList.remove("nav-lock"); }, 280); }
 
   var S = { tab: "pinned", games: {}, yesterday: null, ready: false, loading: false, last: 0, failed: [], view: null, depth: 0, settings: false, teams: {}, leaders: {}, lgState: {}, more: false, yf: {}, ysub: "teams", ymore: {} };
+  var LASTE = 0;
   var openState = {};   // remembers which detail sections you opened or closed
   var PINS = [], TC = {}, EAGER = [], RK = "", RT = 0;
   try { EAGER = JSON.parse(localStorage.getItem("sb-eager") || "[]") || []; } catch (e) {}
@@ -2589,6 +2590,7 @@
     out.textContent = "";
     if (vk !== RK) {
       RK = vk; out.classList.add("enter"); clearTimeout(RT);
+      var nowE = Date.now(); out.classList.toggle("quick", nowE - LASTE < 2500); LASTE = nowE;   // flipping through screens: skip the card sheen
       out.setAttribute("data-fx", window.FUN ? FUN.enterFx() : "rise");
       if (window.FUN) requestAnimationFrame(function () { FUN.after(out); }); RT = setTimeout(function () { out.classList.remove("enter"); }, 1500);
     }
