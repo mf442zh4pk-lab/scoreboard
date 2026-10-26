@@ -1901,14 +1901,75 @@
       var key = "lv10|" + g.id, box = el("details", "lvp lv10"), sm = el("summary", null); sm.appendChild(el("span", "lvk", "Last " + pl.length + " play" + (pl.length > 1 ? "s" : ""))); sm.appendChild(el("i", "lvc", "\u25BE")); box.appendChild(sm);
       box.open = openState[key] !== undefined ? openState[key] : true; box.addEventListener("toggle", function () { openState[key] = box.open; });
       var seen = LASTPL["lp" + g.id] || null, top = pl[0].t + "|" + pl[0].x, fresh = seen && seen !== top; LASTPL["lp" + g.id] = top;
+      var hoops = /^basketball/.test(pa) && pl.some(function (p) { return p.c; }), poss = hoops ? possOf(pl, g) : null;
+      if (hoops) w.appendChild(court(pl, g, poss));
       var ul = el("div", "lvl");
       pl.forEach(function (p, i) {
         var r = el("div", "lvr" + (p.sc ? " scp" : "") + (fresh && (p.t + "|" + p.x) !== seen && pl.slice(i + 1).some(function (q2) { return q2.t + "|" + q2.x === seen; }) ? " new" : ""));
+        if (hoops) r.appendChild(el("i", "lvn" + (p.c ? (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? "" : " miss") : ""), String(i + 1)));   // the number on the court
         r.appendChild(el("b", "lvab", p.tm || "\u2014")); r.appendChild(el("span", "lvx", p.x)); if (p.t) r.appendChild(el("span", "lvt", p.t)); ul.appendChild(r);
       });
       box.appendChild(ul); w.appendChild(box);
     } else if (q.lp) { var lp = el("div", "lvp" + (LASTPL["lp" + g.id] && LASTPL["lp" + g.id] !== q.lp ? " new" : "")); LASTPL["lp" + g.id] = q.lp; lp.appendChild(el("span", "lvk", "Last play")); lp.appendChild(el("span", null, q.lp)); w.appendChild(lp); }
     return w;
+  }
+  // ---------- basketball: the last ten plays on a half court ----------
+  // ESPN gives each shot a spot in feet from the baseline on a 50-foot-wide half court (the basket at 25, 5.25), both
+  // teams on the same half. Each shot gets the same number as its row in the Last 10 plays box, 1 the newest; made shots
+  // are filled, misses hollow, and the newest shot pulses. Who has the ball is read off the latest telling play.
+  function possOf(pl, g) {
+    var other = function (t) { return t === g.h[1] ? g.a[1] : g.h[1]; };
+    for (var i = 0; i < pl.length; i++) {
+      var p = pl[i], k = (p.k || "") + " " + p.x; if (!p.tm) continue;
+      if (/turnover|bad pass|lost ball|traveling|travelling|offensive foul|shot clock|out of bounds|double dribble|carrying|kicked ball/i.test(k)) return other(p.tm);
+      if (p.sc) return other(p.tm);
+      if (/rebound|steal/i.test(k)) return p.tm;
+      if (p.sh || /free throw/i.test(k)) return p.tm;
+      if (/foul/i.test(k)) return other(p.tm);
+    }
+    return null;
+  }
+  function court(pl, g, poss) {
+    var NS = "http://www.w3.org/2000/svg", W = 500, H = 330, bx = 250, by = 52.5;
+    function sv(tag, at, txt) { var n = document.createElementNS(NS, tag); for (var k in at) n.setAttribute(k, at[k]); if (txt != null) n.textContent = txt; return n; }
+    var wrap = el("div", "crt"), svg = sv("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Shot chart, last plays" });
+    var cap = el("div", "crt-h"); cap.appendChild(el("span", "lvk", "Shot chart \u00b7 last 10 plays"));
+    if (poss) { var pp = el("span", "crt-p" + (poss === g.h[1] ? " hm" : " aw")); pp.appendChild(el("i", null, "\uD83C\uDFC0")); pp.appendChild(el("b", null, poss)); pp.appendChild(document.createTextNode(" ball")); cap.appendChild(pp); }
+    wrap.appendChild(cap);
+    var lines = sv("g", { "class": "crt-l" });
+    lines.appendChild(sv("rect", { x: 0, y: 0, width: W, height: H }));                                   // the floor
+    lines.appendChild(sv("rect", { x: 170, y: 0, width: 160, height: 190, "class": "paint" }));          // the lane
+    lines.appendChild(sv("circle", { cx: 250, cy: 190, r: 60 }));                                          // free-throw circle
+    lines.appendChild(sv("path", { d: "M210 52.5a40 40 0 0 0 80 0" }));                                    // restricted area
+    lines.appendChild(sv("path", { d: "M30 0v142a237.5 237.5 0 0 0 440 0V0" }));                           // three-point line
+    lines.appendChild(sv("line", { x1: 220, y1: 40, x2: 280, y2: 40, "class": "bb" }));                   // backboard
+    lines.appendChild(sv("circle", { cx: bx, cy: by, r: 7.5, "class": "rim" }));                           // rim
+    svg.appendChild(lines);
+    var shots = sv("g", { "class": "crt-s" }), placed = [];
+    for (var i = pl.length - 1; i >= 0; i--) {                                                            // oldest first, so the newest paints on top
+      var p = pl[i]; if (!p.c) continue;
+      var x = Math.max(18, Math.min(W - 18, p.c[0] * 10)), y = Math.max(18, Math.min(H - 18, p.c[1] * 10));
+      for (var t = 0; t < 6; t++) {                                                                        // two shots from the same spot: nudge the later one aside
+        var hit = placed.some(function (q) { return Math.abs(q[0] - x) < 30 && Math.abs(q[1] - y) < 30; }); if (!hit) break;
+        x += (t % 2 ? -1 : 1) * (18 + t * 6); y += t % 2 ? 12 : -8; x = Math.max(18, Math.min(W - 18, x)); y = Math.max(18, Math.min(H - 18, y));
+      }
+      placed.push([x, y]);
+      var grp = sv("g", { "class": "sh" + (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? " made" : " miss") + (i === 0 ? " top" : ""), transform: "translate(" + x + " " + y + ")", style: "--k:" + i });
+      if (i === 0) grp.appendChild(sv("circle", { r: 18, "class": "halo" }));
+      grp.appendChild(sv("circle", { r: 15, "class": "dot" }));
+      grp.appendChild(sv("text", { y: 1, "text-anchor": "middle", "dominant-baseline": "central" }, String(i + 1)));
+      shots.appendChild(grp);
+    }
+    svg.appendChild(shots); wrap.appendChild(svg);
+    // Legend: each team's color and shot count, with the ball on whoever has it.
+    var lg = el("div", "crt-k"), n = { h: 0, a: 0 };
+    pl.forEach(function (p) { if (p.c) n[p.tm === g.h[1] ? "h" : "a"]++; });
+    [[g.a[1], "aw", n.a], [g.h[1], "hm", n.h]].forEach(function (t) {
+      var k = el("span", "crt-t " + t[1]); k.appendChild(el("i", "sw")); k.appendChild(el("b", null, t[0]));
+      k.appendChild(el("span", null, t[2] + " shot" + (t[2] === 1 ? "" : "s"))); lg.appendChild(k);
+    });
+    wrap.appendChild(lg);
+    return wrap;
   }
   function toDots(ab, n) { var s2 = el("span", "to"); s2.appendChild(el("em", null, ab)); for (var i = 0; i < 3; i++) s2.appendChild(el("i", i < n ? "on" : "")); return s2; }
   function renderDetail(out) {
