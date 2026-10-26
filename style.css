@@ -984,3 +984,26 @@ html:not(.rm) .crt-s .halo{animation:crthalo 1.6s ease-out infinite}
 .lvn{flex:none;width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:800;font-style:normal;color:var(--mute);background:color-mix(in srgb,var(--fg) 8%,transparent);margin-top:-1px;align-self:center}
 .lvn.aw{background:var(--ter);color:#0f1420}.lvn.hm{background:var(--warn);color:#0f1420}
 .lvn.miss{background:transparent;box-shadow:inset 0 0 0 2px var(--ter);color:var(--ter)}.lvn.hm.miss{box-shadow:inset 0 0 0 2px var(--warn);color:var(--warn)}
+/* Hockey rink in the live panel (shares the shot chart's marker styles) */
+.rk-l .ice{fill:color-mix(in srgb,#cfe3ff 7%,var(--card));stroke:rgba(255,255,255,.28);stroke-width:2;vector-effect:non-scaling-stroke}
+.rk-l line,.rk-l circle,.rk-l path{fill:none;vector-effect:non-scaling-stroke}
+.rk-l .red{stroke:color-mix(in srgb,var(--live) 70%,transparent);stroke-width:3}
+.rk-l .blue{stroke:#5d8dff;stroke-opacity:.7;stroke-width:3}
+.rk-l .gl{stroke:color-mix(in srgb,var(--live) 55%,transparent);stroke-width:1.5}
+.rk-l .crease{fill:color-mix(in srgb,#5d8dff 22%,transparent);stroke:color-mix(in srgb,var(--live) 55%,transparent);stroke-width:1.5}
+.rk-l .net{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.5}
+.rk-l .fo{stroke:color-mix(in srgb,var(--live) 38%,transparent);stroke-width:1.5}
+.rk-l .cc{stroke:#5d8dff;stroke-opacity:.55;stroke-width:1.5}
+.rk-l .dotr{fill:color-mix(in srgb,var(--live) 60%,transparent)}.rk-l .dotb{fill:#5d8dff}
+.rk-l .zn{font:800 72px/1 var(--hd),system-ui,sans-serif;letter-spacing:.06em;opacity:.12}.rk-l .zn.aw{fill:var(--ter)}.rk-l .zn.hm{fill:var(--warn)}
+.rnk svg{font-size:32px}
+.rk-s .oth .dot{fill:color-mix(in srgb,var(--fg) 16%,var(--card));stroke-width:2.5}.rk-s .oth.aw .dot{stroke:color-mix(in srgb,var(--ter) 70%,transparent)}.rk-s .oth.hm .dot{stroke:color-mix(in srgb,var(--warn) 70%,transparent)}.rk-s .oth.nt .dot{stroke:var(--line)}
+.rk-s .oth text{fill:var(--fg);font-size:27px;opacity:.85}
+.rk-s .gring{fill:none;stroke:#fff;stroke-width:3.5;opacity:.9;filter:drop-shadow(0 0 6px rgba(255,255,255,.8))}
+.rk-s .goal .dot{stroke:#fff}
+.crt-p.nt{border-color:var(--line);background:color-mix(in srgb,var(--fg) 6%,transparent);box-shadow:none}
+.crt-p.ev{font-size:11px;font-weight:700;color:var(--mute);border:1px solid var(--line);background:none;box-shadow:none;padding:3px 9px}
+.rk-key{flex-basis:100%;display:inline-flex;align-items:center;gap:5px;font-size:11px;margin-top:-4px}
+.rk-key i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-left:4px}.rk-key .kf{background:var(--mute)}.rk-key .kh{box-shadow:inset 0 0 0 2px var(--mute)}.rk-key .ko{width:7px;height:7px;background:color-mix(in srgb,var(--fg) 16%,var(--card));box-shadow:0 0 0 1.5px var(--line)}
+.lvn.oth{background:color-mix(in srgb,var(--fg) 10%,transparent);color:var(--mute)}
+.lvn.goal{box-shadow:0 0 0 2px #fff,0 0 8px rgba(255,255,255,.6)}
