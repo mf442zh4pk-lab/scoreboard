@@ -1914,8 +1914,8 @@
     return w;
   }
   // ---------- basketball: the last ten plays on a half court ----------
-  // ESPN gives each shot a spot in feet from the baseline on a 50-foot-wide half court (the basket at 25, 5.25), both
-  // teams on the same half. Each shot gets the same number as its row in the Last 10 plays box, 1 the newest; made shots
+  // ESPN gives each shot a spot in feet on a 50-foot-wide half court, x across the floor and y out from the basket
+  // (checked against real play text: a "27-foot three" sits 27 feet from (25, 0)), both teams on the same half. Each shot gets the same number as its row in the Last 10 plays box, 1 the newest; made shots
   // are filled, misses hollow, and the newest shot pulses. Who has the ball is read off the latest telling play.
   function possOf(pl, g) {
     var other = function (t) { return t === g.h[1] ? g.a[1] : g.h[1]; };
@@ -1948,7 +1948,7 @@
     var shots = sv("g", { "class": "crt-s" }), placed = [];
     for (var i = pl.length - 1; i >= 0; i--) {                                                            // oldest first, so the newest paints on top
       var p = pl[i]; if (!p.c) continue;
-      var x = Math.max(18, Math.min(W - 18, p.c[0] * 10)), y = Math.max(18, Math.min(H - 18, p.c[1] * 10));
+      var x = Math.max(18, Math.min(W - 18, p.c[0] * 10)), y = Math.max(18, Math.min(H - 18, (p.c[1] + 5.25) * 10));   // ESPN measures y from the basket
       for (var t = 0; t < 6; t++) {                                                                        // two shots from the same spot: nudge the later one aside
         var hit = placed.some(function (q) { return Math.abs(q[0] - x) < 30 && Math.abs(q[1] - y) < 30; }); if (!hit) break;
         x += (t % 2 ? -1 : 1) * (18 + t * 6); y += t % 2 ? 12 : -8; x = Math.max(18, Math.min(W - 18, x)); y = Math.max(18, Math.min(H - 18, y));
