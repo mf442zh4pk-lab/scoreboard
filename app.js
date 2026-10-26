@@ -1901,12 +1901,12 @@
       var key = "lv10|" + g.id, box = el("details", "lvp lv10"), sm = el("summary", null); sm.appendChild(el("span", "lvk", "Last " + pl.length + " play" + (pl.length > 1 ? "s" : ""))); sm.appendChild(el("i", "lvc", "\u25BE")); box.appendChild(sm);
       box.open = openState[key] !== undefined ? openState[key] : true; box.addEventListener("toggle", function () { openState[key] = box.open; });
       var seen = LASTPL["lp" + g.id] || null, top = pl[0].t + "|" + pl[0].x, fresh = seen && seen !== top; LASTPL["lp" + g.id] = top;
-      var hoops = /^basketball/.test(pa) && pl.some(function (p) { return p.c; }), poss = hoops ? possOf(pl, g) : null;
+      var hoops = /^basketball/.test(pa) && pl.some(function (p) { return p.c && p.sh; }), poss = hoops ? possOf(pl, g) : null;
       if (hoops) w.appendChild(court(pl, g, poss));
       var ul = el("div", "lvl");
       pl.forEach(function (p, i) {
         var r = el("div", "lvr" + (p.sc ? " scp" : "") + (fresh && (p.t + "|" + p.x) !== seen && pl.slice(i + 1).some(function (q2) { return q2.t + "|" + q2.x === seen; }) ? " new" : ""));
-        if (hoops) r.appendChild(el("i", "lvn" + (p.c ? (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? "" : " miss") : ""), String(i + 1)));   // the number on the court
+        if (hoops) r.appendChild(el("i", "lvn" + (p.c && p.sh ? (p.tm === g.h[1] ? " hm" : " aw") + (p.sc ? "" : " miss") : ""), String(i + 1)));   // the number on the court
         r.appendChild(el("b", "lvab", p.tm || "\u2014")); r.appendChild(el("span", "lvx", p.x)); if (p.t) r.appendChild(el("span", "lvt", p.t)); ul.appendChild(r);
       });
       box.appendChild(ul); w.appendChild(box);
@@ -1947,7 +1947,7 @@
     svg.appendChild(lines);
     var shots = sv("g", { "class": "crt-s" }), placed = [];
     for (var i = pl.length - 1; i >= 0; i--) {                                                            // oldest first, so the newest paints on top
-      var p = pl[i]; if (!p.c) continue;
+      var p = pl[i]; if (!p.c || !p.sh) continue;                                                       // shots only (ESPN also puts rebounds at the shot's spot)
       var x = Math.max(18, Math.min(W - 18, p.c[0] * 10)), y = Math.max(18, Math.min(H - 18, (p.c[1] + 5.25) * 10));   // ESPN measures y from the basket
       for (var t = 0; t < 6; t++) {                                                                        // two shots from the same spot: nudge the later one aside
         var hit = placed.some(function (q) { return Math.abs(q[0] - x) < 30 && Math.abs(q[1] - y) < 30; }); if (!hit) break;
@@ -1963,7 +1963,7 @@
     svg.appendChild(shots); wrap.appendChild(svg);
     // Legend: each team's color and shot count, with the ball on whoever has it.
     var lg = el("div", "crt-k"), n = { h: 0, a: 0 };
-    pl.forEach(function (p) { if (p.c) n[p.tm === g.h[1] ? "h" : "a"]++; });
+    pl.forEach(function (p) { if (p.c && p.sh) n[p.tm === g.h[1] ? "h" : "a"]++; });
     [[g.a[1], "aw", n.a], [g.h[1], "hm", n.h]].forEach(function (t) {
       var k = el("span", "crt-t " + t[1]); k.appendChild(el("i", "sw")); k.appendChild(el("b", null, t[0]));
       k.appendChild(el("span", null, t[2] + " shot" + (t[2] === 1 ? "" : "s"))); lg.appendChild(k);
