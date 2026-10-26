@@ -1980,13 +1980,12 @@
   // faceoffs, giveaways) a small neutral chip. The header shows the strength (power play, empty net) off the latest play.
   function rinkKind(p) { var k = p.k || ""; return /^goal/i.test(k) ? "goal" : /^shot/i.test(k) ? "shot" : /miss|block/i.test(k) ? "miss" : "oth"; }
   function rinkCls(p, g) { var t = p.tm ? (p.tm === g.h[1] ? "hm" : "aw") : "nt", k = rinkKind(p); return k === "oth" ? "oth " + t : t + (k === "miss" ? " miss" : k === "goal" ? " goal" : ""); }
+  // A majority vote of this period's shot attempts: home shots toward +x and away shots toward -x both count for "home
+  // attacks +x". Empty-net goals are skipped (they can come from a team's own end). Checked against six full NHL games.
   function rinkEnds(pl, g) {                                  // { team abbreviation: +1 or -1 }, the end of the ice it attacks this period
-    var per = pl[0] && pl[0].pr, sum = {}, n = {};
-    pl.forEach(function (p) { if (p.pr !== per || !p.c || !p.tm || rinkKind(p) === "oth") return; sum[p.tm] = (sum[p.tm] || 0) + p.c[0]; n[p.tm] = (n[p.tm] || 0) + 1; });
-    var out = {}, h = g.h[1], a = g.a[1];
-    if (n[h] && n[a]) { var dh = sum[h] / n[h], da = sum[a] / n[a]; if (dh !== da) { out[h] = dh > da ? 1 : -1; out[a] = -out[h]; } }
-    else if (n[h]) { out[h] = sum[h] > 0 ? 1 : -1; out[a] = -out[h]; }
-    else if (n[a]) { out[a] = sum[a] > 0 ? 1 : -1; out[h] = -out[a]; }
+    var per = pl[0] && pl[0].pr, v = 0;
+    pl.forEach(function (p) { if (p.pr !== per || !p.c || !p.tm || !p.c[0] || rinkKind(p) === "oth" || /empty/i.test(p.st || "")) return; v += (p.c[0] > 0 ? 1 : -1) * (p.tm === g.h[1] ? 1 : -1); });
+    var out = {}; if (v) { out[g.h[1]] = v > 0 ? 1 : -1; out[g.a[1]] = -out[g.h[1]]; }
     return out;
   }
   function rink(pl, g) {
