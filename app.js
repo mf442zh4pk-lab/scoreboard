@@ -290,7 +290,7 @@
   function sessName(n) { return SESS[n] || n; }
   function card(x) {
     if (x.g.ev) { var ec = evCard(x); lpCopy(ec, x); return ec; }
-    var g = x.g, c = el("div", "card" + (isFollowed(g) ? " followed" : "") + (isFollowed(g) ? strCls(streakOf(C.followed.indexOf(g.h[0]) >= 0 ? g.h[0] : g.a[0])) : ""));
+    var g = x.g, c = el("div", "card s-" + g.s + (isFollowed(g) ? " followed" : "") + (isFollowed(g) ? strCls(streakOf(C.followed.indexOf(g.h[0]) >= 0 ? g.h[0] : g.a[0])) : ""));
     var top = el("div", "top");
     var ptxt = g.s === "live" ? (g.c || "Live") : g.s === "final" ? "Final" : when(g.t) + (g.b ? " · " + g.b : ""), pcls = "";
     if (g.s === "final" && g.h[2] != null && g.a[2] != null) {
