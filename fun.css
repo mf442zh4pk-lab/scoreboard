@@ -233,6 +233,7 @@ body.pm-open{overflow:hidden}
 body.rv-on .fxg{z-index:95}
 .rv{--rc:#38bdf8;position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;background:rgba(6,9,16,.62);opacity:0;transition:opacity .25s;overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .rv.in{opacity:1}
+.rv.rC{--rc:#b3bccd}.rv.rU{--rc:#5fcf93}
 .rv.rE{--rc:#a78bfa;background:rgba(6,6,20,.82)}
 .rv.rL{--rc:#ffb020;background:rgba(14,9,2,.9)}
 .rv.rM{--rc:#ff4d8d;background:rgba(3,1,10,.96)}
@@ -523,3 +524,8 @@ img.pk-em{width:28px;height:28px;object-fit:contain}
 .trd-keep .pm-seg{flex:1;max-width:230px}
 .trd-w{margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--live)}
 .trd-keep .pm-seg{grid-template-columns:repeat(3,1fr)}
+/* New-card pop-up: a sports moment with a long write-up gets a taller card so the story fits (it scrolls inside if not) */
+.rv-flip.st{width:min(86vw,340px);aspect-ratio:auto;height:min(480px,calc(100dvh - 280px))}
+.rv-flip.st>.tc{position:absolute;inset:0;height:auto;min-height:0;aspect-ratio:auto}
+.rv-flip.st .tc.story .tc-art{flex:0 0 26%}
+.rv-flip.st .tc.story .tc-d{font-size:13px}
