@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=107` → `?v=108` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=109` → `?v=110` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -88,6 +88,10 @@ About a minute into first use with no profile signed in (`sb-active`), `app.js` 
 **Cost**: a team page is one standings request (memoized five minutes per league) plus one schedule request and one box score; an athlete page costs nothing beyond its league's normal scoreboard. Only followed teams are written to `sb-tcache` (pruned at boot); browsed teams live in memory. Schedule rows are tappable everywhere: `parseSchedule` keeps the opponent's abbreviation, logo and id, `schedGame` builds the game, and `syncFromHash` finds it in `SG`.
 
 **Following** (`setFollowed(list, lk)`): following a team reloads only that team's league; unfollowing reloads nothing; team data is never wiped. A full refresh marks team pages stale instead of clearing them, so nothing blanks, and `loadTeam` keeps one request in flight per team. A load requested while one is running is queued (`S.again`), not dropped.
+
+## Top games tab (`renderTop` in `app.js`)
+
+The fourth main tab, far right: every loaded sport on one screen with the biggest games first, in the big card layout. Sections: Close games (late and tight, closest first), Live now (by hype), Biggest coming up (top 10, the rest behind a "more" button), Biggest finals (last 36 hours, top 6). Hype (`hype`) is a cheap score from what the scoreboard feed already carries, so the tab makes no extra requests: the league's draw (`LGH`), a national network (`NATL`), ranked teams, two good records, a playoff / cup / rivalry note (`BIGN`), your teams (+18), and for finals overtime or an upset. Hidden leagues stay hidden unless a followed team plays. The tab gets a red dot while any game anywhere is close and late. Key `4`; "Open on" in Settings can start here.
 
 ## Yesterday tab layout
 
