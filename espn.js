@@ -457,6 +457,10 @@
         var o = { t: [per, ck].filter(Boolean).join(" "), x: p.text || p.shortText || "" };
         var tm = p.team && ab[String(p.team.id)]; if (tm) o.tm = tm;   // whose play it was (abbreviation)
         if (p.scoringPlay) o.sc = 1;
+        if (p.shootingPlay) o.sh = 1;
+        if (p.type && p.type.text) o.k = p.type.text;                   // "Jump Shot", "Defensive Rebound", "Lost Ball Turnover"
+        var co = p.coordinate;                                          // basketball: half court, feet from the baseline (basket at 25, 5.25)
+        if (co && co.x != null && co.y != null && co.x >= 0 && co.y >= 0) o.c = [Math.round(co.x * 10) / 10, Math.round(co.y * 10) / 10];
         return o;
       }).filter(function (p) { return p.x; });
       return out;
