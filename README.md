@@ -19,7 +19,7 @@ A phone-first live scoreboard. Static files on GitHub Pages, ESPN's public JSON 
 ## Shipping a change
 
 1. Edit the files.
-2. Bump `?v=117` → `?v=118` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
+2. Bump `?v=118` → `?v=119` in `index.html` (all four URLs). Commit `index.html` last so no one loads a half-updated set.
 3. Pages serves it within a minute. Open phones get the "New version ready" toast on their next open (the saved shell shows first, the worker notices the change behind it).
 
 ## Motion system
@@ -121,6 +121,8 @@ Last seven days of results for followed teams, then "Top performances": the best
 `renderTomorrow` in `app.js` summarizes the next 30 days for followed teams from the schedules already saved on the phone (`sb-tcache`): counts, home/away, busiest day, longest gap, a 30-day strip per team, followed-vs-followed games, then the agenda a week at a time. No extra requests.
 
 ## Live watch
+
+The live panel (`livePanel`) ends with the last ten plays from the box score, newest first, each with the team abbreviation (`plays[].tm`, from the play's team id in `espn.js`) and clock; scoring plays are bold (`scp`). It is a collapsible box, open by default, remembered per game in `openState` (`lv10|<id>`); plays that arrived since the last refresh slide in. Until the box score has answered, the scoreboard's own last play shows instead. The full 25-play log stays under More stats → Plays.
 
 A live game's page opens with `livePanel` (`app.js`): the status with a pulsing dot, the current win probability and its direction, and per sport the live situation ESPN sends with the scoreboard (`g.q`, normalized in `espn.js`): a virtual field for football (ball spot from `possessionText`, drive direction, down and distance, red zone, timeouts) and a diamond with outs and the count for baseball, plus the last play. Cells in "By period" and "Team stats" that changed since the previous render pulse (`flashCells`), and so does a new top entry in Plays. While a live game is open the app polls every 20s.
 
