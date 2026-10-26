@@ -449,11 +449,15 @@
         out.wp = pts;
       }
 
-      var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [];
+      var src = (d.plays && d.plays.length ? d.plays : d.scoringPlays) || [], ab = {};
+      if (away && home) { ab[String(away.team.id)] = away.team.abbreviation || ""; ab[String(home.team.id)] = home.team.abbreviation || ""; }
       out.plays = src.slice(-25).reverse().map(function (p) {
         var per = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "";
         var ck = p.clock && p.clock.displayValue ? p.clock.displayValue : "";
-        return { t: [per, ck].filter(Boolean).join(" "), x: p.text || p.shortText || "" };
+        var o = { t: [per, ck].filter(Boolean).join(" "), x: p.text || p.shortText || "" };
+        var tm = p.team && ab[String(p.team.id)]; if (tm) o.tm = tm;   // whose play it was (abbreviation)
+        if (p.scoringPlay) o.sc = 1;
+        return o;
       }).filter(function (p) { return p.x; });
       return out;
     });
