@@ -2478,6 +2478,7 @@
     buzz(6);
     if (key === S.tab && !S.settings && !S.view) { if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // tap the active tab to jump to the top
     if (!S.view && !S.settings) SCY[S.tab] = window.scrollY;
+    if (key !== S.tab) TOPX = {};   // Top games folds its long tails again next visit
     S.tab = key; S.view = null; S.settings = false; S.more = false; clearHash();
     if (key === "yesterday") loadLeaders();
     var lz = leagueOf(key); if (lz && lz.lazy) loadLeague(key);
@@ -2547,7 +2548,7 @@
     var live = items.filter(function (x) { return x.g.s === "live" && close.indexOf(x) < 0; }).sort(byHype);
     var lim = PREF.upwin === "all" ? Infinity : Date.now() + (PREF.upwin === "1" ? 1 : 3) * DAY, dayAgo = Date.now() - 1.5 * DAY;
     var seenM = {}, up = items.filter(function (x) { return x.g.s === "up" && Date.parse(x.g.t) <= lim; }).sort(function (a, b) { return byTime(a.g, b.g); })
-      .filter(function (x) { var k = x.lk + "|" + [x.g.h[4], x.g.a[4]].sort().join("~"); if (seenM[k]) return false; seenM[k] = 1; return true; }).sort(byHype);   // one game per series (the next one)
+      .filter(function (x) { var k = x.lk + "|" + (x.g.ev ? x.g.id : [x.g.h[4], x.g.a[4]].sort().join("~")); if (seenM[k]) return false; seenM[k] = 1; return true; }).sort(byHype);   // one game per series (the next one)
     var fin = items.filter(function (x) { return x.g.s === "final" && Date.parse(x.g.t) > dayAgo; }).sort(byHype);
     function capped(title, cls, list, k) {
       var n = TOPX[k] ? list.length : TOPN[k], s = group(title, cls, list.slice(0, n), true); if (!s) return;
