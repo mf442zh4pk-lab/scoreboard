@@ -1994,7 +1994,8 @@
     function X(x) { return (x + 100) * S; } function Y(y) { return (42.5 - y) * S; }
     var wrap = el("div", "crt rnk"), cap = el("div", "crt-h");
     cap.appendChild(el("span", "lvk", "On the ice \u00b7 last 10 plays"));
-    var lp = pl[0], st = lp && lp.st;
+    var lp = null; for (var li = 0; li < pl.length && !lp; li++) if (pl[li].tm) lp = pl[li];   // the newest play with a team (period ends and stoppages have none)
+    var st = lp && lp.st;
     if (st && lp.tm) {
       var pp = /power/i.test(st) ? lp.tm : /short/i.test(st) ? (lp.tm === g.h[1] ? g.a[1] : g.h[1]) : null;
       var pill = el("span", "crt-p" + (pp ? (pp === g.h[1] ? " hm" : " aw") : " nt"));
@@ -3214,7 +3215,7 @@
           var moved = JSON.stringify(nx.g) !== JSON.stringify(v.x.g);
           v.x = nx;
           if (nx.g.s !== "final") loadDetail();
-          if (moved) render();
+          if (moved || firstLoad) render();   // opened straight onto a game: its box score may have landed while the app was still loading
         }
       } else if (changed || firstLoad || S.tab === "teams") {
         if (!S.settings) render();
