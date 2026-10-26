@@ -230,7 +230,7 @@
     var c = IDX[id]; if (!c) return;
     if (!TAPPING && !AUTO[id]) return;
     var e = col.i[id]; if (e) { e[1]++; save(); return; }
-    col.i[id] = [Date.now(), 1]; if (extra) col.i[id][2] = extra; save(); newQ.push(c);
+    col.i[id] = [Date.now(), 1]; if (extra) col.i[id][2] = extra; save(); newQ.push(c); if (window.PROF && PROF.changed) PROF.changed();
     try { if (localStorage.getItem("sb-lb") && window.SB_LOAD) { clearTimeout(disc.lt); disc.lt = setTimeout(function () { SB_LOAD(function () { PROF.sync(); }); }, 8000); } } catch (e) {}
     clearTimeout(newT); newT = setTimeout(function () {
       var q = newQ; newQ = [];
@@ -336,7 +336,6 @@
     function burst() {
       if (done) return; done = true; clearTimeout(o._c);
       chg.classList.remove("chg"); flip.classList.add("fl"); o.classList.add("go");
-      if (!replay) { col.s[c[0]] = 1; save(); }
       if (!RM) {
         var cx = innerWidth / 2, cy = innerHeight * .42;
         if (t >= 3) { o.classList.add("shk"); setTimeout(function () { o.classList.remove("shk"); }, 520); }
