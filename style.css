@@ -15,6 +15,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--bd);
 button{font:inherit;color:inherit}
 
 header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:calc(14px + env(safe-area-inset-top,0px)) 0 10px}
+/* iOS 26 Safari softens (blurs and fades) a band of the page just under the status bar, about 25px deep. The logo's horns
+   and the "Mack's" line sat inside it and looked smudged at the top of the page. On iOS only, the header starts below it. */
+@supports (-webkit-touch-callout:none){header{padding-top:calc(28px + env(safe-area-inset-top,0px))}}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;position:relative}
 /* The mark's rounded corners are in the SVG itself (rect rx); a CSS border-radius clip plus box-shadow on an inline SVG
    made iOS rasterise it at low resolution at load (a blurry logo until the next repaint). The shadow sits on a pseudo-element behind it. */
