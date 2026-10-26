@@ -494,8 +494,8 @@
     function xy(c) { return c && c.x != null && c.y != null && c.x > 0 && c.y > 0 ? [c.x, c.y] : null; }
     var res = [], i, p;
     for (i = src.length - 1; i >= 0 && res.length < 10; i--) {
-      p = src[i]; if (!p.type || p.type.text !== "Play Result" || !p.text) continue;
-      var r = { t: inn(p), x: p.text, k: /homer|home run|grand slam/i.test(p.text) ? "hr" : /singled|doubled|tripled|ground-rule|infield single|bunt single|reached on (an? )?(throwing |fielding )?error/i.test(p.text) ? "hit" : "out" };
+      p = src[i]; if (!p.type || p.type.text !== "Play Result" || !p.text || /relieved | hit for | ran for |catching\.|playing (first|second|third|short)|in (left|center|right) field\.|defensive switch/i.test(p.text)) continue;
+      var r = { t: inn(p), x: p.text, k: /homer|home run|grand slam/i.test(p.text) ? "hr" : /singled|doubled|tripled|ground-rule|infield single|bunt single|reached on (an? )?(throwing |fielding )?error|safe at first on/i.test(p.text) ? "hit" : "out" };
       var tm = p.team && ab[String(p.team.id)]; if (tm) r.tm = tm;
       if (p.scoringPlay) r.sc = 1;
       // The landing spot sits on the pitch that was put in play, just before this line.
