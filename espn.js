@@ -456,6 +456,8 @@
         var ck = p.clock && p.clock.displayValue ? p.clock.displayValue : "";
         var o = { t: [per, ck].filter(Boolean).join(" "), x: p.text || p.shortText || "" };
         var tm = p.team && ab[String(p.team.id)]; if (tm) o.tm = tm;   // whose play it was (abbreviation)
+        // Hockey credits a blocked shot to the team that blocked it; show it as the shooting team's shot instead.
+        if (tm && /^hockey/.test(lg.path) && p.type && /block/i.test(p.type.text || "")) { for (var bid in ab) if (ab[bid] !== tm) o.tm = ab[bid]; }
         if (p.scoringPlay) o.sc = 1;
         if (p.shootingPlay) o.sh = 1;
         if (p.type && p.type.text) o.k = p.type.text;                   // "Jump Shot", "Defensive Rebound", "Lost Ball Turnover"
