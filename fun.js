@@ -251,7 +251,7 @@
   }
 
   // ---------- new-card reveal (scales with rarity) ----------
-  var CH = [0, 0, 250, 850, 1350, 1900, 2500], RVW = ["", "", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "SIGNATURE"], RVC = { R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d", S: "#c4b9f2" }, rvO = null;
+  var CH = [0, 0, 250, 850, 1350, 1900, 2500], RVW = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "SIGNATURE"], RVC = { C: "#97a1b5", U: "#5fcf93", R: "#38bdf8", E: "#a78bfa", L: "#ffb020", M: "#ff4d8d", S: "#c4b9f2" }, rvO = null;
   function E(t, c, x) { var e = D.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
   var MK = '<svg class="mkl" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="kg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b7095"/><stop offset="1" stop-color="#2d3a55"/></linearGradient><linearGradient id="kh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c4b9f2"/><stop offset="1" stop-color="#9b8cd9"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#kg)"/><path d="M126 214C64 214 40 164 46 92c28 48 62 58 136 58v64z" fill="url(#kh)"/><path d="M386 214c62 0 86-50 80-122-28 48-62 58-136 58v64z" fill="url(#kh)"/><path d="M122 410V198h60l74 110 74-110h60v212h-56V292l-56 80h-44l-56-80v118z" fill="#eef1f6"/></svg>';
   function artEl(c, cls, px, got) {             // team cards show their real logo once found
@@ -308,11 +308,13 @@
     card.appendChild(E("h3", "tc-n", c[4]));
     var rb = E("div", "tc-rar"); rb.appendChild(E("i", null, c[2])); rb.appendChild(D.createTextNode(RAR[c[2]])); card.appendChild(rb);
     card.appendChild(E("p", "tc-d", c[5])); card.appendChild(E("span", "tc-foil"));
+    if (c[5] && c[5].length > 140) card.classList.add("story");   // long moment write-ups: smaller art, the text gets the room (same as the log)
     return card;
   }
   function reveal(q, replay) {
+    // Every new card gets the full pop-up (so a moment's write-up can be read), and it stays until Close, Escape or
+    // "View in log". Commons and Uncommons skip the charge-up and fanfare; the show still scales with rarity.
     var c = q.slice().sort(function (a, b) { return tier(b) - tier(a); })[0], t = tier(c);
-    if (t < 2) return false;
     revealClose();
     var o = E("div", "rv r" + c[2] + " t" + t), done = false, ok = false, col2 = RVC[c[2]];
     rvO = o; o.setAttribute("role", "dialog"); o.setAttribute("aria-label", "New card: " + c[4]);
@@ -324,11 +326,11 @@
     var cw = E("div", "rv-cw"), chg = E("div", "rv-ch"), flip = E("div", "rv-flip");
     chg.style.setProperty("--sa", [0, 0, 1, 2, 4, 6, 8][t] + "px"); chg.style.setProperty("--ch", CH[t] + "ms");
     flip.appendChild(E("div", "rv-bk", "?"));
-    var card = bigCard(c);
+    var card = bigCard(c); if (card.classList.contains("story")) flip.classList.add("st");   // a long write-up gets a taller card
     flip.appendChild(card); chg.appendChild(flip); cw.appendChild(chg); o.appendChild(cw);
     var ctl = E("div", "rv-c");
     if (!replay) { var b1 = E("button", "pm-b pri", "View in log"); b1.type = "button"; b1.onclick = function () { revealClose(); if (window.SB_LOAD) SB_LOAD(function () { PROF.open("log", { card: c[0] }); }); }; ctl.appendChild(b1); }
-    var b2 = E("button", "pm-b", "Continue"); b2.type = "button"; b2.onclick = revealClose; ctl.appendChild(b2); o.appendChild(ctl);
+    var b2 = E("button", "pm-b", "Close"); b2.type = "button"; b2.onclick = revealClose; ctl.appendChild(b2); o.appendChild(ctl);
     if (q.length > 1) o.appendChild(E("div", "rv-m", "+" + (q.length - 1) + " more new card" + (q.length > 2 ? "s" : "") + " in your log"));
     if (!RM) chg.classList.add("chg");
     function burst() {
@@ -345,9 +347,8 @@
         else { gFireworks(); gConfetti(140, t === 6 ? ["🦬", "✨", "💎", "⭐", "🔷"] : ["💎", "✨", "🌈", "⭐", "🎫", "🔥"]); setTimeout(function () { gBurst(cx, cy, "#ffffff", 40); }, 260); vib([60, 40, 60, 40, 60, 40, 240]); }
       }
       setTimeout(function () { ok = true; o.classList.add("ok"); }, RM ? 0 : 650);
-      if (t === 2) o._a = setTimeout(revealClose, 5200); else if (t === 3) o._a = setTimeout(revealClose, 9000);
     }
-    o.onclick = function (e) { if (e.target.closest && e.target.closest("button")) return; if (!done) burst(); else if (ok) revealClose(); };
+    o.onclick = function (e) { if (e.target.closest && e.target.closest("button")) return; if (!done) burst(); };   // a tap skips the charge-up; only Close shuts it
     D.body.appendChild(o); D.body.classList.add("rv-on");
     requestAnimationFrame(function () { o.classList.add("in"); });
     o._c = setTimeout(burst, RM ? 0 : CH[t]);
