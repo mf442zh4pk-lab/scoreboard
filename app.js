@@ -1893,7 +1893,21 @@
       if (q.bat) info.appendChild(el("div", "who", "AB: " + q.bat)); if (q.pit) info.appendChild(el("div", "who", "P: " + q.pit));
       bb.appendChild(info); w.appendChild(bb);
     }
-    if (q.lp) { var lp = el("div", "lvp" + (LASTPL["lp" + g.id] && LASTPL["lp" + g.id] !== q.lp ? " new" : "")); LASTPL["lp" + g.id] = q.lp; lp.appendChild(el("span", "lvk", "Last play")); lp.appendChild(el("span", null, q.lp)); w.appendChild(lp); }
+    // The last ten plays, newest first, each with the team it belongs to; a collapsible box that remembers whether you
+    // shut it. Plays that arrived since the last refresh slide in. Before the box score answers, the scoreboard's own
+    // last play stands in.
+    var pl = d && d.plays && d.plays.length ? d.plays.slice(0, 10) : null;
+    if (pl) {
+      var key = "lv10|" + g.id, box = el("details", "lvp lv10"), sm = el("summary", null); sm.appendChild(el("span", "lvk", "Last " + pl.length + " play" + (pl.length > 1 ? "s" : ""))); sm.appendChild(el("i", "lvc", "\u25BE")); box.appendChild(sm);
+      box.open = openState[key] !== undefined ? openState[key] : true; box.addEventListener("toggle", function () { openState[key] = box.open; });
+      var seen = LASTPL["lp" + g.id] || null, top = pl[0].t + "|" + pl[0].x, fresh = seen && seen !== top; LASTPL["lp" + g.id] = top;
+      var ul = el("div", "lvl");
+      pl.forEach(function (p, i) {
+        var r = el("div", "lvr" + (p.sc ? " scp" : "") + (fresh && (p.t + "|" + p.x) !== seen && pl.slice(i + 1).some(function (q2) { return q2.t + "|" + q2.x === seen; }) ? " new" : ""));
+        r.appendChild(el("b", "lvab", p.tm || "\u2014")); r.appendChild(el("span", "lvx", p.x)); if (p.t) r.appendChild(el("span", "lvt", p.t)); ul.appendChild(r);
+      });
+      box.appendChild(ul); w.appendChild(box);
+    } else if (q.lp) { var lp = el("div", "lvp" + (LASTPL["lp" + g.id] && LASTPL["lp" + g.id] !== q.lp ? " new" : "")); LASTPL["lp" + g.id] = q.lp; lp.appendChild(el("span", "lvk", "Last play")); lp.appendChild(el("span", null, q.lp)); w.appendChild(lp); }
     return w;
   }
   function toDots(ab, n) { var s2 = el("span", "to"); s2.appendChild(el("em", null, ab)); for (var i = 0; i < 3; i++) s2.appendChild(el("i", i < n ? "on" : "")); return s2; }
