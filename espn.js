@@ -327,7 +327,7 @@
     }
     if (!lede && art && art.description) lede = String(art.description).replace(/^[\s—–-]+/, "").replace(/\.\.\.$/, "…");
     if (/^baseball/.test(lg.path)) { try { var bb = bbRecap(d, away, home, lede, art); if (bb) return bb; } catch (e) {} }
-    if (!lede) { try { lede = autoLede(d, away, home, lg, scoringOf(d)); } catch (e) {} }
+    var autoL = false; if (!lede) { try { lede = autoLede(d, away, home, lg, scoringOf(d)); autoL = !!lede; } catch (e) {} }
     if (lede) secs.push({ h: "The story", p: lede });
 
     // How it unfolded: lead changes and biggest leads from the scoring plays.
@@ -346,11 +346,13 @@
         if (-wm > maxL) maxL = -wm;
       });
       var line = [];
-      if (changes === 0 && maxL === 0) line.push(win.team.displayName + " led from the first score to the last.");
-      else line.push("The lead changed hands " + changes + (changes === 1 ? " time" : " times") + ".");
-      if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + (maxW === 1 ? " point" : " points") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
+      var u1 = /hockey|soccer/.test(lg.path) ? "goal" : /baseball/.test(lg.path) ? "run" : "point";
+      if (changes === 0 && maxL === 0 && !ties) line.push(win.team.displayName + " led from the first score to the last.");
+      else if (changes === 0) line.push("The lead never changed hands; it was tied " + ties + (ties === 1 ? " time." : " times."));
+      else line.push("The lead changed hands " + changes + (changes === 1 ? " time" : " times") + (ties ? " and it was tied " + ties + (ties === 1 ? " time." : " times.") : "."));
+      if (maxW) line.push(win.team.abbreviation + "'s biggest lead was " + maxW + " " + u1 + (maxW === 1 ? "" : "s") + (maxL ? ", and " + lose.team.abbreviation + " led by as many as " + maxL + "." : "."));
       // The score that put the winner ahead for good.
-      if (gp && gp.text) {
+      if (gp && gp.text && !autoL) {   // an auto-written story above already names it
         var pn = gp.period && Number(gp.period.number), ck = gp.clock && gp.clock.displayValue, when = "";
         if (pn) {
           var sfx = ["th", "st", "nd", "rd"][(pn % 100 > 10 && pn % 100 < 14) ? 0 : pn % 10 < 4 ? pn % 10 : 0];
@@ -359,7 +361,7 @@
           else when = "in the " + pn + sfx + " " + unit;
           if (ck && unit !== "inning") when = ck + " left " + when;
         }
-        line.push("The go-ahead score: " + gp.text + (when ? " (" + when + ")" : "") + ".");
+        line.push("The go-ahead score: " + String(gp.text).replace(/\s+/g, " ").replace(/[\s.]+$/, "") + (when ? " (" + when + ")" : "") + ".");
       }
       secs.push({ h: "How it unfolded", p: line.join(" ") });
     }
