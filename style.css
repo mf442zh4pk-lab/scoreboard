@@ -1052,3 +1052,8 @@ html:not(.rm) .bp-p .halo{animation:crthalo 1.6s ease-out infinite}
 .bp-pr:first-child .pd{font-weight:700}
 .bp-fin{font-size:12px;font-weight:700;color:var(--fg);padding-top:4px;border-top:1px dashed var(--line)}
 .bp-key .kb{background:var(--win)}.bp-key .ks{background:var(--live)}.bp-key .kp{background:#5d8dff}
+/* Run-by-run list in a baseball recap */
+.nar-ls{display:flex;flex-direction:column;gap:5px;margin-top:2px}
+.nar-ls p{margin:0;line-height:1.4;display:grid;grid-template-columns:36px minmax(0,1fr);align-items:baseline}
+.nar-ls b{font-size:12px;font-weight:800;color:var(--mute);font-variant-numeric:tabular-nums}
+.nar-ls em{font-style:normal;font-weight:700;font-size:12.5px;color:var(--fg);white-space:nowrap}
