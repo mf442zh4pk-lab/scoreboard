@@ -272,6 +272,7 @@
       if (paras[0]) lede = paras[0].replace(/^[A-Z][A-Za-z.,' ]{2,40}\s--\s*/, "").replace(/^[\s—–-]+/, "");
     }
     if (!lede && art && art.description) lede = String(art.description).replace(/^[\s—–-]+/, "").replace(/\.\.\.$/, "…");
+    if (/^baseball/.test(lg.path)) { try { var bb = bbRecap(d, away, home, lede, art); if (bb) return bb; } catch (e) {} }
     if (lede) secs.push({ h: "The story", p: lede });
 
     // How it unfolded: lead changes and biggest leads from the scoring plays.
@@ -317,6 +318,90 @@
     if (order.length) secs.push({ h: "Top performers", p: order.map(function (t) { return t + ": " + by[t].join("; ") + "."; }).join(" ") });
 
     return { head: head, secs: secs };
+  }
+
+  // Baseball recap, told from the play-by-play (ESPN's MLB summary has no scoring summary or game leaders, and the
+  // AP story often comes hours later): the deciding hit, a late lead that got away, extra innings, the series, the
+  // pitchers of record and the best lines from the box score. ESPN's own lede leads when there is one.
+  function bbRecap(d, away, home, lede, art) {
+    var comp = (d.header && d.header.competitions && d.header.competitions[0]) || {};
+    var as = Number(away.score), hs = Number(home.score); if (!isFinite(as) || !isFinite(hs) || as === hs) return null;
+    var W = hs > as ? home : away, L = W === home ? away : home, ws = Math.max(as, hs), ls = Math.min(as, hs);
+    var nm = function (t) { return t.team.shortDisplayName || t.team.name || t.team.displayName; };
+    var ord = function (n) { var v = n % 100; return n + (v > 10 && v < 14 ? "th" : ["th", "st", "nd", "rd"][n % 10 < 4 ? n % 10 : 0]); };
+    var half = function (p) { return /^bot/i.test((p.period && p.period.type) || "") ? "bottom" : "top"; };
+    var at = function (p) { return "the " + half(p) + " of the " + ord(p.period.number); };
+    // "Williamson singled to right, Fortes scored, Simpson to second." -> "Williamson singled to right"
+    var cl = function (p) { var t = String(p.text || "").replace(/\.\s*$/, ""); var i = t.search(/,\s/); return i > 0 ? t.slice(0, i) : t; };
+    var inn = Math.max((away.linescores || []).length, (home.linescores || []).length, 9);
+    var sp = [], prev = "0-0";
+    (d.plays || []).forEach(function (p) {
+      if (!p.scoringPlay || !p.period || !isFinite(Number(p.awayScore)) || !isFinite(Number(p.homeScore))) return;
+      var k = p.awayScore + "-" + p.homeScore; if (k === prev) return; prev = k; sp.push(p);
+    });
+    var secs = [], st = [], head = "";
+    var wm = function (p) { var m = Number(p.homeScore) - Number(p.awayScore); return W === home ? m : -m; };
+    var gp = null, lp = null, maxL = 0, pw = false;
+    sp.forEach(function (p) { var m = wm(p); if (m > 0 && !pw) gp = p; pw = m > 0; if (m < 0) { lp = p; if (-m > maxL) maxL = -m; } });
+    var last = sp[sp.length - 1];
+    var walk = !!(last && W === home && half(last) === "bottom" && last.period.number >= 9 && wm(last) > 0 && wm(last) <= 4 && sp.indexOf(gp) === sp.length - 1);
+    if (lede) st.push(lede);
+    else if (walk) {
+      st.push(cl(last) + " in " + at(last) + " to give the " + nm(W) + " a " + ws + "-" + ls + " walk-off win over the " + nm(L) + ".");
+      head = "The " + nm(W) + " walk off the " + nm(L) + (inn > 9 ? " in the " + ord(inn) : "") + ", " + ws + "-" + ls + ".";
+    } else {
+      st.push("The " + nm(W) + " beat the " + nm(L) + " " + ws + "-" + ls + (inn > 9 ? " in " + inn + " innings" : "") + "." + (gp ? " " + cl(gp) + " in " + at(gp) + " for the go-ahead run" + (sp.indexOf(gp) === 0 ? ", and they never trailed." : ".") : ""));
+    }
+    if (!lede && lp && gp && sp.indexOf(lp) < sp.indexOf(gp)) {
+      var lead = Math.max(Number(lp.awayScore), Number(lp.homeScore)) + "-" + Math.min(Number(lp.awayScore), Number(lp.homeScore));
+      if (lp.period.number >= gp.period.number - 1 && lp.period.number >= 8) st.push("It came right after the " + nm(L) + " had gone ahead " + lead + " when " + cl(lp) + " in " + at(lp) + ".");
+      else if (maxL >= 3) st.push("The " + nm(W) + " came back from " + maxL + " runs down.");
+    }
+    // Series: who leads, a team staying alive, or a clincher. The "playoff" entry carries the right counts as of this game
+    // ("current" swaps them on older games).
+    var sl = comp.series || [], ser = sl.filter(function (z) { return z.type === "playoff"; })[0] || sl.filter(function (z) { return z.type === "current"; })[0], note = d.header && d.header.gameNote || "";
+    var round = (note.split(" - ")[0] || "series").replace(/^\s+|\s+$/g, ""), sline = "";
+    if (ser && ser.competitors && ser.totalCompetitions > 1) {
+      var wins = {}; ser.competitors.forEach(function (c) { wins[String(c.id)] = c.wins || 0; });
+      var wW = wins[String(W.team.id)] || 0, wL = wins[String(L.team.id)] || 0, need = Math.ceil(ser.totalCompetitions / 2), gn = /Game (\d+)/.exec(note);
+      if (wW >= need) sline = "The " + nm(W) + " win the " + round + ", " + wW + "-" + wL + ".";
+      else if (wL === need - 1 && wW < wL) sline = "The " + nm(W) + " stay alive" + (gn ? " and force a Game " + (+gn[1] + 1) : "") + ". The " + nm(L) + " lead the " + round + " " + wL + "-" + wW + ".";
+      else if (wW === wL) sline = "The " + round + " is tied " + wW + "-" + wL + ".";
+      else sline = "The " + (wW > wL ? nm(W) : nm(L)) + " lead the " + round + " " + Math.max(wW, wL) + "-" + Math.min(wW, wL) + ".";
+      if (!lede) st.push(sline);
+    }
+    secs.push({ h: "The story", p: st.join(" ") });
+    // Every run, in order.
+    if (sp.length) {
+      var abOf = {}; [away, home].forEach(function (t) { abOf[String(t.team.id)] = t.team.abbreviation; });
+      var rows = sp.map(function (p) {
+        var a = Number(p.awayScore), h = Number(p.homeScore), sc = a === h ? "tied " + a + "-" + h : (a > h ? away : home).team.abbreviation + " " + Math.max(a, h) + "-" + Math.min(a, h);
+        return (half(p) === "top" ? "▲" : "▼") + p.period.number + " " + String(p.text).replace(/\s+$/, "") + " (" + sc + ")";
+      });
+      secs.push({ h: "Scoring", p: rows.join("\n") });
+    }
+    // Pitchers of record, the starters, and the best bats.
+    var fa = (comp.status && comp.status.featuredAthletes) || [], pit = [];
+    fa.forEach(function (f) { if (!f.athlete) return; var r = f.athlete.record ? " (" + f.athlete.record + ")" : ""; if (f.name === "winningPitcher") pit.push("W: " + f.athlete.displayName + r); else if (f.name === "losingPitcher") pit.push("L: " + f.athlete.displayName + r); else if (f.name === "savingPitcher") pit.push("S: " + f.athlete.displayName); });
+    var bats = [], starters = [];
+    ((d.boxscore && d.boxscore.players) || []).forEach(function (t) {
+      var ab = t.team && t.team.abbreviation;
+      (t.statistics || []).forEach(function (g) {
+        var L2 = g.labels || [], ix = function (k) { return L2.indexOf(k); };
+        if (g.type === "pitching") { var s0 = (g.athletes || []).filter(function (a) { return a.starter; })[0]; if (s0 && s0.stats) starters.push(ab + " starter " + s0.athlete.displayName + ": " + s0.stats[ix("IP")] + " IP, " + s0.stats[ix("ER")] + " ER, " + s0.stats[ix("K")] + " K"); }
+        if (g.type === "batting") {
+          var best = (g.athletes || []).filter(function (a) { return a.stats && a.stats.length; }).map(function (a) {
+            var v = function (k) { return Number(a.stats[ix(k)]) || 0; };
+            return { a: a, sc: v("H") * 2 + v("RBI") * 2 + v("HR") * 3 + v("R") + v("BB") * .5, h: a.stats[ix("H-AB")], rbi: v("RBI"), hr: v("HR") };
+          }).filter(function (x) { return x.sc >= 4; }).sort(function (x, y) { return y.sc - x.sc; }).slice(0, 2);
+          best.forEach(function (x) { bats.push(x.a.athlete.displayName + " (" + ab + ") " + x.h + (x.hr ? ", " + (x.hr > 1 ? x.hr + " HR" : "HR") : "") + (x.rbi ? ", " + x.rbi + " RBI" : "")); });
+        }
+      });
+    });
+    if (pit.length || starters.length) secs.push({ h: "On the mound", p: (pit.length ? pit.join(" · ") + ". " : "") + (starters.length ? starters.join(". ") + "." : "") });
+    if (bats.length) secs.push({ h: "Top bats", p: bats.join("; ") + "." });
+    if (lede && sline) secs.push({ h: "The series", p: sline });
+    return { head: (art && art.headline) || head || ("The " + nm(W) + " beat the " + nm(L) + " " + ws + "-" + ls + "."), secs: secs };
   }
 
   // "Get caught up" for a game in progress: where it stands, how each period went, how the lead has moved, the latest scores.
@@ -452,6 +537,7 @@
       // Season series line ("BOS leads 2-1") and the win-probability curve (home team, 0-100, thinned to about 90 points).
       var ss = d.seasonseries && d.seasonseries[0];
       if (ss && ss.summary) out.h2h = ss.summary;
+      var gnote = (d.header && d.header.gameNote) || ""; if (out.h2h && / - Game \d/.test(gnote)) out.h2hL = gnote.split(" - ")[0];   // a playoff series: "World Series · MIL leads series 3-1"
       var wp = d.winprobability;
       if (wp && wp.length > 4) {
         var stp = Math.max(1, Math.ceil(wp.length / 90)), pts = [];
