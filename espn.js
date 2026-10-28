@@ -293,7 +293,8 @@
     var ord = function (n) { var v = n % 100; return n + (v > 10 && v < 14 ? "th" : ["th", "st", "nd", "rd"][n % 10 < 4 ? n % 10 : 0]); };
     var when = function (p) {
       var n = p.period && Number(p.period.number), ck = p.clock && p.clock.displayValue; if (!n) return "";
-      if (n > regs) return "in overtime";
+      if (n > regs) return hockey && ck ? ck + " into overtime" : "in overtime";
+      if (hockey) return ck ? ck + " into the " + ord(n) + " period" : "in the " + ord(n) + " period";   // ESPN's hockey clock counts up
       return ck === "0:00" && n >= regs ? "as time expired" : (ck && ck !== "0:00" ? "with " + ck + " left in the " : "in the ") + ord(n) + " " + unit;
     };
     var wm = function (p) { var m = Number(p.homeScore) - Number(p.awayScore); return W === home ? m : -m; };
@@ -359,7 +360,8 @@
           var unit = /hockey/.test(lg.path) ? "period" : /baseball/.test(lg.path) ? "inning" : /soccer/.test(lg.path) ? "half" : "quarter";
           if (pn > (unit === "quarter" ? 4 : unit === "period" ? 3 : unit === "half" ? 2 : 99)) when = "in overtime";
           else when = "in the " + pn + sfx + " " + unit;
-          if (ck && unit !== "inning") when = ck + " left " + when;
+          if (ck && unit === "period") when = ck + " into " + when.replace(/^in /, "");   // hockey's clock counts up
+          else if (ck && unit !== "inning") when = ck + " left " + when;
         }
         line.push("The go-ahead score: " + String(gp.text).replace(/\s+/g, " ").replace(/[\s.]+$/, "") + (when ? " (" + when + ")" : "") + ".");
       }
@@ -452,6 +454,99 @@
     return { head: (art && art.headline) || head || ("The " + nm(W) + " beat the " + nm(L) + " " + ws + "-" + ls + "."), secs: secs };
   }
 
+  // The handful of plays that shaped a game, told as sentences in the order they happened: scoring runs and late
+  // go-ahead or tying shots (basketball); go-ahead, tying, power-play, short-handed and repeat goals (hockey); homers,
+  // multi-run hits and go-ahead hits (baseball); long, return and late go-ahead touchdowns (football). Built only from
+  // the scoring plays (scoringOf), so it costs nothing extra. Returns up to four sentences.
+  function bigMoments(sp, lg, away, home) {
+    var P = lg.path, hockey = /hockey/.test(P), hoops = /basketball/.test(P), base = /baseball/.test(P), foot = /football/.test(P);
+    var halves = /college-basketball|soccer/.test(P), regs = hockey ? 3 : base ? 9 : halves ? 2 : 4;
+    var ord = function (n) { var v = n % 100; return n + (v > 10 && v < 14 ? "th" : ["th", "st", "nd", "rd"][n % 10 < 4 ? n % 10 : 0]); };
+    var when = function (p) {
+      var n = p.period && Number(p.period.number), ck = p.clock && p.clock.displayValue; if (!n) return "";
+      if (base) return (/^bot/i.test(p.period.type || "") ? "in the bottom of the " : "in the top of the ") + ord(n);
+      var u = hockey ? "period" : halves ? "half" : "quarter";
+      if (n > regs) return hockey && ck ? ck + " into overtime" : "in overtime";
+      if (hockey) return ck ? ck + " into the " + ord(n) + " period" : "in the " + ord(n) + " period";   // ESPN's hockey clock counts up
+      return (ck && ck !== "0:00" ? "with " + ck + " left in the " : "in the ") + ord(n) + " " + u;
+    };
+    // Who scored on a play: its team id, else the side whose score went up.
+    var prevA = 0, prevH = 0, rows = [];
+    sp.forEach(function (p, k) {
+      var a = Number(p.awayScore), h = Number(p.homeScore), da = a - prevA, dh = h - prevH;
+      var side = da > 0 && dh <= 0 ? "a" : dh > 0 && da <= 0 ? "h" : (p.team && String(p.team.id) === String(home.team.id) ? "h" : "a");
+      var mb = side === "h" ? prevH - prevA : prevA - prevH, ma = side === "h" ? h - a : a - h;
+      rows.push({ p: p, k: k, a: a, h: h, side: side, pts: side === "h" ? dh : da, mb: mb, ma: ma, t: side === "h" ? home.team.abbreviation : away.team.abbreviation, per: Number(p.period && p.period.number) || 0 });
+      prevA = a; prevH = h;
+    });
+    // "Jrue Holiday makes 23-foot three point jumper (Toumani Camara assists)" -> "Jrue Holiday hit a 23-foot three-pointer", etc.
+    var say = function (r) {
+      var t = String(r.p.text || "").replace(/\s+/g, " ").replace(/[\s.]+$/, ""), m;
+      if (hoops) {
+        if ((m = /^(.+?) makes (.+?)(?: \((.+?) assists\))?$/.exec(t))) {
+          var shot = m[2].replace(/three point (jumper|shot|pullup jump shot|step back jump shot)/i, "three").replace(/free throw \d of \d/i, "a free throw").replace(/^two point shot$/i, "a jumper").replace(/^(?!a )/, "a ");
+          return m[1] + " hit " + shot.replace(/^a a /, "a ").replace(/^a (\d)/, "a $1");
+        }
+        return t;
+      }
+      if (hockey) {
+        if ((m = /^(.+?) Goal(?: \(\d+\))?\s*([A-Za-z\- ]*?)(?:,\s*assists?:\s*(.*))?$/.exec(t))) { var ty = m[2].toLowerCase().replace(/\s+$/, ""), nmT = { deflected: "deflection", "tip-in": "tip-in", "wrap-around": "wraparound", backhand: "backhand" }[ty] || (/shot$/.test(ty) ? ty : ""); return m[1] + " scored" + (nmT ? " on a " + nmT : ""); }
+        return t;
+      }
+      if (foot) {
+        t = t.replace(/\s*\(.*?\)\s*$/, "");
+        if ((m = /^(.+?) (\d+) Yd pass from (.+)$/i.exec(t))) return m[3] + " hit " + m[1] + " for a " + m[2] + "-yard touchdown";
+        if ((m = /^(.+?) (\d+) Yd (?:Run|Rush)$/i.exec(t))) return m[1] + (m[2] === "1" ? " ran it in from the 1" : " ran " + m[2] + " yards for a touchdown");
+        if ((m = /^(.+?) (\d+) Yd (Interception|Fumble|Punt|Kickoff) Return/i.exec(t))) return m[1] + " took a" + (/^[IO]/i.test(m[3]) ? "n " : " ") + m[3].toLowerCase() + " back " + m[2] + " yards for a touchdown";
+        if ((m = /^(.+?) (\d+) Yd Field Goal$/i.exec(t))) return m[1] + " kicked a " + m[2] + "-yard field goal";
+        return t;
+      }
+      if (base) { var i2 = t.search(/,\s/); return i2 > 0 ? t.slice(0, i2) : t; }
+      return t;
+    };
+    var hl = function (r) { return Math.max(r.a, r.h) + "-" + Math.min(r.a, r.h); }, ldr = function (r) { return (r.a > r.h ? away : home).team.abbreviation; };
+    var effect = function (r) {
+      if (r.ma > 0 && r.mb < 0) return " to put " + r.t + " ahead " + hl(r);
+      if (r.ma > 0 && r.mb === 0) return " to put " + r.t + " up " + hl(r);
+      if (r.ma === 0) return " to tie it " + r.a + "-" + r.h;
+      if (r.ma < 0) return " to cut " + ldr(r) + "'s lead to " + hl(r);
+      return " to make it " + ldr(r) + " " + hl(r);
+    };
+    var late = function (r) { return r.per >= regs; };
+    var cand = [];
+    if (hoops) {
+      // Unanswered runs of 10+ points.
+      var i = 0;
+      while (i < rows.length) {
+        var j = i, pts = 0; while (j < rows.length && rows[j].side === rows[i].side) { pts += rows[j].pts; j++; }
+        if (pts >= 10) { var e = rows[j - 1]; cand.push({ k: e.k, w: pts, s: e.t + " ran off " + pts + " straight points " + when(rows[i].p).replace(/^with .*? left in /, "in ") + effect(e).replace(/^ to tie it/, " to tie it").replace(/^ to /, " to ") + "." }); }
+        i = j;
+      }
+      rows.forEach(function (r) { if (late(r) && (r.ma === 0 || (r.ma > 0 && r.mb <= 0))) cand.push({ k: r.k, w: 7 + (r.pts === 3 ? 2 : 0) + (r.per > regs ? 3 : 0), s: say(r) + " " + when(r.p) + effect(r) + "." }); });
+    } else {
+      var goals = {};
+      rows.forEach(function (r) {
+        var t = String(r.p.text || ""), w = 0, tag = "";
+        if (hockey) {
+          var who = (/^(.+?) Goal/.exec(t) || [])[1]; if (who) goals[who] = (goals[who] || 0) + 1;
+          w = 4; if (/short ?handed/i.test(t + " " + ((r.p.strength && r.p.strength.text) || ""))) { w += 4; tag = " short-handed"; } else if (/power ?play/i.test(t + " " + ((r.p.strength && r.p.strength.text) || ""))) { w += 2; tag = " on the power play"; }
+          if (who && goals[who] >= 2) { w += goals[who] === 3 ? 8 : 4; tag += goals[who] === 3 ? " for a hat trick" : " for his second of the game"; }
+        } else if (base) {
+          w = /homered|grand slam/i.test(t) ? 5 + r.pts : r.pts >= 2 ? 2 * r.pts : 0;
+        } else if (foot) {
+          var yd = Number((/(\d+) Yd/.exec(t) || [])[1]) || 0;
+          w = /return/i.test(t) ? 9 : yd >= 40 && !/Field Goal/i.test(t) ? 6 + Math.round(yd / 20) : /Field Goal/i.test(t) ? 1 : 2;
+        }
+        if (r.ma > 0 && r.mb <= 0) w += late(r) ? 6 : 3; else if (r.ma === 0) w += late(r) ? 5 : 2;
+        cand.push({ k: r.k, w: w, s: say(r) + (hockey ? tag : "") + " " + when(r.p) + effect(r) + "." });
+      });
+    }
+    // The strongest few, retold in order. Ties go to the later play.
+    cand.sort(function (x, y) { return y.w - x.w || y.k - x.k; });
+    var pick = cand.slice(0, sp.length > 12 ? 4 : 3).filter(function (c) { return c.w >= (hoops ? 7 : foot ? 5 : 4); });
+    pick.sort(function (x, y) { return x.k - y.k; });
+    return pick.map(function (c) { return c.s.charAt(0).toUpperCase() + c.s.slice(1); });
+  }
   // "Get caught up" for a game in progress: where it stands, how each period went, how the lead has moved, the latest scores.
   function catchOf(d, away, home, leaders, lg, st) {
     var A = away.team, H = home.team, as = Number(away.score), hs = Number(home.score), secs = [];
@@ -478,17 +573,8 @@
       if (mA || mH) ln.push("Biggest leads: " + (mA ? A.abbreviation + " by " + mA : "") + (mA && mH ? ", " : "") + (mH ? H.abbreviation + " by " + mH : "") + ".");
       secs.push({ h: "How it has gone", p: ln.join(" ") });
     }
-    // Latest plays skip the filler (faceoffs, stoppages, timeouts, period starts) and repeats, so the three shown matter.
-    var NOISE = /faceoff|stoppage|timeout|time out|start of|end of|beginning of|period start|period end|official|delay|substitution|jump ball|challenge/i, seenP = {};
-    var last = sp.length ? sp : (d.plays || []).filter(function (p) {
-      if (!p || !p.text || NOISE.test(p.text)) return false;
-      var k = p.text + "|" + (p.clock && p.clock.displayValue); if (seenP[k]) return false; seenP[k] = 1; return true;
-    });
-    last = last.slice(-3).reverse().map(function (p) {
-      var pn = p.period && p.period.number != null ? (p.period.displayValue || p.period.number) : "", ck = p.clock && p.clock.displayValue ? p.clock.displayValue : "";
-      return (p.text || p.shortText || "") + ([pn, ck].filter(Boolean).length ? " (" + [pn, ck].filter(Boolean).join(" ") + ")" : "");
-    }).filter(Boolean);
-    if (last.length) secs.push({ h: sp.length ? "Latest scoring" : "Latest plays", p: last.join(" \u2022 ") });
+    // The plays box above already lists the latest plays, so this tells the biggest moments so far instead.
+    var bm = bigMoments(sp, lg, away, home); if (bm.length) secs.push({ h: "Big moments", p: bm.join(" ") });
     var by = {}, order = [];
     leaders.forEach(function (l) { if (!by[l.team]) { by[l.team] = []; order.push(l.team); } if (by[l.team].length < 2) by[l.team].push(l.name + " " + l.line + (l.cat ? " (" + l.cat.replace(/ Leader$/i, "") + ")" : "")); });
     if (order.length) secs.push({ h: "Standouts so far", p: order.map(function (t) { return t + ": " + by[t].join("; ") + "."; }).join(" ") });
