@@ -2168,10 +2168,21 @@
       if (sa) { sa.href = nv.link; sa.target = "_blank"; sa.rel = "noopener"; sl.appendChild(sa); }
       pv.appendChild(sl);
     } else pv.appendChild(el("p", null, rc ? rc.head : (d.preview || (g.a[0] + " visit " + g.h[0] + " " + when(g.t) + "."))));
-    if (d.h2h) pv.appendChild(el("p", "h2h", "Season series · " + d.h2h));
+    if (d.h2h) pv.appendChild(el("p", "h2h", (d.h2hL || "Season series") + " · " + d.h2h));
     (rc ? rc.secs : (d.narrative || [])).forEach(function (n) {
       if (nv && n.h === "The story") return;   // the AP story above already opens with that paragraph
-      var w = el("div", "nar"); w.appendChild(el("h4", null, n.h)); w.appendChild(el("p", null, n.p)); pv.appendChild(w);
+      var w = el("div", "nar"); w.appendChild(el("h4", null, n.h));
+      if (String(n.p).indexOf("\n") < 0) w.appendChild(el("p", null, n.p));
+      else {   // one line each (baseball's run-by-run list): the inning tag up front, the score in its own color
+        var ul = el("div", "nar-ls");
+        String(n.p).split("\n").forEach(function (ln) {
+          var m = /^([\u25B2\u25BC]\d+) (.*?)( \(([^)]*)\))?$/.exec(ln), r = el("p");
+          if (m) { r.appendChild(el("b", null, m[1])); var tx = el("span", null, m[2] + " "); if (m[4]) tx.appendChild(el("em", null, m[4])); r.appendChild(tx); } else r.textContent = ln;
+          ul.appendChild(r);
+        });
+        w.appendChild(ul);
+      }
+      pv.appendChild(w);
     });
     if (d.link && !nv) {
       var lw = el("div", "nar"), la = el("a", null, (rc ? "ESPN recap: " : "ESPN preview: ") + d.link.text + " ↗");
